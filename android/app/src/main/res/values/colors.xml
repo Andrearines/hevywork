@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Color de fondo para la pantalla de lanzamiento (splash) -->
+    <color name="launch_background">#121316</color>
+	<color name="ic_launcher_background">#FFFFFF</color>
+</resources>

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "684967326821",
+    "project_id": "hevy-work",
+    "storage_bucket": "hevy-work.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:684967326821:android:a73118763aab0970b0028c",
+        "android_client_info": {
+          "package_name": "com.example.hevywork"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAkIeiBTq6D7iKh-HSiguty-qHxmwgPda0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
