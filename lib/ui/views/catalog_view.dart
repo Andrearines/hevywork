@@ -9,7 +9,7 @@ import '../../main.dart';
 import '../theme/colors.dart';
 import '../widgets/exercise_filter_bar.dart';
 import '../widgets/exercise_thumb.dart';
-import 'exercise_detail_view.dart';
+import 'exercise_info_view.dart';
 import 'live_workout_view.dart';
 
 class CatalogView extends StatefulWidget {
@@ -262,7 +262,7 @@ class _CatalogViewState extends State<CatalogView> {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ExerciseDetailView(exercise: ex),
+              builder: (_) => ExerciseInfoView(exercise: ex),
             ),
           ),
           child: Padding(

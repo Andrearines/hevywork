@@ -18,3 +18,4 @@ Orden de implementación. Cada spec debe cumplir la constitución y cerrar con
 | 011 | Integraciones: dispositivos y HRV | pendiente | BLE (`flutter_blue_plus`) + HRV (`health`), `health_metrics` (0012) |
 | 012 | Registro de entrenamientos pasados | **✅** | sesión `finished` creada directamente con fecha/hora/duración; origen rutina o manual; sin migración; recálculo fatiga+metas (2026-10-25) |
 | 013 | Perfil: foto de perfil y ajustes de vista | **en curso** | bucket público `profile-photos` + `profiles.avatar_url` (drift v18); récords con pestañas «Este mes»/«Histórico»; borrado individual y masivo de fotos; objetivos con scroll interno (2026-10-26) |
+| 015 | Ficha de información del ejercicio | ✅ | sustituye a `ExerciseDetailView` con `ExerciseInfoView`; KPIs + gráfico de progresión con CustomPainter; historial paginado; CTA a sesión activa/nueva; sin dependencias ni migraciones |

@@ -338,6 +338,19 @@ La profundidad se logra exclusivamente con capas tonales y bordes hairline.
 - **Desviación 2026-10-26**: el mockup solo permite añadir y comparar; el
   borrado (RF-10 de la 009) y el masivo (RF-11 de la 013) son nueva UI.
 
+### 7.15 Ficha de información del ejercicio
+- Pantalla principal: `ExerciseInfoView` con context bar superior, GIF/miniatura,
+  badges anatómicos (target principal 70%, secundarios 30%), KPIs grid 2×2 (1RM
+  estimado, carga máxima, volumen máximo, total series), gráfico de progresión
+  con `CustomPainter` (CustomPainter §7.9), biomecánica & cues, distribución
+  de activación muscular, historial paginado de sesiones y CTA bottom bar
+  sticky (48 dp, sin sombras).
+- Componentes visuales: sin `elevation` ni `BoxShadow` (constitución §7),
+  paleta dark-mode-first, tipografía Space Grotesk/Geist, tokens de color y
+  espaciado consistentes con el sistema Obsidian Kinetic.
+- La escala de fatiga en el mapa muscular usa gradiente continuo 0–1 (0.0:
+  `#4A90E9`, 0.5: `#F5A623`, 1.0: `#D0021B`).
+
 ---
 
 ## 8. Navegación
@@ -430,7 +443,7 @@ La normalización es relativa al máximo del mapa (el músculo más cargado vale
 | **Registrar entrenamiento pasado (Spec 012)** | `registrar_entrenamiento_pasado/` | **App bar, date/time/duration pickers, routine/manual origin picker, exercise cards with set rows, save bar con spinner, bottom nav.** |
 | Rutinas y programas | `rutinas_y_programas/` | Header con CTA, cycle indicator, filter pills, routine cards (activa / inactiva), explore card, bottom nav. |
 | Progreso y medidas | `progreso_y_medidas/` | Weight trend sparkline, body composition grid, measurements list, progress photos grid, sync callout, bottom nav. |
-| Perfil y objetivos | `perfil_y_objetivos_del_atleta/` | Profile header, stats grid, goals list con progress bar, PR list, settings list, logout button, bottom nav. |
+| **Ficha de información del ejercicio** | **`informacion_del_ejerccios/`** | **ExerciseInfoView: context bar, GIF/miniatura, badges, KPIs, gráfico CustomPainter, cues, activación, historial paginado, CTA** |
 
 ---
  

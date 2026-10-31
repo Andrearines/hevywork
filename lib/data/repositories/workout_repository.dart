@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../domain/exercise_stats.dart';
 import '../../domain/goals.dart' show setVolumeKg;
 import '../../domain/previous_sets.dart';
 import '../local/database.dart';
@@ -774,6 +775,78 @@ class WorkoutRepository {
       )..where((t) => t.id.equals(workoutId))).go();
     });
     await _enqueueRow('delete', 'workouts', {'id': workoutId});
+  }
+
+  /// Historial paginado de sesiones terminadas para un ejercicio concreto
+  /// (RF-14 de la 015): pagina por sesiones con offset/límite, solo
+  /// `status = 'finished'` con `endedAt != null`, ordena `endedAt desc`. Las
+  /// warmups aparecen en la fila pero están marcadas con "(Cal.)" en la
+  /// columna SET.
+  Future<List<ExerciseSessionSummary>> exerciseHistory({
+    required String exerciseId,
+    required int limit,
+    int offset = 0,
+  }) async {
+    if (limit <= 0 || offset < 0) return const [];
+
+    final exerciseItems = _db.selectOnly(_db.workoutExercises)
+      ..addColumns([_db.workoutExercises.workoutId])
+      ..where(_db.workoutExercises.exerciseId.equals(exerciseId));
+
+    final workouts = await (_db.select(_db.workouts)
+          ..where((t) => t.id.isInQuery(exerciseItems))
+          ..where((t) => t.status.equals('finished'))
+          ..where((t) => t.endedAt.isNotNull())
+          ..orderBy([(t) => OrderingTerm.desc(t.endedAt)])
+          ..limit(limit, offset: offset))
+        .get();
+    if (workouts.isEmpty) return const [];
+
+    final workoutIds = [for (final workout in workouts) workout.id];
+
+    final setsRows = await (_db.select(_db.workoutSets).join([
+          innerJoin(
+            _db.workoutExercises,
+            _db.workoutExercises.id.equalsExp(
+              _db.workoutSets.workoutExerciseId,
+            ),
+          ),
+        ])
+          ..where(_db.workoutExercises.exerciseId.equals(exerciseId))
+          ..where(_db.workoutExercises.workoutId.isIn(workoutIds)))
+        .get();
+
+    final setsByWorkout = <String, List<WorkoutSet>>{};
+    for (final row in setsRows) {
+      final item = row.readTable(_db.workoutExercises);
+      final set = row.readTable(_db.workoutSets);
+      (setsByWorkout[item.workoutId] ??= []).add(set);
+    }
+    for (final sets in setsByWorkout.values) {
+      sets.sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    }
+
+    final summaries = <ExerciseSessionSummary>[];
+    for (final workout in workouts) {
+      final rows = <ExerciseSetRow>[];
+      for (final set in setsByWorkout[workout.id] ?? const <WorkoutSet>[]) {
+        rows.add(ExerciseSetRow(
+          orderIndex: set.orderIndex,
+          setType: set.setType,
+          weightKg: set.weightKg,
+          reps: set.reps,
+          rir: set.rir,
+          completed: set.completed,
+        ));
+      }
+      summaries.add(ExerciseSessionSummary(
+        workoutId: workout.id,
+        name: workout.name ?? 'Sesión',
+        endedAt: workout.endedAt!,
+        sets: rows,
+      ));
+    }
+    return summaries;
   }
 
   /// Devuelve la sesión reanudable del marcador (RF-10): `active` sin

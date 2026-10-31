@@ -8,7 +8,8 @@ import '../theme/colors.dart';
 import '../unit_system_scope.dart';
 import '../widgets/exercise_thumb.dart';
 import '../widgets/section_header.dart';
-import 'exercise_detail_view.dart';
+import 'package:hevywork/ui/views/exercise_info_view.dart';
+
 
 /// Detalle de una rutina de solo lectura (spec 008, RF-38): metadata de
 /// planificación, lista completa de sus ejercicios con la musculatura que
@@ -342,7 +343,7 @@ class _ExerciseCard extends StatelessWidget {
     if (exercise == null) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ExerciseDetailView(exercise: exercise),
+        builder: (_) => ExerciseInfoView(exercise: exercise),
       ),
     );
   }
