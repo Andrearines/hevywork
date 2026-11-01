@@ -243,7 +243,7 @@ class FatigueRepository {
               ),
             ])..where(
               _db.workouts.id.isIn(workoutIds) &
-                  _db.workoutSets.completed.equals(true),
+                  _db.workouts.status.isIn(['finished', 'active']),
             ))
             .get();
     return _setsFromRows(joined);
@@ -255,7 +255,14 @@ class FatigueRepository {
   Future<({List<MuscleZoneStats> zones, List<FatigueTrendPoint> trend})>
   _zonesAndTrend(List<TypedResult> rows, DateTime clock) async {
     final profile = await _profile();
-    final sets = _setsFromRows(rows);
+    final fatigueSets = _setsFromRows(rows);
+    // Convierte FatigueSet a ExerciseSetRow para la tendencia de fatiga.
+    // Se pierde información de endedAt/secondaries, pero se conserva el volumen
+    // y el tipo de serie.
+    final exerciseSets = [
+      for (int i = 0; i < fatigueSets.length; i++)
+        fatiguesetToExerciseSetRow(fatigueSets[i], i),
+    ];
 
     final cacheRows = await (_db.select(
       _db.muscleFatigue,
@@ -264,11 +271,15 @@ class FatigueRepository {
 
     return (
       zones: muscleZoneStats(
-        sets: sets,
+        sets: fatigueSets,
         normalizedFatigue: normalized,
         now: clock,
       ),
-      trend: fatigueTrend(sets: sets, now: clock),
+      trend: fatigueTrend(
+        sets: exerciseSets,
+        days: kFatigueTrendDays,
+        now: clock,
+      ),
     );
   }
 

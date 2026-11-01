@@ -92,7 +92,9 @@ class _RoutinesViewState extends State<RoutinesView> {
   Future<void> _openEditor([Routine? routine]) async {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => RoutineEditorView(routine: routine),
+        builder: (_) => RoutineEditorView(
+          routine: routine,
+        ),
       ),
     );
   }
@@ -400,7 +402,7 @@ class _EmptyRoutines extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute<void>(
-                    builder: (_) => const RoutineEditorView(),
+                    builder: (_) => RoutineEditorView(),
                   ),
                 ),
                 child: const Text('Nueva rutina'),

@@ -85,12 +85,18 @@ void main() {
     Widget home = ExerciseInfoView(
       exercise: target ?? exercise,
       database: localDb,
+      workoutRepository: WorkoutRepository(localDb),
     );
     if (unitSystem != null) {
       home = UnitSystemScope(unitSystem: unitSystem, child: home);
     }
     await tester.pumpWidget(MaterialApp(home: home));
     await tester.pumpAndSettle();
+  }
+
+  Future<void> unmount(WidgetTester tester) async {
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
   }
 
   Future<Exercise> insertExercise(String id, String name) {
@@ -174,6 +180,7 @@ void main() {
     expect(find.byType(CachedNetworkImage), findsNothing);
     // Se muestra imagen local (Image.asset), no ThumbFallback ya que imagePath está set
     expect(find.byType(Image), findsNWidgets(1));
+    await unmount(tester);
   });
 
   testWidgets('lista los pasos en español por defecto', (tester) async {
@@ -183,6 +190,7 @@ void main() {
     expect(find.text('Empuja hasta extender los brazos'), findsOneWidget);
     expect(find.text('ES'), findsOneWidget);
     expect(find.text('EN'), findsOneWidget);
+    await unmount(tester);
   });
 
   testWidgets('al cambiar a EN muestra los pasos ingleses', (tester) async {
@@ -193,6 +201,7 @@ void main() {
 
     expect(find.text('Lower the bar to your chest'), findsOneWidget);
     expect(find.text('Baja la barra hasta tocar el pecho'), findsNothing);
+    await unmount(tester);
   });
 
   testWidgets('ajusta el descanso por defecto del ejercicio (RF-5 de la 002)',
@@ -216,6 +225,7 @@ void main() {
     await tester.tap(find.byKey(const Key('rest-detail-plus')));
     await tester.pump();
     expect(find.text('120 s'), findsOneWidget);
+    await unmount(tester);
   });
 
   testWidgets('muestra badges de equipo y músculo', (tester) async {
@@ -224,6 +234,7 @@ void main() {
     // Badges deben aparecer
     expect(find.text('BARBELL'), findsOneWidget); // equipment
     expect(find.text('PECTORALS'), findsOneWidget); // muscleLabel fallthrough
+    await unmount(tester);
   });
 
   group('historial de sesiones paginado (SCR-7, RF-14 y RF-15)', () {
@@ -249,6 +260,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const Key('history-load-more')), findsNothing);
+      await unmount(tester);
     });
 
     testWidgets('la sesión más reciente se expande con tabla, warmup y ★',
@@ -289,6 +301,7 @@ void main() {
       expect(find.text('123.3 kg'), findsOneWidget);
       expect(find.text('RIR medio: 1.5'), findsOneWidget);
       expect(find.byKey(const Key('history-load-more')), findsNothing);
+      await unmount(tester);
     });
 
     testWidgets('con nombre null muestra «Sesión» y la fecha', (tester) async {
@@ -307,6 +320,7 @@ void main() {
 
       expect(find.text('Sesión'), findsOneWidget);
       expect(find.textContaining('· Ayer'), findsOneWidget);
+      await unmount(tester);
     });
 
     testWidgets('las sesiones anteriores se muestran condensadas',
@@ -350,6 +364,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byKey(const Key('history-load-more')), findsNothing);
+      await unmount(tester);
     });
 
     testWidgets('pagina de 10 en 10 y desaparece al agotar', (tester) async {
@@ -387,6 +402,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Página 11'), findsOneWidget);
       expect(find.text('Página 12'), findsOneWidget);
+      await unmount(tester);
     });
 
     testWidgets('muestra los pesos en la unidad del perfil (RNF-7)',
@@ -409,6 +425,7 @@ void main() {
 
       expect(find.text('661.4 lb'), findsOneWidget);
       expect(find.text('132.3 lb × 5'), findsOneWidget);
+      await unmount(tester);
     });
 
     testWidgets('no desborda en 375 dp (RNF-3)', (tester) async {
@@ -444,6 +461,7 @@ void main() {
       expect(find.text('Historial de Sesiones'), findsOneWidget);
       expect(find.text('Cargar sesiones anteriores (1 más)'), findsOneWidget);
       expect(tester.takeException(), isNull);
+      await unmount(tester);
     });
   });
 }

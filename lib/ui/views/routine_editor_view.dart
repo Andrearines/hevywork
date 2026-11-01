@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../data/local/database.dart';
 import '../../data/repositories/routine_repository.dart';
+import '../../data/repositories/catalog_repository.dart';
 import '../../domain/progression.dart';
 import '../../domain/units.dart';
 import '../../main.dart';
 import '../theme/colors.dart';
 import '../unit_system_scope.dart';
+import '../widgets/exercise_chips.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/exercise_thumb.dart';
 
@@ -24,8 +26,15 @@ const Map<String, String> _setTypeLabels = {
 class RoutineEditorView extends StatefulWidget {
   /// Rutina a editar; null crea una nueva.
   final Routine? routine;
+  /// Repositorio para hidratarExercise por ids (spec 014, RF-3).
+  final CatalogRepository catalogRepository;
 
-  const RoutineEditorView({super.key, this.routine});
+  RoutineEditorView({
+    super.key,
+    this.routine,
+    CatalogRepository? catalogRepository,
+  }) : catalogRepository = catalogRepository ??
+        CatalogRepository(AppDatabase());
 
   @override
   State<RoutineEditorView> createState() => _RoutineEditorViewState();
@@ -191,8 +200,14 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
 
   Future<void> _loadExercises(String routineId) async {
     final entries = await routineRepository.routineExercises(routineId);
-    final exerciseIds = [for (final row in entries) row.item.id];
-    final rows = await routineRepository.routineSetsBatch(exerciseIds);
+    final exerciseIds = <String>{for (final row in entries) row.item.id};
+    // Hydrate Exercise objects from catalog (RF-3 / spec 014).
+    final catalogExercises = await widget.catalogRepository.exercisesByIds(exerciseIds.toList());
+    final exerciseMap = <String, Exercise>{};
+    for (final e in catalogExercises.values) {
+      exerciseMap[e.id] = e;
+    }
+    final rows = await routineRepository.routineSetsBatch(exerciseIds.toList());
     final draftSets = <String, List<_DraftSet>>{};
     for (final set in rows) {
       (draftSets[set.routineExerciseId] ??= []).add(
@@ -215,12 +230,15 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
       final sets = stored.isEmpty
           ? _legacySets(item)
           : stored;
+      final exercise = exerciseMap[item.id];
+      final exerciseName = exercise?.name ?? row.exercise?.name ?? 'Ejercicio no disponible';
       drafts.add(
         _DraftExercise(
           key: item.id,
           id: item.id,
           exerciseId: item.exerciseId,
-          name: row.exercise?.name ?? 'Ejercicio no disponible',
+          name: exercise?.name ?? (row.exercise?.name ?? 'Ejercicio no disponible'),
+          exercise: exercise,
           sets: sets,
           autoProgress: item.autoProgress,
         ),
@@ -264,16 +282,19 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         side: BorderSide(color: kSurfaceContainerHighest),
       ),
-      builder: (context) => const ExercisePicker(),
+      builder: (context) => ExercisePicker(),
     );
     if (selected == null || !mounted) return;
+    // Hydrate the selected exercise from the catalog (RF-3 / spec 014).
+    final catalogExercise =
+        (await widget.catalogRepository.exercisesByIds([selected.id])).values.firstOrNull;
     setState(() {
       _drafts.add(
         _DraftExercise(
           key: 'new-${_draftSeq++}',
           exerciseId: selected.id,
           name: selected.name,
-          exercise: selected,
+          exercise: catalogExercise,
           sets: [
             _DraftSet(key: 'set-${_setSeq++}', unitSystem: _unitSystem),
             _DraftSet(key: 'set-${_setSeq++}', unitSystem: _unitSystem),
@@ -693,9 +714,16 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
             ),
             child: Center(
               child: draft.exercise != null
-                  ? ExerciseThumb(
-                      exercise: draft.exercise!,
-                      size: 60,
+                  ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ExerciseThumb(
+                          exercise: draft.exercise!,
+                          size: 44,
+                        ),
+                        const SizedBox(height: 4),
+                        ExerciseChips(exercise: draft.exercise!),
+                      ],
                     )
                   : const ThumbFallback(),
             ),

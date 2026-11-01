@@ -14,6 +14,7 @@ import '../../main.dart';
 import '../theme/colors.dart';
 import '../unit_system_scope.dart';
 import '../widgets/exercise_picker.dart';
+import '../widgets/exercise_chips.dart';
 import '../widgets/exercise_thumb.dart';
 import '../widgets/live_fatigue_section.dart';
 
@@ -1370,7 +1371,7 @@ class _ExerciseCardState extends State<_ExerciseCard>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _ExerciseChips(exercise: widget.exercise),
+                    ExerciseChips(exercise: widget.exercise),
                     const SizedBox(height: 8),
                     Text(
                       widget.exercise.name,
@@ -1557,57 +1558,7 @@ class _ExerciseCardState extends State<_ExerciseCard>
 
 }
 
-/// Chips de músculo y texto de equipo de un ejercicio (mockup de registro en
-/// vivo): musculatura objetivo y grupo como chips en mayúsculas y equipo con
-/// bullet delante.
-class _ExerciseChips extends StatelessWidget {
-  final Exercise exercise;
 
-  const _ExerciseChips({required this.exercise});
-
-  Widget _badge(String value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: kSurfaceContainerLow,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        value.toUpperCase(),
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-          color: kOnSurfaceVariant,
-        ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final targets = <String>[
-      exercise.target,
-      if (exercise.muscleGroup != exercise.target) exercise.muscleGroup,
-    ];
-    return Wrap(
-      spacing: 6,
-      runSpacing: 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        for (final target in targets) _badge(target),
-        Text(
-          '• ${exercise.equipment}',
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: kOnSurfaceVariant,
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 /// Ejercicio colapsado (mockup de registro en vivo): chips, título y píldora
 /// con las series programadas y el objetivo RIR; al tocar se expande.
@@ -1703,7 +1654,7 @@ class _CollapsedExerciseCardContent extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _ExerciseChips(exercise: exercise),
+                      ExerciseChips(exercise: exercise),
                       const SizedBox(height: 8),
                       Text(
                         exercise.name,

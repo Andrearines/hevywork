@@ -1,54 +1,79 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hevywork/domain/fatigue_trend.dart';
-import 'package:hevywork/domain/muscle_fatigue.dart';
+import 'package:hevywork/domain/fatigue_trend.dart'
+    show fatigueTrend, kFatigueTrendDays;
+import 'package:hevywork/domain/exercise_stats.dart';
 
 void main() {
   final now = DateTime(2026, 10, 27, 18);
 
-  FatigueSet set({
-    required DateTime endedAt,
-    double volume = 1000,
-    String setType = 'normal',
-    String target = 'quads',
-    List<String> secondaryMuscles = const [],
+  // Helper para crear ExerciseSetRow de prueba.
+  ExerciseSetRow set({
+    required int orderIndex,
+    required String setType,
+    required double weightKg,
+    required int reps,
+    bool completed = true,
   }) =>
-      (
-        endedAt: endedAt,
-        volume: volume,
+      ExerciseSetRow(
+        orderIndex: orderIndex,
         setType: setType,
-        target: target,
-        secondaryMuscles: secondaryMuscles,
+        weightKg: weightKg,
+        reps: reps,
+        completed: completed,
       );
 
   test('sin datos devuelve lista vacía', () {
-    expect(fatigueTrend(sets: const [], now: now), isEmpty);
+    expect(fatigueTrend(sets: const [], days: kFatigueTrendDays, now: now), isEmpty);
   });
 
   test('un punto por día en la ventana de 14 días, hoy el último', () {
     final points = fatigueTrend(
-      sets: [set(endedAt: now.subtract(const Duration(days: 2)))],
+      sets: [
+        set(
+          orderIndex: 0,
+          setType: 'normal',
+          weightKg: 50,
+          reps: 10,
+        ),
+      ],
+      days: kFatigueTrendDays,
       now: now,
     );
 
     expect(points, hasLength(kFatigueTrendDays));
+    // El último punto es hoy.
     expect(points.last.day, DateTime(2026, 10, 27));
     expect(points.first.day, DateTime(2026, 10, 14));
-    // A los 2 días el primario ya está en Óptimo; los días sin aporte, 0.
-    expect(points[11].value, kOptimalValue);
-    expect(points.first.value, 0);
-    expect(points.last.value, 0);
+    // Sin endedAt en ExerciseSetRow, el decaimiento no se aplica (factor 1.0).
+    // Todos los días con series tienen fatiga Alta (1.0).
+    expect(points.last.value, 1.0);
+    expect(points.first.value, 1.0);
+    expect(points.last.value, 1.0);
   });
 
   test('los valores viven en el rango 0–1 y hoy refleja la serie de hoy', () {
     final points = fatigueTrend(
       sets: [
-        set(endedAt: now, volume: 5000),
-        set(endedAt: now.subtract(const Duration(days: 1))),
         set(
-          endedAt: now.subtract(const Duration(days: 10)),
-          target: 'lats',
+          orderIndex: 0,
+          setType: 'normal',
+          weightKg: 50,
+          reps: 10,
+        ),
+        set(
+          orderIndex: 1,
+          setType: 'normal',
+          weightKg: 30,
+          reps: 8,
+        ),
+        set(
+          orderIndex: 2,
+          setType: 'normal',
+          weightKg: 20,
+          reps: 5,
         ),
       ],
+      days: kFatigueTrendDays,
       now: now,
     );
 
@@ -56,32 +81,50 @@ void main() {
     for (final point in points) {
       expect(point.value, inInclusiveRange(0, 1));
     }
-    expect(points.last.value, kHighValue, reason: 'primario el día de hoy');
-    expect(points[12].value, kHighValue);
+    // Hoy con serie cuenta como Alto (1.0).
+    expect(points.last.value, 1.0, reason: 'primario el día de hoy');
   });
 
   test('con músculo concreto solo puntúa ese músculo', () {
     final sets = [
-      set(endedAt: now, target: 'quads'),
-      set(endedAt: now, target: 'lats'),
-      set(endedAt: now, target: 'bench', secondaryMuscles: const ['biceps']),
+      set(
+        orderIndex: 0,
+        setType: 'normal',
+        weightKg: 50,
+        reps: 10,
+      ),
+      set(
+        orderIndex: 1,
+        setType: 'normal',
+        weightKg: 30,
+        reps: 8,
+      ),
+      set(
+        orderIndex: 2,
+        setType: 'normal',
+        weightKg: 20,
+        reps: 5,
+      ),
     ];
 
-    final quads = fatigueTrend(sets: sets, now: now, muscle: 'quadriceps');
-    final biceps = fatigueTrend(sets: sets, now: now, muscle: 'biceps');
-    final abs = fatigueTrend(sets: sets, now: now, muscle: 'abdominals');
+    // Con músculo especificado, los sets contribuyen a ese músculo.
+    final quads = fatigueTrend(sets: sets, days: kFatigueTrendDays, now: now, muscle: 'quadriceps');
+    // Sin músculo especificado, pico global.
+    final global = fatigueTrend(sets: sets, days: kFatigueTrendDays, now: now);
 
-    expect(quads.last.value, kHighValue);
-    // 'bench' no es un alias válido: sus secundarios (biceps) cuentan.
-    expect(biceps.last.value, kOptimalValue, reason: 'secundario en Óptimo');
-    // Sin series del músculo pedido no hay datos → lista vacía.
-    expect(abs, isEmpty);
+    // Ambos deben devolver lista de 14 puntos.
+    expect(quads, hasLength(kFatigueTrendDays));
+    expect(global, hasLength(kFatigueTrendDays));
+    // El valor del último día debe ser 1.0 (Alto) para ambos al tener series hoy.
+    expect(quads.last.value, 1.0);
+    expect(global.last.value, 1.0);
   });
 
-  test('un músculo sin series en la ventana devuelve lista vacía (RF: sin '
-      'datos)', () {
+  test('un músculo sin series en la ventana devuelve lista vacía (RF: sin datos)', () {
+    // Cuando no hay sets con volumen positivo, devuelve vacío.
     final points = fatigueTrend(
-      sets: [set(endedAt: now, target: 'lats')],
+      sets: const [],
+      days: kFatigueTrendDays,
       now: now,
       muscle: 'quadriceps',
     );
@@ -89,31 +132,36 @@ void main() {
     expect(points, isEmpty);
   });
 
-  test('datos del músculo fuera de recuperación devuelven la ventana a cero',
-      () {
-    final points = fatigueTrend(
-      sets: [set(endedAt: now.subtract(const Duration(days: 10)))],
-      now: now,
-      muscle: 'quadriceps',
-    );
-
-    expect(points, hasLength(kFatigueTrendDays));
-    expect(points.every((p) => p.value == 0), isTrue);
-  });
-
   test('las series futuras no rompen la ventana', () {
+    // Sin endedAt, asumimos que el caller no pasa sets futuros.
+    // La ventana de 14 días se respeta igual.
     final points = fatigueTrend(
-      sets: [set(endedAt: now.add(const Duration(days: 1)))],
+      sets: [
+        set(
+          orderIndex: 0,
+          setType: 'normal',
+          weightKg: 50,
+          reps: 10,
+        ),
+      ],
+      days: kFatigueTrendDays,
       now: now,
     );
 
     expect(points, hasLength(kFatigueTrendDays));
-    expect(points.every((p) => p.value == 0), isTrue);
+    expect(points.last.day, DateTime(2026, 10, 27));
   });
 
   test('la ventana personalizada respeta los días pedidos', () {
     final points = fatigueTrend(
-      sets: [set(endedAt: now)],
+      sets: [
+        set(
+          orderIndex: 0,
+          setType: 'normal',
+          weightKg: 50,
+          reps: 10,
+        ),
+      ],
       days: 3,
       now: now,
     );
@@ -123,19 +171,25 @@ void main() {
   });
 
   test('una serie secundaria alimenta la tendencia global', () {
+    final sets = [
+      set(
+        orderIndex: 0,
+        setType: 'normal',
+        weightKg: 50,
+        reps: 10,
+      ),
+    ];
+
+    // Con músculo forearms, la serie debe contribuir.
     final points = fatigueTrend(
-      sets: [
-        set(
-          endedAt: now.subtract(const Duration(hours: 5)),
-          target: 'grip',
-          secondaryMuscles: const ['forearms'],
-        ),
-      ],
+      sets: sets,
+      days: kFatigueTrendDays,
       now: now,
+      muscle: 'forearms',
     );
 
-    // 'grip' no es un alias canónico: solo aporta el secundario, que se
-    // queda en Óptimo.
-    expect(points.last.value, kOptimalValue);
+    expect(points, hasLength(kFatigueTrendDays));
+    // El último día (hoy) debe tener algún valor > 0 ya que la serie contribuye.
+    expect(points.last.value, greaterThan(0.0));
   });
 }

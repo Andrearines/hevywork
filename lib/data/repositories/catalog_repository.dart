@@ -107,6 +107,17 @@ class CatalogRepository {
         .getSingleOrNull();
   }
 
+  /// Ejercicios por lote de ids (RF-3 de la 014): devuelve solo los pedidos,
+  /// tolera ids desconocidos/duplicados con una sola consulta `isIn`.
+  Future<Map<String, Exercise>> exercisesByIds(List<String> ids) async {
+    if (ids.isEmpty) return {};
+    final uniqueIds = ids.toSet().toList();
+    final rows = await (_db.select(_db.exercises)
+      ..where((t) => t.id.isIn(uniqueIds)))
+        .get();
+    return {for (final row in rows) row.id: row};
+  }
+
   /// Nombre por id de ejercicio, para las tarjetas del dashboard de metas.
   Future<Map<String, String>> exerciseNames() async {
     final rows = await (_db.selectOnly(_db.exercises)

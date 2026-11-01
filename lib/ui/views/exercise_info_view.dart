@@ -65,7 +65,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   }
 
   void _loadSteps() async {
-    final rows = await (widget.database!.select(widget.database!.exerciseInstructions)
+    if (widget.database == null) return;
+    final database = widget.database!;
+    final rows = await (database.select(database.exerciseInstructions)
           ..where((t) => t.exerciseId.equals(widget.exercise.id)))
         .get();
 

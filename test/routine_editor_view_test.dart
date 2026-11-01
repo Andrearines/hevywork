@@ -63,7 +63,10 @@ void main() {
     final navigator = tester.state<NavigatorState>(find.byType(Navigator));
     navigator.push(
       MaterialPageRoute<void>(
-        builder: (_) => RoutineEditorView(routine: routine),
+        builder: (_) => RoutineEditorView(
+          routine: routine,
+          catalogRepository: catalogRepository,
+        ),
       ),
     );
     await tester.pump();
