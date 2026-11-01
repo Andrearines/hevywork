@@ -22,6 +22,7 @@
 | Date | Task | Change | Tests |
 |------|------|--------|-------|
 | 2026-10-31 | T-008: Cierre spec 015 | Retired ExerciseDetailView, updated entry points to ExerciseInfoView, updated docs, placeholder goldens | 1 pass (detail view test), analyze clean |
+| 2026-10-31 | T-002: Fix _loadSteps null check | Changed `localDb` reference to `widget.database!` in `_loadSteps()` function; verified steps, badges, language switching work | 5/7 tests pass (historial failures pre-existing, unrelated to this fix) |
 
 ## Decisiones D-xxx
 
@@ -29,6 +30,7 @@
 - T-008 entry points en catalog_view y routine_detail_view actualizados
 - T-008 no se añadieron dependencias nuevas
 - T-008 docs/README.md y designer.md actualizados
+- T-002 `_loadSteps` uses `widget.database!` instead of uninitialized `localDb` (decision confirmed)
 
 ## Preguntas abiertas Q-xxx
 
