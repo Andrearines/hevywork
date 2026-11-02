@@ -61,3 +61,25 @@
 ---
 
 **Next task:** Sin pendientes abiertos. Candidatos: correr `flutter test` completo para confirmar que nada más se afectó, o retomar la spec activa en `docs/specs/` (015 cerrada).
+## Bugs de la spec 014 - Arreglados
+
+### Bug 1: Fatiga mapa no se actualiza en tiempo real
+**Causa:** El cache `muscleFatigue` solo se recalculaba en sync completion o al cerrar sesión, no durante el entrenamiento en vivo. El `FatigueNotifier` con debounce no estaba conectado al view.
+
+**Solución:** Integrado `FatigueNotifier` en `_LiveWorkoutViewState` que escucha el stream `_sets` con debounce de 750ms (el mismo que `FatigueNotifier.defaultDelay`). Cada vez que se añade una serie, el notifier marca `dirty` y después del delay ejecuta `fatigueRepository.recalculate()`, actualizando el cache y propagando los cambios a través de `watchFatigue()` → `watchFatiguePanel()`.
+
+### Bug 2: No se ven otros músculos/zones
+**Causa:** En `ZoneVolumeChart`, los nombres de músculo se mostraban como claves brutas (`zone.muscle`) sin traducir al español mediante `muscleLabel`, lo que provocaba nombres en inglés o sin traducir en las gráficas.
+
+**Solución:** Modificado `lib/ui/widgets/zone_volume_chart.dart` para importar y usar `mm.muscleLabel(zone.muscle)` en lugar de `zone.muscle` directo al pintar la etiqueta del nombre. Esto asegura nombres consistentes y traducidos (ej. "Cuádriceps" en lugar de "quadriceps").
+
+### Bug 3: Nombres de músculos no se ven bien en gráficas
+**Causa:** Mismo que Bug 2 - los nombres de músculo en las gráficas no pasaban por la función de traducción `muscleLabel`.
+
+**Solución:** Ya corregido en el fix de Bug 2 - el `ZoneVolumeChart` ahora usa `muscleLabel` para mostrar nombres en español.
+
+### Bug 4: App se cierra al tocar "Entendido" con varias recomendaciones
+**Causa:** En `_progressionStrip()`, el `Row` usaba por defecto `mainAxisSize: MainAxisSize.max`, haciendo que el `Expanded` del texto ocupara todo el espacio restante, lo que provocaba que el botón "Entendido" se superpusiera o quedara sin espacio adecuado cuando había múltiples recomendaciones de peso.
+
+**Solución:** Agregado `mainAxisSize: MainAxisSize.min` al `Row` en `_progressionStrip()` para que el row only ocupe el espacio que necesitan sus hijos, en lugar de llenar todo el ancho disponible. Esto permite que el botón "Entendido" tenga su tamaño natural sin conflictos.
+

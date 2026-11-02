@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../domain/muscle_fatigue.dart';
+import '../widgets/muscle_map.dart' as mm;
 
 // Colores de la escala de fatiga (spec 007, RF-2).
 const Color kFatigueCold = Color(0xFF4A90E9);
@@ -137,7 +138,7 @@ class _ZoneVolumePainter extends CustomPainter {
         fontWeight: FontWeight.w600,
       );
       final namePainter = TextPainter(
-        text: TextSpan(text: zone.muscle, style: nameStyle),
+        text: TextSpan(text: mm.muscleLabel(zone.muscle), style: nameStyle),
         textDirection: TextDirection.ltr,
         textAlign: TextAlign.left,
       );

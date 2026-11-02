@@ -9,6 +9,7 @@ import '../../domain/previous_sets.dart';
 import '../../domain/rest_timer.dart';
 import '../../domain/services/rest_notifier.dart';
 import '../../domain/units.dart';
+import '../../domain/use_cases/fatigue_notifier.dart';
 import '../../domain/use_cases/workout_manager.dart';
 import '../../main.dart';
 import '../theme/colors.dart';
@@ -74,6 +75,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       const <String, List<PreviousSet>>{};
   bool _previousLoaded = false;
   final Set<String> _expandedExerciseIds = {};
+  FatigueNotifier? _fatigueNotifier;
 
   @override
   void initState() {
@@ -83,6 +85,14 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     _exercises = workoutRepository.watchExercises(widget.workoutId);
     _sets = workoutRepository.watchSets(widget.workoutId);
     _fatiguePanel = fatigueRepository.watchFatiguePanel();
+    // Use FatigueNotifier con debounce para actualizar fatiga en tiempo real
+    // cuando cambian las series durante el entrenamiento en vivo.
+    _fatigueNotifier = FatigueNotifier(
+      sources: [
+        _sets.map((_) => null),
+      ],
+      recalculate: fatigueRepository.recalculate,
+    );
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _now.value = DateTime.now();
     });
@@ -190,6 +200,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     _restNotifier.cancel();
     _clockTimer?.cancel();
     _now.dispose();
+    _fatigueNotifier?.dispose();
     super.dispose();
   }
 
@@ -807,6 +818,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
         border: Border(bottom: BorderSide(color: kSurfaceContainerHighest)),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
             Icons.trending_up,
