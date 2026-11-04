@@ -74,6 +74,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   Map<String, List<PreviousSet>> _previousByExercise =
       const <String, List<PreviousSet>>{};
   bool _previousLoaded = false;
+  bool _disposed = false;
   final Set<String> _expandedExerciseIds = {};
   FatigueNotifier? _fatigueNotifier;
 
@@ -196,6 +197,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   }
   @override
   void dispose() {
+    _disposed = true;
     WidgetsBinding.instance.removeObserver(this);
     _restNotifier.cancel();
     _clockTimer?.cancel();
@@ -250,11 +252,15 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
         _currentWorkout = workout;
         if (!_previousLoaded) {
           _previousLoaded = true;
-          WidgetsBinding.instance.addPostFrameCallback((_) => _loadPrevious());
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_disposed) return;
+            _loadPrevious();
+          });
         }
         if (!_suggestionsScheduled) {
           _suggestionsScheduled = true;
           WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_disposed) return;
             _refreshSuggestions();
           });
         }

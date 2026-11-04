@@ -22,6 +22,8 @@
 | Date | Task | Change | Tests |
 |------|------|--------|-------|
 | 2026-11-01 | T-002: Dominio sesión activa + tendencia de fatiga | Creado `lib/domain/fatigue_trend.dart` con `fatigueTrend` usando `ExerciseSetRow`; modificado `lib/data/repositories/fatigue_repository.dart` con los métodos RF-8/RF-5 de la spec 014 | 8 pass/0 fail (dominio) + 13 pass/0 fail (repositorio); analyze limpio |
+| 2026-11-01 | Bugfix: ZoneVolumeChart crash al músculo no en top 6 | Agregado `orElse` al `firstWhere` en `lib/ui/widgets/zone_volume_chart.dart:172` con `_missingMuscleZoneStat` helper que devuelve `MuscleZoneStats(muscle: '', weeklyVolume: 0.0, sets: 0, fatigue: 0.0)` para prevenir `StateError` cuando el músculo no está en la lista top 6; también agregado método `_missingMuscleZoneStat` en `_ZoneVolumePainter`. Tests: `flutter analyze` sin errores nuevos; widget tests unaffected | analyze limpio |
+| 2026-11-01 | Bugfix: PostFrameCallback lifecycle leakage en live_workout_view | Agregado `_disposed` bandera en `_LiveWorkoutViewState` para prevenir ejecución de callbacks post-frame después del desmontaje del widget. Los callbacks `addPostFrameCallback` en `initState` ahora verifican `_disposed` antes de ejecutar `_loadPrevious()` y `_refreshSuggestions()`. Además, `dispose()` establece `_disposed = true` para asegurar que callbacks en ejecución futura no afecten un widget desmontado. Analyzer: 1 info preexistente; tests: mismos resultados que antes (fallos de stream son pre-existing) | analyze limpio; tests pre-existing sin cambios |
 
 ## Bitácora
 
@@ -62,6 +64,16 @@
 
 **Next task:** Sin pendientes abiertos. Candidatos: correr `flutter test` completo para confirmar que nada más se afectó, o retomar la spec activa en `docs/specs/` (015 cerrada).
 ## Bugs de la spec 014 - Arreglados
+
+### Bug 4: Race condition en FatigueNotifier.dispose() (vuelo en curso)
+**Causa:** En `dispose()` (línea 78-88), se marcaba `_disposed = true` y se cancelaban suscripciones/timer, **pero no se esperaba a que terminara `_inFlight`** (el recálculo en curso). Si `flush()` o `_execute()` estaban corriendo, podían intentar acceder a `_inFlight` o `_dirty` después de que el notifier ya fue descartado, causando exceptions.
+
+**Solución:** Tres cambios en `lib/domain/use_cases/fatigue_notifier.dart`:
+1. `dispose()`: Ahora es `async` y espera brevemente a que `_inFlight` complete (con timeout de 1 segundo) antes de cancelar suscripciones y timer.
+2. `_execute()`: Verifica `_disposed` al inicio y retorna temprano si el notifier ya fue descartado, evitando accesos a campos después del desecho.
+3. `_onTimer()`: Ya tenía la verificación `_disposed || !_dirty` — se mantuvo como estaba.
+
+Tests: `flutter analyze` sin errores, `flutter test test/fatigue_notifier_test.dart` → 8 pass / 0 fail.
 
 ### Bug 1: Fatiga mapa no se actualiza en tiempo real
 **Causa:** El cache `muscleFatigue` solo se recalculaba en sync completion o al cerrar sesión, no durante el entrenamiento en vivo. El `FatigueNotifier` con debounce no estaba conectado al view.

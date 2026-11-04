@@ -171,6 +171,7 @@ class _ZoneVolumePainter extends CustomPainter {
     if (muscle != null) {
       final targetZone = top.firstWhere(
         (z) => z.muscle == muscle,
+        orElse: () => _missingMuscleZoneStat(muscle),
       );
       if (targetZone.muscle.isNotEmpty) {
         final volNorm = (targetZone.weeklyVolume - minVol) / span;
@@ -266,4 +267,7 @@ class _ZoneVolumePainter extends CustomPainter {
     }
     return true;
   }
+
+  MuscleZoneStats _missingMuscleZoneStat(String? muscle) =>
+      (muscle: muscle ?? '', weeklyVolume: 0.0, sets: 0, fatigue: 0.0);
 }
