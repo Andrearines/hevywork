@@ -1,8 +1,36 @@
 # Memory — hevywork
 
-**Last updated:** Sun Nov 01 2026
+**Last updated:** Tue Nov 03 2026
 
-**Active agent:** Sub-agent (fix inyección workoutRepository en test de historial — Q-005)
+**Active agent:** Planificador SDD — spec 016 creada, pendiente de aprobación e implementación
+
+## Spec 016 — planificada (2026-11-03)
+
+- **Ruta:** `docs/specs/016-mejoras-entrenamiento-vivo/` (`spec.md`,
+  `plan.md`, `tasks.md`); fila añadida en `docs/specs/README.md`.
+- **Mejoras cubiertas:** (1) notificaciones de descanso con volumen alto,
+  (2) persistencia de series en la sesión en vivo, (3) series de la semana
+  en la tabla de fatiga en vivo, (4) pestaña Frente/Espalda en el mapa en
+  vivo, (5) adaptación a cualquier pantalla, (6) layout por tamaño real
+  independiente de la configuración del sistema,
+  (7) Rediseño de la ficha del ejercicio igual al mockup .html (RF-14, D-026),
+  (8) Navegación desde miniatura a ficha de ejercicio (RF-16, D-028).
+- **Tareas:** T-001 diagnóstico de persistencia · T-002 notificaciones ·
+  T-003 series semanales en fatiga · T-004 toggle frente/espalda ·
+  T-005 breakpoints · T-006 aislamiento de escala del sistema ·
+  T-007 cierre (goldens + suite + docs).
+- **Hallazgos de diagnóstico (sin implementar):** `RestNotifier.alertNow()`
+  no se invoca en ningún sitio (en primer plano el descanso no suena);
+  canal Android `rest_timer` sin `audioAttributesUsage: alarm`;
+  `live_workout_view.dart:334` pasa `showBack: false` fijo;
+  `MuscleZoneStats.sets` ya se calcula pero no se pinta en vivo;
+  `ZoneVolumeChart` etiqueta «kg×series» ambigua.
+- **Decisiones nuevas:** D-018…D-025 (ver `spec.md` §Decisiones).
+- **Preguntas abiertas:** Q-007 sonido personalizado · Q-008 causa raíz
+  persistencia (la resuelve T-001) · Q-009 alcance del clamp de escala de
+  texto (tope propuesto 1.3) · Q-010 series semanales en Progreso (ya
+  existe, no tocar) · Q-011 extraer `ViewToggle` compartido (sí).
+- **Next:** aprobación del usuario → ejecutar T-001 en adelante.
 
 ## Last completed task
 
@@ -53,16 +81,20 @@
 - D-015: `ExerciseChips` extraído a widget público para compartir entre vista en vivo y editor de rutinas (RF-3)
 - D-016: `_draftTile` ahora muestra `ExerciseThumb(44)` + `ExerciseChips` + nombre, con fallback `ThumbFallback` cuando `imagePath` es nulo o roto
 - D-017: `RoutineEditorView` recibe `CatalogRepository` como parámetro opcional con valor por defecto para compatibilidad
+- D-026: fuente de verdad visual = code.html, fidelidad 1:1, orden de secciones
+- D-028: navegación ExerciseThumb con GestureDetector en 3 puntos, navega con ExerciseInfoView con database y workoutRepository globals
 
 ## Preguntas abiertas Q-xxx
 
 - Q-1: resuelta (sustitución total) — constancia en T-008
 - Q-005: resuelta 2026-11-01 — `workoutRepository` inyectado en `pumpView` + helper `unmount` para drenar el timer de drift; 12/12 tests en verde
 - Q-006: ¿Se necesitan pruebas widget adicionales para `ExerciseThumb` en el editor (criterio: `find.byType(ExerciseThumb)` por tarjeta)?
+- Q-012: Puntos de entrada de la ficha sin database/workoutRepository (catalog_view y routine_detail_view)
+- Q-013: Área tocable - solo la miniatura o también chips/nombre?
 
 ---
 
-**Next task:** Sin pendientes abiertos. Candidatos: correr `flutter test` completo para confirmar que nada más se afectó, o retomar la spec activa en `docs/specs/` (015 cerrada).
+**Next task:** Spec 016 planificada (`docs/specs/016-mejoras-entrenamiento-vivo/`): aprobadas 2 mejoras (RF-14/RF-16). Proceed to implementation: rediseño ficha ejercicio (D-026/D-028) y navegación ExerciseThumb → ExerciseInfoView. Specs 014 y 015 cerradas; 013 queda «en curso» en la hoja de ruta.
 ## Bugs de la spec 014 - Arreglados
 
 ### Bug 4: Race condition en FatigueNotifier.dispose() (vuelo en curso)
