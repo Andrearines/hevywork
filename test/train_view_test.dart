@@ -268,7 +268,7 @@ void main() {
       expect(find.text('Push A'), findsOneWidget);
       expect(find.text('TONELAJE'), findsOneWidget);
       expect(find.text('1.058'), findsNWidgets(2));
-      expect(find.text('132.3 lb × 8'), findsOneWidget);
+      expect(find.text('132.28 lb × 8'), findsOneWidget);
 
       await unmount(tester);
     });

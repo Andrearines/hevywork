@@ -424,7 +424,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('661.4 lb'), findsOneWidget);
-      expect(find.text('132.3 lb × 5'), findsOneWidget);
+      expect(find.text('132.28 lb × 5'), findsOneWidget);
       await unmount(tester);
     });
 

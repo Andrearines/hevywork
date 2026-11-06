@@ -209,7 +209,7 @@ class _ExpandedBody extends StatelessWidget {
               MuscleZoneStatus.recovering => mm.kFatigueCold,
             };
             final setsText = zone.sets > 0 ? '${zone.sets} series' : 'Sin series';
-            final volumeKg = displayWeightKg(zone.weeklyVolume, unitSystem);
+            final volumeKg = formatWeightKg(zone.weeklyVolume, unitSystem);
             final weightUnit = weightUnitOf(unitSystem);
             final volumeText = zone.sets > 0 ? '$volumeKg $weightUnit' : '';
             final chipText = zone.sets > 0

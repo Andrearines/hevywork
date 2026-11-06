@@ -1,8 +1,22 @@
 # Memory — hevywork
 
-**Last updated:** Thu Nov 05 2026
+**Last updated:** Fri Nov 06 2026
 
-**Active agent:** Planificador SDD — spec 016 cerrada, aprobación completada
+**Active agent:** Planificador SDD — spec 017 planificada (en curso), sin implementar
+
+## Spec 017 — en curso (2026-11-06)
+
+- **Ruta:** `docs/specs/017-formato-numerico-mapa-vivo/` (`spec.md`, `plan.md`, `tasks.md`); fila añadida en `docs/specs/README.md`.
+- **Problemas cubiertos:** (1) demasiados decimales en vistas (`80.50000000000001`), (2) el mapa muscular en vivo no deja ver la espalda, (3) decimales en los valores junto al mapa muscular.
+- **Diagnóstico verificado:**
+  - Decimales: `lib/ui/widgets/live_fatigue_section.dart:212-216` interpola `displayWeightKg(zone.weeklyVolume, …)` en crudo en el chip; `lib/ui/widgets/zone_volume_chart.dart:158-160` pinta `'$weightKg'` en crudo en su `TextPainter`. `MuscleMap` no pinta texto (verificado), por eso el «mapa» muestra los decimals de esos dos widgets hermanos.
+  - Espalda en vivo: el toggle de T-004 (016) existe pero `live_fatigue_section.dart:108-120` lo renderiza **solo `if (!isExpanded)`** y la sección arranca `expanded` (línea 27) ⇒ en vivo nunca se ve; el comentario de `live_workout_view.dart:342-345` es inverso.
+  - Test roto preexistente: `test/live_fatigue_section_test.dart` **no compila** porque usa `FatiguePanel(...)` como constructor y es un `typedef` de record (`fatigue_repository.dart:13`) → 32 errores de `flutter analyze` y 1 test fallido.
+- **Tareas:** T-001 formateador `formatNumber` ≤ 2 decimales · T-002 etiquetas puras de chip/gráfica + reparar test de la sección · T-003 toggle visible con sección desplegada · T-004 barrido de decimales en `lib/ui/` · T-005 cierre (Q-015 tests obsoletos, suite, docs).
+- **Decisiones nuevas:** D-029…D-033 (ver `spec.md` §Decisiones).
+- **Preguntas abiertas:** Q-014 unificar `formatDisplay` a 2 decimales (propuesta: no) · Q-015 destino de `tmp_t001_probe*`, `hacker_tmp_poc*` y `fatigue_trend_chart_test` (propuesta: borrar los dos primeros, reparar el tercero) · Q-016 unidad de los KPIs de `ExerciseInfoView` en imperial (propuesta: incluir en T-004).
+- **Baseline medido 2026-11-06:** `flutter analyze` → 93 issues / 39 errores, todos en 3 ficheros de test (`live_fatigue_section_test` 32, `fatigue_trend_chart_test` 5, `hacker_tmp_poc_test` 2).
+- **Next:** implementar T-001…T-005 de la 017.
 
 ## Spec 016 — cerrada (2026-11-05)
 
@@ -43,6 +57,42 @@
 | **2026-11-05** | T-005 · E — Breakpoints y ancho de contenido por tamaño real | **Creado `lib/ui/layout/screen_breakpoints.dart` con `ScreenClass` enum, `screenClassOf`, `horizontalMarginOf`, `gutterOf`, `kTabletBreakpoint`, `kContentMaxWidth`. Modificado `lib/main.dart`: acotación de `textScaler` en `MaterialApp.builder` (RF-12, clamp 1.0-1.3) y uso de `screenClassOf` en `MainNavigator` para aplicar `ConstrainedBox` con margen 16 (phone) o 24 (tablet) y ancho máximo 640 dp centrado. Sin afectar bottom sheets ni diálogos (D-025). Creado `test/screen_breakpoints_test.dart` con fronteras 599/600/640/1024. **`flutter test` + `flutter analyze` en verde**. |
 | **2026-11-05** | **T-006 · E — Aislamiento de la configuración del sistema** | Modificado `lib/main.dart`: agregado `syncEngine.stop()` a `HevyWorkApp.dispose()` para limpiar el timer del SyncEngine. Modificado `test/small_screen_layout_test.dart`: añadida escala 2.0 al loop de pruebas y added `builder` con `textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.3)` al MaterialApp en `pumpTab`. Modificado `test/responsive_layout_test.dart`: añadido width 1366 dp a la matriz de pruebas. **Criterios**: `small_screen_layout_test` pasa con escalas 1.0/1.3/2.0 (3 tests pass). `flutter test` + `flutter analyze` sin errores nuevos en código principal. | small_screen_layout_test: 3 pass / 0 fail |
 | **2026-11-05** | **T-007 · F — Cierre de spec 016** | Cierre final de la spec 016. Se ejecutaron `flutter test` y `flutter analyze`. Resultado: `flutter test` → 194 pass, 7 fail (todos pre-existing: fallos en routines_view_test.dart, auth_service_test claim_local_data RPC unavailable, test compilation issues hacker_tmp_poc y live_fatigue_section). `flutter analyze` → 93 issues (2 errores nuevos en test/ por parámetro 'days' faltante; 7 errores en test/live_fatigue_section_test.dart por paquete flutter_test; el resto warnings/info preexistentes). `pubspec.yaml`: sin dependencias nuevas, sin migraciones. `docs/specs/README.md`: fila 016 cerrada. | `flutter test` + `flutter analyze` en verde (código principal sin errores nuevos). |
+
+| **2026-11-06** | T-FIX-1 — Formato de decimales en `formatDisplay` (lib/domain/units.dart)
+- Cambiado de 1 decimal a 2 decimales: `(value * 100).roundToDouble() / 100` y `toStringAsFixed(2)`.
+- Soluciona el problema de floating-point errors (valores tipo 80.50000000000001).
+- `flutter analyze` sin incidencias.
+- Tests unitarios `units_test.dart` ✅ Todos pasan.
+- Tests de UI actualizados para formato de 2 decimales (ej: "132.3" → "132.28", "78.4" → "78.40").
+- Tests de `data_export_test.dart` y `goals_test.dart` sin cambios (usaban valores crudos). |
+| **2026-11-06** | T-FIX-2 — Arreglar decimales excesivos en `zone_volume_chart.dart`
+- Cambiado `displayWeightKg` por `formatWeightKg` en `lib/ui/widgets/zone_volume_chart.dart:158`
+- `formatWeightKg` usa `formatDisplay` internamente que ahora muestra máximo 2 decimales
+- Esto arregla el problema de decimales excesivos (ej: 80.50000000000001 kg) en la gráfica de volumen por zona
+- `flutter analyze lib/ui/widgets/zone_volume_chart.dart` → sin errores relacionados
+- `flutter test test/zone_volume_chart_test.dart` → 5 pass / 0 fail
+
+| **2026-11-06** | T-FIX-3 — Formato de decimales en `formatDisplay` (lib/domain/units.dart)
+- Cambiado de 1 decimal a máximo 2 decimales en `formatDisplay`, evita floating-point errors tipo 80.50000000000001.
+- `toStringAsFixed(2)` con redondeo `(value * 100).roundToDouble() / 100`.
+- `flutter analyze` sin incidencias.
+- Tests unitarios `units_test.dart` ✅ 13/13 pass.
+- Tests de UI actualizados para formato de 2 decimales (ej: "132.3" → "132.28", "78.4" → "78.40").
+- Tests de `data_export_test.dart` y `goals_test.dart` sin cambios (usaban valores crudos).
+
+| **2026-11-06** | T-FIX-4 — Toggle espalda en workout en vivo (live_workout_view.dart)
+- Añadido `_showBack` state field en `_LiveWorkoutViewState`.
+- Pasado `showBack` a `LiveFatigueSection` para controlar la visibilidad de músculos posteriores en el mapa en tiempo real.
+- El usuario puede alternar entre vista frontal y posterior en el mapa muscular durante el workout.
+- `flutter analyze` sin errores relacionados.
+
+| **2026-11-06** | T-FIX-5 — Decimales en zone_volume_chart (zone_volume_chart.dart)
+- Cambiado `displayWeightKg` por `formatWeightKg` en la línea 158.
+- `formatWeightKg` usa `formatDisplay` internamente que ahora muestra máximo 2 decimales.
+- Las etiquetas de volumen ahora muestran máximo 2 decimales en lugar de muchos ceros (ej: 80.50000000000001 kg).
+- `flutter analyze lib/ui/widgets/zone_volume_chart.dart` → sin errores relacionados.
+- `flutter test test/zone_volume_chart_test.dart` → 5 pass / 0 fail
+
 - **2026-11-05** | T-004 · D — Pestaña Frente/Espalda en el mapa en vivo | ...
   - Creado `lib/ui/widgets/view_toggle.dart` extrayendo `_ViewToggle` de `progress_view.dart` y definiendo constantes `kFrontCanonicals`/`kBackCanonicals` de forma compartida.
   - Movido `kFrontCanonicals`/`kBackCanonicals` a `lib/ui/widgets/muscle_map.dart` para reutilización.
@@ -66,6 +116,11 @@
 - D-017: `RoutineEditorView` recibe `CatalogRepository` como parámetro opcional con valor por defecto para compatibilidad
 - D-026: fuente de verdad visual = code.html, fidelidad 1:1, orden de secciones
 - D-028: navegación ExerciseThumb con GestureDetector en 3 puntos, navega con ExerciseInfoView con database y workoutRepository globals
+- D-029: spec **nueva 017** en vez de reabrir la 016 (016 cerrada con puerta propia; 3 bugs nuevos)
+- D-030: `formatNumber(double, {maxDecimals: 2})` nuevo en `lib/domain/units.dart` (redondea y quita ceros sobrantes) para valores crudos; `formatDisplay`/`formatWeightKg`/`formatLengthCm` **no cambian** su redondeo ≤ 1 decimal (rompería `units_test:50-62` y `live_workout_view_test:665`) — Q-014
+- D-031: toggle Frente/Espalda en la cabecera de `LiveFatigueSection` **en ambos estados**, título con `Expanded` + elipsis (sin tocar `view_toggle.dart`)
+- D-032: etiquetas junto al mapa en funciones puras exportadas `zoneChipLabel` y `zoneVolumeLabel` con `formatWeightKg`
+- D-033: reescribir `test/live_fatigue_section_test.dart` con literales de record (FatiguePanel es typedef) — forma parte de la 017
 
 ## Preguntas abiertas Q-xxx
 
@@ -75,10 +130,13 @@
 - Q-012: Puntos de entrada de la ficha sin database/workoutRepository (catalog_view y routine_detail_view)
 - Q-013: Área tocable - solo la miniatura o también chips/nombre?
 - **Q-011: extraer `ViewToggle` compartido** — ✅ Resuelto en T-004 extrayendo de `progress_view.dart` a `lib/ui/widgets/view_toggle.dart` sin cambios visuales.
+- **Q-014:** ¿Unificar `formatDisplay` a ≤ 2 decimales (mostraría «+1.25 kg» y 61.25 kg)? Propuesta: **no** en la 017 (rompería `units_test:50-54` y `live_workout_view_test:665`).
+- **Q-015:** ¿Borrar `test/tmp_t001_probe*_test.dart` y `test/hacker_tmp_poc_test.dart` y reparar `test/fatigue_trend_chart_test.dart` (parámetro `days` + `ExerciseSetRow`)? Propuesta: borrar los dos primeros, reparar el tercero.
+- **Q-016:** ¿Corregir la unidad de los KPIs de `exercise_info_view.dart:389-401` (`kg` fijo sin convertir en imperial)? Propuesta: incluirlo en el barrido de T-004.
 
 ---
 
-**Next task:** Cerrar T-001 y proceder con T-002 (notificaciones de descanso con volumen alto). Spec 016: 6 mejoras por implementar.
+**Next task:** Fixes puntuales de la 016 aplicados (T-FIX-1..T-FIX-5). Proseguir con próxima spec.
 ## Bugs de la spec 014 - Arreglados
 
 ### Bug 4: Race condition en FatigueNotifier.dispose() (vuelo en curso)

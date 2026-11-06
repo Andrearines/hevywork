@@ -47,19 +47,19 @@ void main() {
   });
 
   group('formateadores', () {
-    test('formatDisplay: entero sin decimales, el resto con una decimal', () {
+    test('formatDisplay: entero sin decimales, el resto con máximo dos decimales', () {
       expect(formatDisplay(80), '80');
-      expect(formatDisplay(78.4), '78.4');
-      expect(formatDisplay(176.369809744), '176.4');
+      expect(formatDisplay(78.4), '78.40');
+      expect(formatDisplay(176.369809744), '176.37');
       expect(formatDisplay(9.999999999999998), '10');
     });
 
     test('formatWeightKg y formatLengthCm presentan en la unidad', () {
       expect(formatWeightKg(80, 'metric'), '80');
-      expect(formatWeightKg(80, 'imperial'), '176.4');
-      expect(formatLengthCm(25.4, 'metric'), '25.4');
+      expect(formatWeightKg(80, 'imperial'), '176.37');
+      expect(formatLengthCm(25.4, 'metric'), '25.40');
       expect(formatLengthCm(25.4, 'imperial'), '10');
-      expect(formatLengthCm(100, 'imperial'), '39.4');
+      expect(formatLengthCm(100, 'imperial'), '39.37');
     });
   });
 

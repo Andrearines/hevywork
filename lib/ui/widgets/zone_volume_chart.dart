@@ -155,7 +155,7 @@ class _ZoneVolumePainter extends CustomPainter {
         color: kOnSurfaceVariant,
         fontSize: 10,
       );
-      final weightKg = displayWeightKg(zone.weeklyVolume, unitSystem);
+      final weightKg = formatWeightKg(zone.weeklyVolume, unitSystem);
       final weightUnit = weightUnitOf(unitSystem);
       final volText = zone.sets > 0 ? '${zone.sets} series $weightKg $weightUnit' : '';
       final volPainter = TextPainter(

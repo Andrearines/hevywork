@@ -75,6 +75,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       const <String, List<PreviousSet>>{};
   bool _previousLoaded = false;
   bool _disposed = false;
+  bool _showBack = false;
   final Set<String> _expandedExerciseIds = {};
   FatigueNotifier? _fatigueNotifier;
   bool _restDismissed = false;
@@ -339,10 +340,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                                   onPanelChanged: (panel) {
                                     // Actualizar el stream si es necesario
                                   },
-                                  // showBack gestionado internamente por el widget;
-                                  // por defecto frontal (false). El toggle UI está en
-                                  // live_fatigue_section.dart y estará disponible cuando
-                                  // la sección esté expandida.
+                                  showBack: _showBack,
                                 ),
                               );
                             },

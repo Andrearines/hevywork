@@ -38,12 +38,12 @@ double toCm(double value, String unitSystem) =>
     unitSystem == 'imperial' ? value * kCmPerIn : value;
 
 /// Formatea un valor numérico para mostrar: entero sin decimales y el resto
-/// con una decimal.
+/// con máximo dos decimales.
 String formatDisplay(double value) {
-  final rounded = (value * 10).roundToDouble() / 10;
+  final rounded = (value * 100).roundToDouble() / 100;
   return rounded == rounded.roundToDouble()
       ? '${rounded.round()}'
-      : rounded.toStringAsFixed(1);
+      : rounded.toStringAsFixed(2);
 }
 
 /// Formatea un peso (base kg) en la unidad del sistema, sin etiqueta.

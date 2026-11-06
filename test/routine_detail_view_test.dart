@@ -263,7 +263,7 @@ void main() {
     );
     await pumpImperialDetail(tester, routine: routine);
 
-    expect(find.text('2 series · 8 reps · RIR 2 · 132.3 lb'), findsOneWidget);
+    expect(find.text('2 series · 8 reps · RIR 2 · 132.28 lb'), findsOneWidget);
 
     await unmount(tester);
   });
