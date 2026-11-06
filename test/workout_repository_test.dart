@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart' show Value;
+import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/data/local/database.dart';
@@ -1074,6 +1074,164 @@ void main() {
             ..where((t) => t.id.equals(set.id)))
           .getSingle();
       expect(stored.weightKg, 60.0);
+    });
+  });
+
+  group('T-001 · persistencia de series (RF-5/RF-6/RF-7)', () {
+    Future<WorkoutSet> logSet(
+      Workout workout,
+      double weightKg,
+      int reps,
+      int rir,
+    ) async {
+      final item = await (db.select(db.workoutExercises)
+            ..where((t) => t.workoutId.equals(workout.id)))
+          .getSingle();
+      return repo.logSet(
+        workoutExerciseId: item.id,
+        weightKg: weightKg,
+        reps: reps,
+        rir: rir,
+      );
+    }
+
+    Future<List<WorkoutSet>> setsOfWorkout(Workout workout) async {
+      final item = await (db.select(db.workoutExercises)
+            ..where((t) => t.workoutId.equals(workout.id)))
+          .getSingle();
+      return (db.select(db.workoutSets)
+            ..where((t) => t.workoutExerciseId.equals(item.id))
+            ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
+          .get();
+    }
+
+    test('borrar una serie la quita de la BD, reindexa 1..n y encola el '
+        'delete (RF-5)', () async {
+      final workout = await startWithExercise();
+      final first = await logSet(workout, 70, 10, 3);
+      final second = await logSet(workout, 75, 8, 2);
+      final third = await logSet(workout, 80, 6, 1);
+      expect([first.orderIndex, second.orderIndex, third.orderIndex], [1, 2, 3]);
+
+      await repo.deleteSet(second.id);
+
+      final rows = await setsOfWorkout(workout);
+      expect(rows.map((s) => s.id), [first.id, third.id]);
+      expect(rows.map((s) => s.orderIndex), [1, 2]);
+      expect(rows.map((s) => s.weightKg), [70.0, 80.0]);
+
+      expect(enqueued.last.operation, 'delete');
+      expect(enqueued.last.table, 'workout_sets');
+      expect(payloadOf(enqueued.length - 1)['id'], second.id);
+    });
+
+    test('borrar la primera serie deja el resto en 1..n sin huecos (RF-5)',
+        () async {
+      final workout = await startWithExercise();
+      final first = await logSet(workout, 70, 10, 3);
+      final second = await logSet(workout, 75, 8, 2);
+      final third = await logSet(workout, 80, 6, 1);
+
+      await repo.deleteSet(first.id);
+
+      final rows = await setsOfWorkout(workout);
+      expect(rows.map((s) => s.id), [second.id, third.id]);
+      expect(rows.map((s) => s.orderIndex), [1, 2]);
+    });
+
+    test('las series pendientes sobreviven a una instancia nueva del '
+        'repositorio con valores, tipo y orden (RF-7)', () async {
+      final workout = await startWithExercise();
+      final item = await (db.select(db.workoutExercises)
+            ..where((t) => t.workoutId.equals(workout.id)))
+          .getSingle();
+      await repo.logSet(
+        workoutExerciseId: item.id,
+        weightKg: 60,
+        reps: 8,
+        rir: 2,
+        restSeconds: 90,
+        routineSetId: 'routine-set-1',
+        completed: false,
+      );
+      await repo.logSet(
+        workoutExerciseId: item.id,
+        weightKg: 65,
+        reps: 6,
+        rir: 1,
+        setType: 'warmup',
+        completed: false,
+      );
+
+      // «Reiniciar»: una instancia nueva del repositorio sobre la misma BD.
+      final restarted = WorkoutRepository(
+        db,
+        enqueue: (operation, table, payload) async {
+          enqueued.add((operation: operation, table: table, payload: payload));
+        },
+      );
+
+      final rows = await setsOfWorkout(workout);
+      expect(rows, hasLength(2));
+      expect(rows.map((s) => s.completed), [false, false]);
+      expect(rows.map((s) => s.weightKg), [60.0, 65.0]);
+      expect(rows.map((s) => s.reps), [8, 6]);
+      expect(rows.map((s) => s.rir), [2, 1]);
+      expect(rows.map((s) => s.setType), ['normal', 'warmup']);
+      expect(rows.map((s) => s.orderIndex), [1, 2]);
+      expect(rows.map((s) => s.restSeconds), [90, null]);
+      expect(rows.map((s) => s.routineSetId), ['routine-set-1', null]);
+
+      final streamed = await restarted.watchSets(workout.id).first;
+      expect(streamed.map((s) => s.id), rows.map((s) => s.id));
+      expect(streamed.every((s) => !s.completed), isTrue);
+    });
+
+    test('borrar en una sesión cerrada no cambia filas ni encola (RF-6)',
+        () async {
+      final workout = await startWithExercise();
+      final set = await logSet(workout, 70, 10, 3);
+      await repo.finishWorkout(workout.id);
+      final enqueuedBefore = enqueued.length;
+
+      await expectLater(
+        repo.deleteSet(set.id),
+        throwsA(isA<SessionNotEditableException>()),
+      );
+
+      final stored = await (db.select(db.workoutSets)
+            ..where((t) => t.id.equals(set.id)))
+          .getSingle();
+      expect(stored.completed, isTrue);
+      expect(stored.reps, 10);
+      expect(enqueued, hasLength(enqueuedBefore));
+    });
+
+    test('confirmar una serie inválida no escribe nada ni encola (RF-6)',
+        () async {
+      final workout = await startWithExercise();
+      final item = await (db.select(db.workoutExercises)
+            ..where((t) => t.workoutId.equals(workout.id)))
+          .getSingle();
+      final set = await repo.logSet(
+        workoutExerciseId: item.id,
+        weightKg: 70,
+        reps: 10,
+        rir: 3,
+      );
+      final enqueuedBefore = enqueued.length;
+
+      await expectLater(
+        repo.updateSet(setId: set.id, weightKg: 70, reps: 0, rir: 3),
+        throwsA(isA<SetValidationException>()),
+      );
+
+      final stored = await (db.select(db.workoutSets)
+            ..where((t) => t.id.equals(set.id)))
+          .getSingle();
+      expect(stored.reps, 10);
+      expect(stored.weightKg, 70);
+      expect(enqueued, hasLength(enqueuedBefore));
     });
   });
 }

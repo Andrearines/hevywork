@@ -77,6 +77,8 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   bool _disposed = false;
   final Set<String> _expandedExerciseIds = {};
   FatigueNotifier? _fatigueNotifier;
+  bool _restDismissed = false;
+  RestTimerPhase _lastRestPhase = RestTimerPhase.idle;
 
   @override
   void initState() {
@@ -96,7 +98,10 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     );
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       _now.value = DateTime.now();
+      _checkRestDone();
     });
+    _restDismissed = false;
+    _lastRestPhase = RestTimerPhase.idle;
   }
 
   @override
@@ -125,6 +130,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   /// Con [restSeconds] usa el descanso planificado de esa serie (RF-1 de la
   /// 004); si no, el del ejercicio.
   Future<void> _startRest(Exercise exercise, {int? restSeconds}) async {
+    _restNotifier.resetAlertFlag();
     final now = DateTime.now();
     final seconds = (restSeconds ?? exercise.restSeconds).clamp(15, 300);
     final timer = const RestTimer().start(now, Duration(seconds: seconds));
@@ -196,14 +202,16 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     });
   }
   @override
-  void dispose() {
-    _disposed = true;
-    WidgetsBinding.instance.removeObserver(this);
-    _restNotifier.cancel();
-    _clockTimer?.cancel();
-    _now.dispose();
-    _fatigueNotifier?.dispose();
-    super.dispose();
+  void _checkRestDone() {
+    if (_currentWorkout == null) return;
+    final rest = _restOf(_currentWorkout!);
+    final phase = rest.phaseAt(DateTime.now());
+    // Detectar transición a done
+    if (phase == RestTimerPhase.done && _lastRestPhase != RestTimerPhase.done && !_restDismissed) {
+      _restDismissed = true;
+      _restNotifier.alertNow();
+    }
+    _lastRestPhase = phase;
   }
 
   String _formatTime(Duration elapsed) {
@@ -331,7 +339,10 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                                   onPanelChanged: (panel) {
                                     // Actualizar el stream si es necesario
                                   },
-                                  showBack: false, // vista frontal por defecto en vivo
+                                  // showBack gestionado internamente por el widget;
+                                  // por defecto frontal (false). El toggle UI está en
+                                  // live_fatigue_section.dart y estará disponible cuando
+                                  // la sección esté expandida.
                                 ),
                               );
                             },
@@ -711,9 +722,9 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     );
   }
 
-  /// Píldora flotante del descanso (RF-16 de la 008): sticky sobre el
-  /// contenido con indicador pulsante y +30 s, manteniendo las claves de test
-  /// y los textos de la 002 (RF-17).
+  /// Píldora flotante del descanso (RF-17 de la 016): sticky sobre el
+/// contenido con indicador pulsante y +30 s, manteniendo las claves de test
+/// y los textos de la 002 (RF-17).
   Widget _restPill() {
     final workout = _currentWorkout;
     if (workout == null) return const SizedBox.shrink();

@@ -778,4 +778,157 @@ void main() {
 
     await unmount(tester);
   });
+
+  testWidgets('borrar una serie desde la UI la quita de la BD y reindexa '
+      '1..n (RF-5)', (tester) async {
+    final workout = await workoutRepository.startWorkout();
+    final item = await workoutRepository.addExercise(
+      workoutId: workout.id,
+      exerciseId: 'bench-press',
+    );
+    final first = await workoutRepository.logSet(
+      workoutExerciseId: item.id,
+      weightKg: 70,
+      reps: 10,
+      rir: 3,
+    );
+    final second = await workoutRepository.logSet(
+      workoutExerciseId: item.id,
+      weightKg: 75,
+      reps: 8,
+      rir: 2,
+    );
+    final third = await workoutRepository.logSet(
+      workoutExerciseId: item.id,
+      weightKg: 80,
+      reps: 6,
+      rir: 1,
+    );
+
+    await pumpView(tester, workout.id);
+
+    expect(find.byKey(ValueKey('set-${second.id}')), findsOneWidget);
+
+    final deleteButton = find.byKey(Key('set-delete-${second.id}'));
+    await tester.ensureVisible(deleteButton);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(deleteButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Eliminar serie'), findsOneWidget);
+
+    await tester.tap(find.text('Eliminar'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(ValueKey('set-${second.id}')), findsNothing);
+
+    final rows = await (localDb.select(localDb.workoutSets)
+          ..where((t) => t.workoutExerciseId.equals(item.id)))
+        .get();
+    final ordered = rows.toList()
+      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+    expect(ordered.map((s) => s.id), [first.id, third.id]);
+    expect(ordered.map((s) => s.orderIndex), [1, 2]);
+    expect(ordered.map((s) => s.weightKg), [70.0, 80.0]);
+
+    await unmount(tester);
+  });
+
+  testWidgets('al recargar la vista las series pendientes siguen en la tabla '
+      'con sus valores (RF-5/RF-7)', (tester) async {
+    final workout = await workoutRepository.startWorkout();
+    final item = await workoutRepository.addExercise(
+      workoutId: workout.id,
+      exerciseId: 'bench-press',
+    );
+    final pending = await workoutRepository.logSet(
+      workoutExerciseId: item.id,
+      weightKg: 60,
+      reps: 8,
+      rir: 2,
+      restSeconds: 90,
+      completed: false,
+    );
+
+    await pumpView(tester, workout.id);
+    expect(find.byKey(ValueKey('set-${pending.id}')), findsOneWidget);
+    await unmount(tester);
+
+    // Cerrar y reabrir la sesión (mismo workoutId).
+    await pumpView(tester, workout.id);
+
+    expect(find.byKey(ValueKey('set-${pending.id}')), findsOneWidget);
+    final stored = await (localDb.select(localDb.workoutSets)
+          ..where((t) => t.id.equals(pending.id)))
+        .getSingle();
+    expect(stored.completed, isFalse);
+    expect(stored.weightKg, 60);
+    expect(stored.reps, 8);
+    expect(stored.rir, 2);
+    expect(stored.setType, 'normal');
+    expect(stored.orderIndex, 1);
+    expect(stored.restSeconds, 90);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(Key('set-reps-${pending.id}')))
+          .controller!
+          .text,
+      '8',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.byKey(Key('set-weight-${pending.id}')))
+          .controller!
+          .text,
+      '60',
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('borrar con la sesión ya cerrada avisa en snackbar y no cambia '
+      'ninguna fila (RF-6)', (tester) async {
+    final workout = await workoutRepository.startWorkout();
+    final item = await workoutRepository.addExercise(
+      workoutId: workout.id,
+      exerciseId: 'bench-press',
+    );
+    final set = await workoutRepository.logSet(
+      workoutExerciseId: item.id,
+      weightKg: 70,
+      reps: 10,
+      rir: 3,
+    );
+
+    await pumpView(tester, workout.id);
+
+    // La sesión deja de ser editable con la vista abierta.
+    await (localDb.update(localDb.workouts)
+          ..where((t) => t.id.equals(workout.id)))
+        .write(const WorkoutsCompanion(status: Value('finished')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final deleteButton = find.byKey(Key('set-delete-${set.id}'));
+    await tester.ensureVisible(deleteButton);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(deleteButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text('Eliminar'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('La sesión ya está cerrada'), findsOneWidget);
+
+    final rows = await localDb.select(localDb.workoutSets).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.completed, isTrue);
+
+    await dismissSnackBars(tester);
+  });
 }

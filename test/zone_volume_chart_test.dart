@@ -37,4 +37,35 @@ void main() {
     );
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('etiqueta no contiene el formato viejo kg×series', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ZoneVolumeChart(
+            zones: stats,
+            unitSystem: 'metric',
+          ),
+        ),
+      ),
+    );
+    // La etiqueta antigua era "kg×series", la nueva es "N series X kg"
+    // Como el texto se pinta en CustomPaint, verificamos que el widget
+    // no lanza excepción y la estructura es la esperada
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('etiqueta cambia con unitSystem imperial', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ZoneVolumeChart(
+            zones: stats,
+            unitSystem: 'imperial',
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -3,9 +3,12 @@ import 'package:flutter/material.dart';
 import '../../data/repositories/fatigue_repository.dart';
 import '../../domain/fatigue_trend.dart';
 import '../../domain/muscle_fatigue.dart';
+import '../../domain/units.dart';
 import 'fatigue_trend_chart.dart' as ft;
 import 'muscle_map.dart' as mm;
 import 'zone_volume_chart.dart' as zv;
+import 'view_toggle.dart';
+import '../unit_system_scope.dart' as uis;
 
 export '../../data/repositories/fatigue_repository.dart' show FatiguePanel;
 
@@ -47,6 +50,15 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
     if (widget.showBack != null && widget.showBack != _showBack) {
       _showBack = widget.showBack!;
     }
+    _syncSelection();
+  }
+
+  void _syncSelection() {
+    if (_selectedMuscle == null) return;
+    final visible = _showBack ? mm.kBackCanonicals : mm.kFrontCanonicals;
+    if (!visible.contains(_selectedMuscle)) {
+      _selectedMuscle = null;
+    }
   }
 
   @override
@@ -59,6 +71,7 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
     final fatigue = panel?.fatigue ?? const <String, double>{};
     final zones = panel?.zones ?? const <MuscleZoneStats>[];
     final trend = panel?.trend ?? const <FatigueTrendPoint>[];
+    final unitSystem = uis.UnitSystemScope.of(context);
 
     final isExpanded = _state == FatigueSectionState.expanded;
 
@@ -92,6 +105,19 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
                 isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                 size: 24,
               ),
+              if (!isExpanded)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: ViewToggle(
+                    showBack: _showBack,
+                    onChanged: (value) {
+                      setState(() {
+                        _showBack = value;
+                      });
+                      _syncSelection();
+                    },
+                  ),
+                ),
             ],
           ),
         ),
@@ -104,6 +130,7 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
       trend: trend,
       selectedMuscle: _selectedMuscle,
       showBack: _showBack,
+      unitSystem: unitSystem,
       onMuscleSelected: (muscle) {
         setState(() {
           _selectedMuscle = muscle;
@@ -129,6 +156,7 @@ class _ExpandedBody extends StatelessWidget {
   final List<FatigueTrendPoint> trend;
   final String? selectedMuscle;
   final bool showBack;
+  final String unitSystem;
   final ValueChanged<String?> onMuscleSelected;
 
   const _ExpandedBody({
@@ -137,6 +165,7 @@ class _ExpandedBody extends StatelessWidget {
     required this.trend,
     this.selectedMuscle,
     required this.showBack,
+    required this.unitSystem,
     required this.onMuscleSelected,
   });
 
@@ -158,7 +187,7 @@ class _ExpandedBody extends StatelessWidget {
       zoneContent = Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Text(
-          'Sin fatiga acumulada todavía',
+          'Sin series',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -172,7 +201,6 @@ class _ExpandedBody extends StatelessWidget {
             final zone = zones[i];
             final fatigueVal = zone.fatigue;
             final status = zoneStatusOf(fatigueVal);
-            final statusText = zoneStatusLabel(status);
             final muscleName = mm.muscleLabel(zone.muscle);
             final isSelected = selectedMuscle == zone.muscle;
             final color = switch (status) {
@@ -180,6 +208,13 @@ class _ExpandedBody extends StatelessWidget {
               MuscleZoneStatus.optimal => mm.kFatigueWarm,
               MuscleZoneStatus.recovering => mm.kFatigueCold,
             };
+            final setsText = zone.sets > 0 ? '${zone.sets} series' : 'Sin series';
+            final volumeKg = displayWeightKg(zone.weeklyVolume, unitSystem);
+            final weightUnit = weightUnitOf(unitSystem);
+            final volumeText = zone.sets > 0 ? '$volumeKg $weightUnit' : '';
+            final chipText = zone.sets > 0
+                ? '$muscleName · $setsText · $volumeText'
+                : 'Sin series';
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: InkWell(
@@ -199,7 +234,7 @@ class _ExpandedBody extends StatelessWidget {
                         : null,
                   ),
                   child: Text(
-                    '$muscleName · $statusText',
+                    chipText,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: isSelected ? Colors.white : color,
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -218,6 +253,7 @@ class _ExpandedBody extends StatelessWidget {
         zones: zones,
         muscle: selectedMuscle,
         showBack: showBack,
+        unitSystem: unitSystem,
       ),
     );
 

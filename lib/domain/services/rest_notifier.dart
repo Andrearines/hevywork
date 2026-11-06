@@ -17,6 +17,13 @@ class RestNotifier {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
   bool _ready = false;
+  bool _alertDismissed = false;
+
+  static const String _restTimerChannelId = 'rest_timer_v2';
+
+  RestNotifier() {
+    // Los canales se crearán al hacer init en _ensureReady
+  }
 
   Future<void> _ensureReady() async {
     if (_ready) return;
@@ -57,7 +64,7 @@ class RestNotifier {
       await _ensureReady();
       const details = NotificationDetails(
         android: AndroidNotificationDetails(
-          'rest_timer',
+          _restTimerChannelId,
           'Descanso',
           channelDescription: 'Aviso del temporizador de descanso',
           importance: Importance.high,
@@ -90,10 +97,45 @@ class RestNotifier {
   }
 
   /// Aviso en primer plano: sonido + vibración si el dispositivo lo soporta.
+  /// Intenta usar SystemSound + vibración; si falla, intenta notificación local.
   Future<void> alertNow() async {
+    // Evitar duplicados: solo un aviso por descanso
+    if (_alertDismissed) return;
+    _alertDismissed = true;
+
     try {
       await SystemSound.play(SystemSoundType.alert);
       await HapticFeedback.vibrate();
-    } catch (_) {}
+    } catch (_) {
+      // Fallback: notificación local si SystemSound no está disponible
+      try {
+        await _plugin.show(
+          id: _notificationId,
+          title: 'Descanso terminado',
+          body: 'Reanuda tu sesión',
+          notificationDetails: NotificationDetails(
+            android: AndroidNotificationDetails(
+              _restTimerChannelId,
+              'Descanso',
+              channelDescription: 'Aviso del temporizador de descanso',
+              importance: Importance.high,
+              priority: Priority.high,
+            ),
+            iOS: DarwinNotificationDetails(
+              presentAlert: false,
+              presentBadge: false,
+              presentSound: true,
+            ),
+          ),
+        );
+      } catch (_) {
+        // Silenciar si nada funciona: el descanso y la sesión nunca rompen.
+      }
+    }
+  }
+
+  /// Restablece la bandera de aviso para un nuevo descanso.
+  void resetAlertFlag() {
+    _alertDismissed = false;
   }
 }

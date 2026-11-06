@@ -39,7 +39,10 @@ void main() {
     photoRepository = PhotoRepository(localDb);
   });
 
-  tearDownAll(() => localDb.close());
+  tearDownAll(() {
+    syncEngine.stop();
+    localDb.close();
+});
 
   Future<void> pumpTab(
     WidgetTester tester,
@@ -56,6 +59,15 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: MediaQuery.of(context).textScaler.clamp(
+              minScaleFactor: 1.0,
+              maxScaleFactor: 1.3,
+            ),
+          ),
+          child: child ?? const SizedBox.shrink(),
+        ),
         home: Scaffold(
           body: Stack(
             children: [
@@ -106,7 +118,7 @@ void main() {
     'Perfil': () => const ProfileView(),
   };
 
-  for (final scale in [1.0, 1.3]) {
+  for (final scale in [1.0, 1.3, 2.0]) {
     testWidgets('móvil estrecho (320 dp) y escala de texto $scale — sin '
         'desbordes en ninguna pestaña', (tester) async {
       for (final entry in tabs.entries) {

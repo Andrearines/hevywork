@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../domain/muscle_fatigue.dart';
+import '../../domain/units.dart';
 import '../widgets/muscle_map.dart' as mm;
 
 // Colores de la escala de fatiga (spec 007, RF-2).
@@ -29,18 +30,20 @@ class ZoneVolumeChart extends StatelessWidget {
   final List<MuscleZoneStats> zones;
   final String? muscle;
   final bool showBack;
+  final String unitSystem;
 
   const ZoneVolumeChart({
     super.key,
     required this.zones,
     this.muscle,
     this.showBack = false,
+    this.unitSystem = 'metric',
   });
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _ZoneVolumePainter(zones: zones, muscle: muscle, showBack: showBack),
+      painter: _ZoneVolumePainter(zones: zones, muscle: muscle, showBack: showBack, unitSystem: unitSystem),
       size: const Size(double.infinity, 120),
     );
   }
@@ -51,11 +54,13 @@ class _ZoneVolumePainter extends CustomPainter {
   final List<MuscleZoneStats> zones;
   final String? muscle;
   final bool showBack;
+  final String unitSystem;
 
   _ZoneVolumePainter({
     required this.zones,
     required this.muscle,
     required this.showBack,
+    required this.unitSystem,
   });
 
   @override
@@ -150,9 +155,12 @@ class _ZoneVolumePainter extends CustomPainter {
         color: kOnSurfaceVariant,
         fontSize: 10,
       );
+      final weightKg = displayWeightKg(zone.weeklyVolume, unitSystem);
+      final weightUnit = weightUnitOf(unitSystem);
+      final volText = zone.sets > 0 ? '${zone.sets} series $weightKg $weightUnit' : '';
       final volPainter = TextPainter(
         text: TextSpan(
-          text: '${zone.weeklyVolume.round()} kg×series',
+          text: volText,
           style: volStyle,
         ),
         textDirection: TextDirection.ltr,
@@ -252,6 +260,7 @@ class _ZoneVolumePainter extends CustomPainter {
   bool shouldRepaint(covariant _ZoneVolumePainter oldDelegate) {
     return oldDelegate.muscle != muscle ||
         oldDelegate.showBack != showBack ||
+        oldDelegate.unitSystem != unitSystem ||
         !_zonesEqual(oldDelegate.zones, zones);
   }
 

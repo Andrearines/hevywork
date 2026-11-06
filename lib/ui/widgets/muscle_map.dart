@@ -10,6 +10,36 @@ const Color kFatigueCold = Color(0xFF4A90E9);
 const Color kFatigueWarm = Color(0xFFF5A623);
 const Color kFatigueHot = Color(0xFFD0021B);
 
+/// Conjuntos de músculos canónicos para las vistas frontal y trasera (spec 016, RF-10).
+/// Extraídos de `progress_view.dart` al widget compartido `view_toggle.dart`.
+const Set<String> kFrontCanonicals = {
+  'pectoralis_major',
+  'deltoids',
+  'biceps',
+  'triceps',
+  'forearms',
+  'hands',
+  'abdominals',
+  'obliques',
+  'quadriceps',
+  'calves',
+  'feet',
+};
+
+const Set<String> kBackCanonicals = {
+  'deltoids',
+  'triceps',
+  'forearms',
+  'hands',
+  'hamstrings',
+  'glutes',
+  'calves',
+  'latissimus_dorsi',
+  'trapezius',
+  'rhomboids',
+  'lower_back',
+};
+
 /// Base neutra del mockup (#292A2D) para los músculos sin dato (RF-33).
 const Color kMuscleBase = Color(0xFF292A2D);
 

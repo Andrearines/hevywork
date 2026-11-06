@@ -19,6 +19,7 @@ import 'data/repositories/workout_repository.dart';
 import 'data/sync/sync_engine.dart';
 import 'domain/media.dart';
 import 'domain/services/auth_service.dart';
+import 'ui/layout/screen_breakpoints.dart';
 import 'ui/unit_system_scope.dart';
 import 'ui/views/catalog_view.dart';
 import 'ui/views/live_workout_view.dart';
@@ -169,6 +170,7 @@ class _HevyWorkAppState extends State<HevyWorkApp> {
 
   @override
   void dispose() {
+    syncEngine.stop();
     _profileSub?.cancel();
     super.dispose();
   }
@@ -180,10 +182,18 @@ class _HevyWorkAppState extends State<HevyWorkApp> {
       title: 'HevyWork',
       scaffoldMessengerKey: scaffoldMessengerKey,
       theme: buildAppTheme(),
-      builder: (context, child) => UnitSystemScope(
-        unitSystem: _unitSystem,
-        child: child ?? const SizedBox.shrink(),
-      ),
+      builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: MediaQuery.of(context).textScaler.clamp(
+              minScaleFactor: 1.0,
+              maxScaleFactor: 1.3,
+            ),
+          ),
+          child: UnitSystemScope(
+            unitSystem: _unitSystem,
+            child: child ?? const SizedBox.shrink(),
+          ),
+        ),
       home: const MainNavigator(),
     );
   }
@@ -303,6 +313,59 @@ class _MainNavigatorState extends State<MainNavigator> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).padding.bottom;
+    final width = MediaQuery.of(context).size.width;
+    final screenClass = screenClassOf(width);
+    final margin = horizontalMarginOf(screenClass);
+
+    // La pill flota sobre el contenido (mockup): el cuerpo ocupa toda la
+    // pantalla y solo se reserva el hueco inferior para poder hacer scroll
+    // hasta el final sin que la pill tape la última fila (T-1).
+    final body = Stack(
+      children: [
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: bottomInset + HevyBottomNav.height + bottomGap,
+          ),
+          child: IndexedStack(
+            index: _currentIndex,
+            children: [
+              for (var i = 0; i < destinations.length; i++)
+                if (_visited.contains(i))
+                  TickerMode(
+                    enabled: i == _currentIndex,
+                    child: destinations[i].body,
+                  )
+                else
+                  const SizedBox.shrink(),
+            ],
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: HevyBottomNav(currentIndex: _currentIndex, onTap: _goTo),
+        ),
+      ],
+    );
+
+    // Aplica margins/Constrained según screenClass (D-025):
+    // phone: margen 16 dp, contenido fluido
+    // tablet: contenido centrado máximo 640 dp
+    final content = Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: screenClass == ScreenClass.tablet
+              ? kContentMaxWidth
+              : double.infinity,
+        ),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: margin),
+          child: body,
+        ),
+      ),
+    );
+
     return Scaffold(
       appBar: hevyAppBar(
         context,
@@ -310,37 +373,7 @@ class _MainNavigatorState extends State<MainNavigator> {
         onProfileTap: () => _goTo(3),
         onCatalogTap: _currentIndex == 0 ? _openCatalog : null,
       ),
-      // La pill flota sobre el contenido (mockup): el cuerpo ocupa toda la
-      // pantalla y solo se reserva el hueco inferior para poder hacer scroll
-      // hasta el final sin que la pill tape la última fila (T-1).
-      body: Stack(
-        children: [
-          Padding(
-            padding: EdgeInsets.only(
-              bottom: bottomInset + HevyBottomNav.height + bottomGap,
-            ),
-            child: IndexedStack(
-              index: _currentIndex,
-              children: [
-                for (var i = 0; i < destinations.length; i++)
-                  if (_visited.contains(i))
-                    TickerMode(
-                      enabled: i == _currentIndex,
-                      child: destinations[i].body,
-                    )
-                  else
-                    const SizedBox.shrink(),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: HevyBottomNav(currentIndex: _currentIndex, onTap: _goTo),
-          ),
-        ],
-      ),
+      body: content,
     );
   }
 }
