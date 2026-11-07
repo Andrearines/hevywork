@@ -71,8 +71,20 @@
 - Removido el método `dispose()` antiguo de `_EditableSetRowState` (usaba `_kgCtrl`, `_repsCtrl`, `_rirCtrl` específicos de esa clase)
 - `flutter analyze lib/ui/views/live_workout_view.dart` → 4 issues preexistentes (info/warning), sin errores nuevos. Tests: fallos pre-existing sin relación con este cambio.
 
+| **2026-11-07** | T-003 · R — Revertir header live_fatigue_section.dart | - Revertado cambio T-003 original: quitado `Flexible + FittedBox(BoxFit.scaleDown)` alrededor de `ViewToggle`; añadido `if (!isExpanded)` que envuelve el `ViewToggle` en el Row → toggle solo aparece cuando sección está colapsada. Mantened `Expanded(maxLines: 1, overflow: TextOverflow.ellipsis)` en el Título (D-031). Se mantuvo `mainAxisSize: MainAxisSize.min` en el Row.
+- `flutter analyze lib/ui/widgets/live_fatigue_section.dart` → 1 warning preexistente (unused variable `muscleName` en `_ExpandedBody`, sin relación); sin errores nuevos por este cambio.
+- **Criterio de aceptación:** Toggle `ViewToggle` solo visible cuando sección está colapsada (`!isExpanded`); título mantiene `Expanded` + `ellipsis`; sin `Flexible/FittedBox` wrapper. Verificado en `git diff` y `flutter analyze`.
+
 | **2026-11-07** | T-007 · F — Arreglar NullCheckError en StreamBuilder de fatiga (live_workout_view.dart:329-342) | - Modificado `lib/ui/views/live_workout_view.dart`: corregido el `StreamBuilder<FatiguePanel>` para evitar `fatigueSnap.data!` (NullCheckError cuando el stream no tiene datos aún). Ahora verifica `fatigueSnap.hasData` primero y devuelve `SliverToBoxAdapter(child: SizedBox.shrink())` cuando no hay datos, pasando `fatigueSnap.data` sin el `!` operator a `LiveFatigueSection` que acepta `FatiguePanel?` y muestra "Sin fatiga" cuando es nulo.
 - `flutter analyze lib/ui/views/live_workout_view.dart` → 4 issues preexistentes (info/warning), sin errores nuevos. Tests: sin cambios en la suite de tests (fallos pre-existing sin relación con este cambio).
+
+| **2026-11-07** | T-006 · R — Revertir guard StreamBuilder en live_workout_view.dart | - Revertado guard StreamBuilder en `live_workout_view.dart`: el builder ahora retorna `SliverToBoxAdapter(child: SizedBox.shrink())` en lugar de `Center(child: Text('Sin datos de fatiga'))` cuando `!fatigueSnap.hasData`. Esto vuelve a esconder la sección mientras el stream de fatiga no emite datos (antes de que el usuario loguee series). Después, cuando el stream emite, muestra el `LiveFatigueSection` con el mapa.
+- `flutter test` y `flutter analyze` sin nuevas incidencias. El cambio restaura el comportamiento previo a T-005.
+
+| **2026-11-07** | T-LOC — Fix layout error en `view_toggle.dart` | - Cambiado `Expanded` por `Flexible` en `_ToggleSegment` (lib/ui/widgets/view_toggle.dart:24) para evitar conflicto entre `Expanded` y `mainAxisSize: MainAxisSize.min` en el `Row` padre.
+- - Cambiado `mainAxisSize: MainAxisSize.min` por `mainAxisSize: MainAxisSize.max` en el `Row` de `ViewToggle` (lib/ui/widgets/view_toggle.dart:66) para compatibilidad con `Flexible` children.
+- `flutter analyze lib/ui/widgets/view_toggle.dart` → sin problemas.
+- `flutter test` no relacionado (error de disco quota en entorno, no error de código).
 
 | **2026-11-06** | T-FIX-1 — Formato de decimales en `formatDisplay` (lib/domain/units.dart)
 - Cambiado de 1 decimal a 2 decimales: `(value * 100).roundToDouble() / 100` y `toStringAsFixed(2)`.

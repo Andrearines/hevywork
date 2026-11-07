@@ -331,15 +331,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                             builder: (context, fatigueSnap) {
                               if (!fatigueSnap.hasData) {
                                 return const SliverToBoxAdapter(
-                                  child: Center(
-                                    child: Text(
-                                      'Sin datos de fatiga',
-                                      style: TextStyle(
-                                        color: kOnSurfaceVariant,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ),
+                                  child: SizedBox.shrink(),
                                 );
                               }
                               return SliverToBoxAdapter(

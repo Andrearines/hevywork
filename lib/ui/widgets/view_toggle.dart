@@ -21,19 +21,17 @@ class _ToggleSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textColor = selected ? kToggleKOnSurfaceVariant : kToggleKOnSurface;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: textColor,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-            ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: textColor,
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ),
@@ -63,7 +61,6 @@ class ViewToggle extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           _ToggleSegment(
             label: 'Frente',

@@ -106,19 +106,14 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
                 ),
               ),
               const SizedBox(width: 8),
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: ViewToggle(
-                    showBack: _showBack,
-                    onChanged: (value) {
-                      setState(() {
-                        _showBack = value;
-                      });
-                      _syncSelection();
-                    },
-                  ),
-                ),
+              if (!isExpanded) ViewToggle(
+                showBack: _showBack,
+                onChanged: (value) {
+                  setState(() {
+                    _showBack = value;
+                  });
+                  _syncSelection();
+                },
               ),
             ],
           ),
