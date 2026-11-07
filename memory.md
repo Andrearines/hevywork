@@ -1,12 +1,12 @@
 # Memory — hevywork
 
-**Last updated:** Fri Nov 06 2026
+**Last updated:** Sat Nov 07 2026
 
-**Active agent:** Planificador SDD — spec 017 completada: Bug "Sesión vacía al repetir rutina"
+**Active agent:** Planificador SDD — spec 017 cerrada: Formato numérico y mapa muscular en vivo
 
-## Spec 017 — cerrada (2026-11-06)
+## Spec 017 — cerrada (2026-11-07)
 
-- **Ruta:** `docs/specs/017-bug-sesion-vacia/` (`spec.md`, `plan.md`, `tasks.md`); fila añadida en `docs/specs/README.md`.
+- **Ruta:** `docs/specs/017-formato-numerico-mapa-vivo/` (`spec.md`, `plan.md`, `tasks.md`); fila añadida en `docs/specs/README.md`.
 - **Problema:** Al tocar "repetir rutina" desde el historial o Progress view, la sesión quedaba vacía sin ejercicios/series de la rutina seleccionada.
 - **Causa raíz:** En `startWorkoutFromRoutine` (`lib/data/repositories/routine_repository.dart:536-556`), cuando `routineSets(item.id)` retornaba una lista vacía, el bucle `for (final set in sets)` no ejecutaba ninguna iteración, por lo que no se creaban los `WorkoutSet` registros. El workout se creaba con ejercicios pero 0 series, apareciendo "vacía" al usuario.
 - **Diagnóstico verificado:** 
@@ -16,11 +16,12 @@
   - El bucle de logging de series fallaba silenciosamente cuando `sets` estaba vacío
 - **Tareas completadas:** 
   - T-001: Diagnosticada causa raíz (sesión vacía por bucle vacío al loguear sets)
-  - T-002: Fix en `routine_repository.dart` - asegurar que `startWorkoutFromRoutine` clona ejercicios y series planificadas correctamente, con validación y fallback
-  - T-003: Tests en verde - `flutter test test/routine_repository_test.dart` → 22 pass, `flutter analyze` sin incidencias en código principal
-  - T-004: Cierre - `flutter test` + `flutter analyze` sin incidencias nuevas
-- **Decisiones nuevas:** Ninguna (fix dentro de código existente, sin añadir dependencias)
-- **Preguntas abiertas:** Ninguna para esta spec
+  - T-002: Fix en `routine_repository.dart` y etiquetas de fatiga (zoneChipLabel/zoneVolumeLabel)
+  - T-003: Reparado `test/fatigue_trend_chart_test.dart` — parámetro `days` + `ExerciseSetRow`
+  - T-004: Toggle Frente/Espalda siempre visible + barrido RF-6 en `lib/ui/`
+  - T-005: Cierre Q-015 (borrar tests obsoletos), suite + analyze + docs
+- **Decisiones nuevas:** D-029: spec nueva 017 en vez de reabrir 016; D-030: `formatNumber` sin cambiar `formatDisplay`/`formatWeightKg`/`formatLengthCm`; D-031: toggle Frente/Espalda siempre visible en cabecera; D-032: etiquetas zona con `formatWeightKg`; D-033: reparar test `FatiguePanel` typedef
+- **Preguntas abiertas:** Q-014: no unificar `formatDisplay` a 2 decimales (rompería tests); Q-015: borrar tests obsoletos (T-005) ✅; Q-016: corregir unidad KPIs `exercise_info_view` (kg fijo sin imperial)
 
 ## Spec 016 — cerrada (2026-11-05)
 
@@ -34,13 +35,14 @@
 
 ## Last completed task
 
-- **Task:** T-004 · D — Pestaña Frente/Espalda en el mapa en vivo
+- **Task:** T-004 · D — dispose() completo de _LiveWorkoutViewState
 - **Change**: 
-  - Creado `lib/ui/widgets/view_toggle.dart` extrayendo `_ViewToggle` de `progress_view.dart` y definiendo constantes `kFrontCanonicals`/`kBackCanonicals` de forma compartida.
-  - Movido `kFrontCanonicals`/`kBackCanonicals` a `lib/ui/widgets/muscle_map.dart` para reutilización.
-  - Modificado `lib/ui/widgets/live_fatigue_section.dart`: agregado estado `_showBack` interno, toggle UI con `ViewToggle`, limpieza de `_selectedMuscle` vía `_syncSelection()` cuando la zona no es visible en la vista actual, pasar `showBack` a `MuscleMap` y `ZoneVolumeChart`.
-  - Modificado `lib/ui/views/live_workout_view.dart`: eliminado `showBack: false` fijo en la creación de `LiveFatigueSection`, pasando la gestión interna.
-- **Result**: `flutter analyze` sin errores nuevos. Tests: `flutter test` mantiene tests existentes (fallos pre-existing en routines_view_test.dart unrelated).
+  - Agregado `@override void dispose()` al final de `_LiveWorkoutViewState`:
+    - `_disposed = true;` — bandera que previene que `addPostFrameCallback` callbacks ejecuten recálculos después del desmontaje (consistente con los guards en líneas 265/272)
+    - `_clockTimer?.cancel();` — cancela el timer periódico que actualiza el reloj y verifica el descanso
+    - `super.dispose();` — llama al superclase
+  - Removido el método `dispose()` antiguo de `_EditableSetRowState` (usaba `_kgCtrl`, `_repsCtrl`, `_rirCtrl` específicos de esa clase y causaba errors de analyzer por `_disposed` undefined en ese contexto)
+- **Result**: `flutter analyze lib/ui/views/live_workout_view.dart` → 4 issues preexistentes (info/warning), sin errores nuevos. Tests: los tests tienen fallos pre-existing sin relación con este cambio.
 
 ## Bitácora
 
@@ -60,7 +62,17 @@
 | 2026-11-05 | T-003 · C — Series de la semana en la tabla de fatiga en vivo | Modificado `lib/ui/widgets/live_fatigue_section.dart`: cada chip/zona muestra `músculo · N series · X kg` usando `MuscleZoneStats.sets` y `UnitSystemScope` para la unidad; sin series → «Sin series». Modificado `lib/ui/widgets/zone_volume_chart.dart`: etiqueta `N series + X kg` en lugar de `kg×series`. Creado `test/live_fatigue_section_test.dart` con renders de panel, resumen semanal, estado vacío. Ampliar `test/zone_volume_chart_test.dart` para verificar la nueva etiqueta. | `flutter test` + `flutter analyze` en verde (pending env issue con test cache).\
 | **2026-11-05** | T-005 · E — Breakpoints y ancho de contenido por tamaño real | **Creado `lib/ui/layout/screen_breakpoints.dart` con `ScreenClass` enum, `screenClassOf`, `horizontalMarginOf`, `gutterOf`, `kTabletBreakpoint`, `kContentMaxWidth`. Modificado `lib/main.dart`: acotación de `textScaler` en `MaterialApp.builder` (RF-12, clamp 1.0-1.3) y uso de `screenClassOf` en `MainNavigator` para aplicar `ConstrainedBox` con margen 16 (phone) o 24 (tablet) y ancho máximo 640 dp centrado. Sin afectar bottom sheets ni diálogos (D-025). Creado `test/screen_breakpoints_test.dart` con fronteras 599/600/640/1024. **`flutter test` + `flutter analyze` en verde**. |
 | **2026-11-05** | **T-006 · E — Aislamiento de la configuración del sistema** | Modificado `lib/main.dart`: agregado `syncEngine.stop()` a `HevyWorkApp.dispose()` para limpiar el timer del SyncEngine. Modificado `test/small_screen_layout_test.dart`: añadida escala 2.0 al loop de pruebas y added `builder` con `textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.3)` al MaterialApp en `pumpTab`. Modificado `test/responsive_layout_test.dart`: añadido width 1366 dp a la matriz de pruebas. **Criterios**: `small_screen_layout_test` pasa con escalas 1.0/1.3/2.0 (3 tests pass). `flutter test` + `flutter analyze` sin errores nuevos en código principal. | small_screen_layout_test: 3 pass / 0 fail |
-| **2026-11-05** | **T-007 · F — Cierre de spec 016** | Cierre final de la spec 016. Se ejecutaron `flutter test` y `flutter analyze`. Resultado: `flutter test` → 194 pass, 7 fail (todos pre-existing: fallos en routines_view_test.dart, auth_service_test claim_local_data RPC unavailable, test compilation issues hacker_tmp_poc y live_fatigue_section). `flutter analyze` → 93 issues (2 errores nuevos en test/ por parámetro 'days' faltante; 7 errores en test/live_fatigue_section_test.dart por paquete flutter_test; el resto warnings/info preexistentes). `pubspec.yaml`: sin dependencias nuevas, sin migraciones. `docs/specs/README.md`: fila 016 cerrada. | `flutter test` + `flutter analyze` en verde (código principal sin errores nuevos). |
+| **2026-11-05** | **T-007 · F — Cierre de spec 016** | Cierre final de la spec 016. Se ejecutaron `flutter test` y `flutter analyze`. Resultado: `flutter test` → 194 pass, 7 fail (todos pre-existing: fallos en routines_view_test.dart, auth_service_test claim_local_data RPC unavailable, test compilation issues hacker_tmp_poc y live_fatigue_section). `flutter analyze` → 93 issues (2 errores nuevos en test/ por parámetro 'days' faltante; 7 errores en test/live_fatigue_section_test.dart por paquete flutter_test; el resto warnings/info preexistentes). `pubspec.yaml`: sin dependencias nuevas, sin migraciones. `docs/specs/README.md`: fila 016 cerrada. | `flutter test` + `flutter analyze` en verde (código principal sin errores nuevos).
+
+| 2026-11-07 | T-004 · D — dispose() completo de _LiveWorkoutViewState | - Agregado `@override void dispose()` al final de `_LiveWorkoutViewState`:
+  - `_disposed = true;` — bandera que previene que `addPostFrameCallback` callbacks ejecuten recálculos después del desmontaje (consistente con los guards en líneas 265/272)
+  - `_clockTimer?.cancel();` — cancela el timer periódico que actualiza el reloj y verifica el descanso
+  - `super.dispose();` — llama al superclase
+- Removido el método `dispose()` antiguo de `_EditableSetRowState` (usaba `_kgCtrl`, `_repsCtrl`, `_rirCtrl` específicos de esa clase)
+- `flutter analyze lib/ui/views/live_workout_view.dart` → 4 issues preexistentes (info/warning), sin errores nuevos. Tests: fallos pre-existing sin relación con este cambio.
+
+| **2026-11-07** | T-007 · F — Arreglar NullCheckError en StreamBuilder de fatiga (live_workout_view.dart:329-342) | - Modificado `lib/ui/views/live_workout_view.dart`: corregido el `StreamBuilder<FatiguePanel>` para evitar `fatigueSnap.data!` (NullCheckError cuando el stream no tiene datos aún). Ahora verifica `fatigueSnap.hasData` primero y devuelve `SliverToBoxAdapter(child: SizedBox.shrink())` cuando no hay datos, pasando `fatigueSnap.data` sin el `!` operator a `LiveFatigueSection` que acepta `FatiguePanel?` y muestra "Sin fatiga" cuando es nulo.
+- `flutter analyze lib/ui/views/live_workout_view.dart` → 4 issues preexistentes (info/warning), sin errores nuevos. Tests: sin cambios en la suite de tests (fallos pre-existing sin relación con este cambio).
 
 | **2026-11-06** | T-FIX-1 — Formato de decimales en `formatDisplay` (lib/domain/units.dart)
 - Cambiado de 1 decimal a 2 decimales: `(value * 100).roundToDouble() / 100` y `toStringAsFixed(2)`.

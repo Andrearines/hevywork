@@ -331,12 +331,20 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                             builder: (context, fatigueSnap) {
                               if (!fatigueSnap.hasData) {
                                 return const SliverToBoxAdapter(
-                                  child: SizedBox.shrink(),
+                                  child: Center(
+                                    child: Text(
+                                      'Sin datos de fatiga',
+                                      style: TextStyle(
+                                        color: kOnSurfaceVariant,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
                                 );
                               }
                               return SliverToBoxAdapter(
                                 child: LiveFatigueSection(
-                                  panel: fatigueSnap.data!,
+                                  panel: fatigueSnap.data,
                                   onPanelChanged: (panel) {
                                     // Actualizar el stream si es necesario
                                   },
@@ -1257,6 +1265,13 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(finishMessage)));
   }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    _clockTimer?.cancel();
+    super.dispose();
+  }
 }
 
 class _ExerciseCard extends StatefulWidget {
@@ -1826,14 +1841,6 @@ class _EditableSetRowState extends State<_EditableSetRow>
       _rawKg = set.weightKg;
       _kgCtrl.text = formatWeightKg(set.weightKg, units);
     }
-  }
-
-  @override
-  void dispose() {
-    _kgCtrl.dispose();
-    _repsCtrl.dispose();
-    _rirCtrl.dispose();
-    super.dispose();
   }
 
   /// Marca o desmarca la serie desde el checklist: desmarcar la deja

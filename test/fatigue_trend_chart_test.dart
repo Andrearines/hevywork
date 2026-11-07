@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hevywork/domain/exercise_stats.dart';
 import 'package:hevywork/domain/fatigue_trend.dart';
 import 'package:hevywork/ui/widgets/fatigue_trend_chart.dart';
+
+final kTestDays = 14;
 
 void main() {
   final now = DateTime(2026, 10, 27);
 
   testWidgets('render con puntos de fatiga', (WidgetTester tester) async {
-    final points = fatigueTrend(sets: [], now: now).map((p) => p.value).toList();
+    final points = fatigueTrend(sets: [], days: kTestDays, now: now).map((p) => p.value).toList();
     await tester.pumpWidget(
       MaterialApp(home: Scaffold(body: FatigueTrendChart(points: points))),
     );
@@ -25,15 +28,16 @@ void main() {
 
   testWidgets('render con un solo punto', (WidgetTester tester) async {
     final points = fatigueTrend(
-      sets: [
-        (
-          endedAt: now,
-          volume: 5000,
+      sets: const [
+        ExerciseSetRow(
+          orderIndex: 0,
           setType: 'normal',
-          target: 'quads',
-          secondaryMuscles: [],
+          weightKg: 5000,
+          reps: 1,
+          completed: true,
         ),
       ],
+      days: kTestDays,
       now: now,
     ).map((p) => p.value).toList();
     await tester.pumpWidget(
@@ -45,15 +49,16 @@ void main() {
 
   testWidgets('highlight con músculo opcional', (WidgetTester tester) async {
     final points = fatigueTrend(
-      sets: [
-        (
-          endedAt: now,
-          volume: 5000,
+      sets: const [
+        ExerciseSetRow(
+          orderIndex: 0,
           setType: 'normal',
-          target: 'quads',
-          secondaryMuscles: [],
+          weightKg: 5000,
+          reps: 1,
+          completed: true,
         ),
       ],
+      days: kTestDays,
       now: now,
       muscle: 'quadriceps',
     ).map((p) => p.value).toList();

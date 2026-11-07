@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test';
+
+import 'package:hevywork/domain/muscle_fatigue.dart';
 import 'package:hevywork/ui/widgets/zone_volume_chart.dart';
 
 void main() {
@@ -67,5 +69,42 @@ void main() {
       ),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('zoneVolumeLabel muestra métrico con ≤ 2 decimales', (WidgetTester tester) async {
+    final metricStats = [
+      (muscle: 'pectorals', weeklyVolume: 80.50000000000001, sets: 3, fatigue: 0.8),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ZoneVolumeChart(
+            zones: metricStats,
+            unitSystem: 'metric',
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    // La etiqueta debe tener máximo 2 decimales y no contener el ruido floating-point
+  });
+
+  testWidgets('zoneVolumeLabel muestra imperial con lb y ≤ 2 decimales',
+      (WidgetTester tester) async {
+    final imperialStats = [
+      (muscle: 'pectorals', weeklyVolume: 80.50000000000001, sets: 3, fatigue: 0.8),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ZoneVolumeChart(
+            zones: imperialStats,
+            unitSystem: 'imperial',
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    // En sistema imperial, la etiqueta debe tener la unidad 'lb' y máximo 2 decimales
   });
 }

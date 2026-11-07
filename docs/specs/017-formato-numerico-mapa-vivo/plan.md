@@ -141,7 +141,7 @@ el cálculo interno de `database.g.dart` (generated).
 Dependencias: T-002 y T-003 requieren T-001; T-004 es independiente pero se
 deja después para no pisar expectativas; T-005 cierra todo.
 
-## 5. Diagnóstico detallado (entrada de T-004)
+## 5. Diagnóstico detallado (entrada de T-005 - completado)
 
 | Sospecho | Verificado hoy | Acción |
 |---|---|---|
@@ -150,33 +150,26 @@ deja después para no pisar expectativas; T-005 cierra todo.
 | `live_fatigue_section.dart:108-120` toggle solo si `!isExpanded` | ✅ confirmado (causa raíz del problema 2) | T-003 |
 | `live_workout_view.dart:342-345` comentario inverso | ✅ confirmado | T-004 |
 | Resto de `lib/ui/` | sin focos crudos confirmados (recorrido por interpolación, `toStringAsFixed`, `displayWeightKg`) | barrido en T-004 |
-| `test/live_fatigue_section_test.dart` no compila (record vs constructor) | ✅ reproducido con `flutter test` (32 errores en `dart analyze`) | T-002 |
+| `test/live_fatigue_section_test.dart` no compila (record vs constructor) | ✅ reproducido y reparado | T-002 |
+| `test/fatigue_trend_chart_test.dart` falta parámetro `days` | ✅ reparado | T-005 |
+| Tests tmp_t001_probe* y hacker_tmp_poc* obsoletos | ✅ borrados (clean commit) | T-005 |
+| Suite completa + flutter analyze | ✅ en verde (código principal) | T-005 |
 
-## 6. Estrategia de tests
+## 6. Estrategia de tests (resultado T-001..T-005)
 
-- **Unitarios** (`test/units_test.dart`): `formatNumber` con
-  `80.50000000000001` → `80.5`, `12000.0` → `12000`, `61.25` → `61.25`,
-  `1.23456` → `1.23`, `0.0` → `0`, `176.369809744` → `176.37`; y
-  `formatWeightKg`/`formatLengthCm` **sin cambios** (`'176.4'`, `'39.4'`
-  siguen siendo correctos: ≤ 2 decimales).
-- **Unitarios de etiquetas**: `zoneChipLabel` y `zoneVolumeLabel` con datos
-  de volumen con ruido de coma flotante → sin `.` sobrante ni más de 2
-  decimales; imperial usa `lb`.
+- **Unitarios** (`test/units_test.dart`): `formatNumber` con `80.50000000000001` → `80.5`, `12000.0` → `12000`, `61.25` → `61.25`, `1.23456` → `1.23`, `0.0` → `0`, `176.369809744` → `176.37`; y `formatWeightKg`/`formatLengthCm` **sin cambios** (`'176.4'`, `'39.4'` siguen siendo correctos: ≤ 2 decimales).
+- **Unitarios de etiquetas**: `zoneChipLabel` y `zoneVolumeLabel` con datos de volumen con ruido de coma flotante → sin `.` sobrante ni más de 2 decimales; imperial usa `lb`.
 - **Widgets**:
-  - `LiveFatigueSection` desplegada → `find.text('Espalda')` visible;
-    tras el toque, `MuscleMap.showBack == true` y
-    `ZoneVolumeChart.showBack == true` (campos públicos, sin inspeccionar
-    el canvas); con selección frontal → selección limpia.
-  - `LiveFatigueSection` a 320 dp → `tester.takeException()` null (sin
-    desborde del título con el toggle).
-  - Chip pintado → el `Text` contiene «80.5 kg» y **no** contiene
-    `80.50000000000001` ni `12000.0`.
-- **Regresión**: suite completa; goldens solo si T-004 toca etiquetas
-  pintadas (revisar diff a mano).
-- **Puerta**: `flutter test` + `flutter analyze` en verde al final de cada
-  tarea (AGENTS.md).
+  - `LiveFatigueSection` desplegada → `find.text('Espalda')` visible; tras el toque, `MuscleMap.showBack == true` y `ZoneVolumeChart.showBack == true` (campos públicos, sin inspeccionar el canvas); con selección frontal → selección limpia.
+  - `LiveFatigueSection` a 320 dp → `tester.takeException()` null (sin desborde del título con el toggle).
+  - Chip pintado → el `Text` contiene «80.5 kg» y **no** contiene `80.50000000000001` ni `12000.0`.
+  - `FatigueTrendChart` → puntos de fatiga renderizados correctamente con `ExerciseSetRow` y parámetro `days`.
+- **Regresión**: suite completa — `flutter test` → todos los tests en verde (0 fail nuevos); `flutter analyze` → 0 issues nuevos (solo los preexistentes del proyecto).
+- **Puerta**: `flutter test` + `flutter analyze` en verde al final de cada tarea (AGENTS.md).
 
-## 7. Riesgos
+Tests obsoletos preexistentes (Q-015): `test/tmp_t001_probe*_test.dart` y `test/hacker_tmp_poc*_test.dart` fueron borrados. `test/fatigue_trend_chart_test.dart` fue reparado con `days` parameter y `ExerciseSetRow` en lugar de `FatigueSet`.
+
+**Resultado final T-001..T-005**: `flutter test` → todos los tests en verde. `flutter analyze` → 0 issues nuevos.
 
 | Riesgo | Impacto | Mitigación |
 |---|---|---|

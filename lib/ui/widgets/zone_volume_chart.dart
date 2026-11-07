@@ -25,7 +25,14 @@ const Color kOnSurfaceVariant = Color(0xFF86868B);
 const Color kPrimary = Color(0xFF0061A8);
 const Color kSurface = Color(0xFFE4E6EB);
 
-/// Widget público que pinta el área visible.
+/// Etiqueta pura para el volumen de una zona (spec 017, D-032).
+/// Devuelve el peso formateado con ≤ 2 decimales y la unidad correspondiente,
+/// sin ruido floating-point. Funciona sin BuildContext.
+String zoneVolumeLabel(MuscleZoneStats zone, String unitSystem) {
+  final weightDisplay = formatWeightKg(zone.weeklyVolume, unitSystem);
+  final weightUnit = weightUnitOf(unitSystem);
+  return '$weightDisplay $weightUnit';
+}
 class ZoneVolumeChart extends StatelessWidget {
   final List<MuscleZoneStats> zones;
   final String? muscle;
@@ -155,9 +162,8 @@ class _ZoneVolumePainter extends CustomPainter {
         color: kOnSurfaceVariant,
         fontSize: 10,
       );
-      final weightKg = formatWeightKg(zone.weeklyVolume, unitSystem);
-      final weightUnit = weightUnitOf(unitSystem);
-      final volText = zone.sets > 0 ? '${zone.sets} series $weightKg $weightUnit' : '';
+      final volLabel = zoneVolumeLabel(zone, unitSystem);
+      final volText = zone.sets > 0 ? '${zone.sets} series $volLabel' : '';
       final volPainter = TextPainter(
         text: TextSpan(
           text: volText,

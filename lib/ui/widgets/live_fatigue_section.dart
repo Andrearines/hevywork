@@ -95,26 +95,29 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                isExpanded ? 'Fatiga muscular' : 'Fatiga: $peakLabel',
-                style: Theme.of(context).textTheme.titleMedium,
+              Expanded(
+                child: Text(
+                  isExpanded ? 'Fatiga muscular' : 'Fatiga: $peakLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
               ),
-              Icon(
-                isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                size: 24,
-              ),
-              Padding(
-                padding: const EdgeInsets.only(left: 8),
-                child: ViewToggle(
-                  showBack: _showBack,
-                  onChanged: (value) {
-                    setState(() {
-                      _showBack = value;
-                    });
-                    _syncSelection();
-                  },
+              const SizedBox(width: 8),
+              Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: ViewToggle(
+                    showBack: _showBack,
+                    onChanged: (value) {
+                      setState(() {
+                        _showBack = value;
+                      });
+                      _syncSelection();
+                    },
+                  ),
                 ),
               ),
             ],
@@ -147,6 +150,21 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
       ],
     );
   }
+}
+
+/// Etiqueta pura para el chip de zona de fatiga (spec 017, D-032).
+/// Funciona sin BuildContext, Theme u otro contexto de widget.
+/// Exportada para ser probada de forma aislada.
+String zoneChipLabel(MuscleZoneStats zone, String unitSystem) {
+  if (zone.sets == 0) return 'Sin series';
+
+  final muscleName = mm.muscleLabel(zone.muscle);
+  final setsText = '${zone.sets} series';
+  final volumeKg = formatWeightKg(zone.weeklyVolume, unitSystem);
+  final weightUnit = weightUnitOf(unitSystem);
+  final volumeText = '$volumeKg $weightUnit';
+
+  return '$muscleName · $setsText · $volumeText';
 }
 
 class _ExpandedBody extends StatelessWidget {
@@ -207,13 +225,7 @@ class _ExpandedBody extends StatelessWidget {
               MuscleZoneStatus.optimal => mm.kFatigueWarm,
               MuscleZoneStatus.recovering => mm.kFatigueCold,
             };
-            final setsText = zone.sets > 0 ? '${zone.sets} series' : 'Sin series';
-            final volumeKg = formatWeightKg(zone.weeklyVolume, unitSystem);
-            final weightUnit = weightUnitOf(unitSystem);
-            final volumeText = zone.sets > 0 ? '$volumeKg $weightUnit' : '';
-            final chipText = zone.sets > 0
-                ? '$muscleName · $setsText · $volumeText'
-                : 'Sin series';
+            final chipText = zoneChipLabel(zone, unitSystem);
             return Padding(
               padding: const EdgeInsets.only(right: 8),
               child: InkWell(

@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/fatigue_trend.dart';
 import '../../domain/muscle_fatigue.dart';
@@ -200,8 +201,16 @@ class FatigueRepository {
     );
   }
 
-  Future<LocalProfile> _profile() async =>
-      (_db.select(_db.localProfiles)..where((t) => t.id.equals(1))).getSingle();
+  Future<LocalProfile> _profile() async {
+    final profiles = await (_db.select(_db.localProfiles)..where((t) => t.id.equals(1))).get();
+    if (profiles.isNotEmpty) return profiles.first;
+    // Crear perfil por defecto si no existe
+    await (_db.into(_db.localProfiles)).insert(
+      LocalProfilesCompanion.insert(localUserId: Uuid().v4()),
+    );
+    // Retornar el perfil recién creado
+    return await (_db.select(_db.localProfiles)..where((t) => t.id.equals(1))).getSingle();
+  }
 
   /// Fecha de cierre de una sesión para el cálculo de fatiga (RF-5 de la
   /// 014): `endedAt` si ya terminó; para la sesión en curso, `startedAt`.
