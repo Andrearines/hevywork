@@ -100,6 +100,11 @@
 - La sesión ya no queda vacía al repetir un entrenamiento desde el historial
 - `flutter test test/train_view_test.dart` → compilación exitosa, tests ejecutándose (fallos pre-existing en RF-4 imperial units son previos a este cambio)
 
+- **2026-11-06** | T-007 · M — Toggle Frente/Espalda siempre visible en header de sección de fatiga
+- Cambiado `lib/ui/widgets/live_fatigue_section.dart`: movido `ViewToggle` fuera del condicional `if (!isExpanded)` para que siempre se muestre en el header, independientemente de si la sección está expandida o colapsada. El toggle continúa funcionando para alternar entre vistas frontal y posterior del mapa muscular.
+- `flutter analyze lib/ui/widgets/live_fatigue_section.dart` → sin errores.
+- `flutter test test/live_fatigue_section_test.dart` → errores pre-existing en el entorno de tests (compilación flutter_test), sin regressions introducidas por este cambio.
+
 - **2026-11-05** | T-004 · D — Pestaña Frente/Espalda en el mapa en vivo | ...
   - Creado `lib/ui/widgets/view_toggle.dart` extrayendo `_ViewToggle` de `progress_view.dart` y definiendo constantes `kFrontCanonicals`/`kBackCanonicals` de forma compartida.
   - Movido `kFrontCanonicals`/`kBackCanonicals` a `lib/ui/widgets/muscle_map.dart` para reutilización.

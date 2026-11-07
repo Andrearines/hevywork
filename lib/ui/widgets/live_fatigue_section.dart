@@ -105,19 +105,18 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
                 isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                 size: 24,
               ),
-              if (!isExpanded)
-                Padding(
-                  padding: const EdgeInsets.only(left: 8),
-                  child: ViewToggle(
-                    showBack: _showBack,
-                    onChanged: (value) {
-                      setState(() {
-                        _showBack = value;
-                      });
-                      _syncSelection();
-                    },
-                  ),
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: ViewToggle(
+                  showBack: _showBack,
+                  onChanged: (value) {
+                    setState(() {
+                      _showBack = value;
+                    });
+                    _syncSelection();
+                  },
                 ),
+              ),
             ],
           ),
         ),
