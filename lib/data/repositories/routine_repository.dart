@@ -534,23 +534,44 @@ class RoutineRepository {
         continue;
       }
       final sets = await routineSets(item.id);
+      // Use targetSets from routine if no series are available,
+      // otherwise use the count from the planned sets.
+      final targetSets = sets.isEmpty ? item.targetSets : sets.length;
       final planned = await _workouts.addExercise(
         workoutId: workout.id,
         exerciseId: item.exerciseId,
-        targetSets: sets.isEmpty ? item.targetSets : sets.length,
+        targetSets: targetSets,
         targetReps: item.targetReps,
         targetRir: item.targetRir,
         suggestedWeightKg: item.suggestedWeightKg,
       );
-      for (final set in sets) {
+      // Log each planned series as a pending set in the workout.
+      // Si sets está vacío, creamos una serie default con los parámetros
+      // de la rutina para que la sesión no quede vacía de series (RF-2).
+      if (sets.isNotEmpty) {
+        for (final set in sets) {
+          await _workouts.logSet(
+            workoutExerciseId: planned.id,
+            weightKg: set.weightKg,
+            reps: set.reps,
+            rir: set.rir,
+            setType: set.setType,
+            restSeconds: set.restSeconds,
+            routineSetId: set.id,
+            completed: false,
+          );
+        }
+      } else {
+        // Fallback: log a default set using the routine's target parameters
+        // so the session doesn't remain empty of series.
         await _workouts.logSet(
           workoutExerciseId: planned.id,
-          weightKg: set.weightKg,
-          reps: set.reps,
-          rir: set.rir,
-          setType: set.setType,
-          restSeconds: set.restSeconds,
-          routineSetId: set.id,
+          weightKg: item.suggestedWeightKg ?? 0,
+          reps: item.targetReps ?? 8,
+          rir: item.targetRir ?? 0,
+          setType: 'normal',
+          restSeconds: 60,
+          routineSetId: item.id,
           completed: false,
         );
       }

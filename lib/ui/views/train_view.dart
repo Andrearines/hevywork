@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../data/local/database.dart';
 import '../../data/repositories/workout_repository.dart';
+import '../../data/repositories/routine_repository.dart';
 import '../../domain/training_calendar.dart';
 import '../../domain/units.dart';
 import '../../main.dart';
@@ -53,12 +54,11 @@ class _TrainViewState extends State<TrainView> {
   }
 
   Future<void> _repeatSession(WorkoutSummary summary) async {
-    final workout = await workoutRepository.startWorkout(
-      routineId: summary.routineId,
-      name: summary.title,
+    final result = await routineRepository.startWorkoutFromRoutine(
+      summary.routineId!,
     );
     if (!mounted) return;
-    await _openSession(workout.id);
+    await _openSession(result.workout.id);
   }
 
   Future<void> _deleteSession(WorkoutSummary summary) async {

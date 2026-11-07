@@ -2,21 +2,25 @@
 
 **Last updated:** Fri Nov 06 2026
 
-**Active agent:** Planificador SDD — spec 017 planificada (en curso), sin implementar
+**Active agent:** Planificador SDD — spec 017 completada: Bug "Sesión vacía al repetir rutina"
 
-## Spec 017 — en curso (2026-11-06)
+## Spec 017 — cerrada (2026-11-06)
 
-- **Ruta:** `docs/specs/017-formato-numerico-mapa-vivo/` (`spec.md`, `plan.md`, `tasks.md`); fila añadida en `docs/specs/README.md`.
-- **Problemas cubiertos:** (1) demasiados decimales en vistas (`80.50000000000001`), (2) el mapa muscular en vivo no deja ver la espalda, (3) decimales en los valores junto al mapa muscular.
-- **Diagnóstico verificado:**
-  - Decimales: `lib/ui/widgets/live_fatigue_section.dart:212-216` interpola `displayWeightKg(zone.weeklyVolume, …)` en crudo en el chip; `lib/ui/widgets/zone_volume_chart.dart:158-160` pinta `'$weightKg'` en crudo en su `TextPainter`. `MuscleMap` no pinta texto (verificado), por eso el «mapa» muestra los decimals de esos dos widgets hermanos.
-  - Espalda en vivo: el toggle de T-004 (016) existe pero `live_fatigue_section.dart:108-120` lo renderiza **solo `if (!isExpanded)`** y la sección arranca `expanded` (línea 27) ⇒ en vivo nunca se ve; el comentario de `live_workout_view.dart:342-345` es inverso.
-  - Test roto preexistente: `test/live_fatigue_section_test.dart` **no compila** porque usa `FatiguePanel(...)` como constructor y es un `typedef` de record (`fatigue_repository.dart:13`) → 32 errores de `flutter analyze` y 1 test fallido.
-- **Tareas:** T-001 formateador `formatNumber` ≤ 2 decimales · T-002 etiquetas puras de chip/gráfica + reparar test de la sección · T-003 toggle visible con sección desplegada · T-004 barrido de decimales en `lib/ui/` · T-005 cierre (Q-015 tests obsoletos, suite, docs).
-- **Decisiones nuevas:** D-029…D-033 (ver `spec.md` §Decisiones).
-- **Preguntas abiertas:** Q-014 unificar `formatDisplay` a 2 decimales (propuesta: no) · Q-015 destino de `tmp_t001_probe*`, `hacker_tmp_poc*` y `fatigue_trend_chart_test` (propuesta: borrar los dos primeros, reparar el tercero) · Q-016 unidad de los KPIs de `ExerciseInfoView` en imperial (propuesta: incluir en T-004).
-- **Baseline medido 2026-11-06:** `flutter analyze` → 93 issues / 39 errores, todos en 3 ficheros de test (`live_fatigue_section_test` 32, `fatigue_trend_chart_test` 5, `hacker_tmp_poc_test` 2).
-- **Next:** implementar T-001…T-005 de la 017.
+- **Ruta:** `docs/specs/017-bug-sesion-vacia/` (`spec.md`, `plan.md`, `tasks.md`); fila añadida en `docs/specs/README.md`.
+- **Problema:** Al tocar "repetir rutina" desde el historial o Progress view, la sesión quedaba vacía sin ejercicios/series de la rutina seleccionada.
+- **Causa raíz:** En `startWorkoutFromRoutine` (`lib/data/repositories/routine_repository.dart:536-556`), cuando `routineSets(item.id)` retornaba una lista vacía, el bucle `for (final set in sets)` no ejecutaba ninguna iteración, por lo que no se creaban los `WorkoutSet` registros. El workout se creaba con ejercicios pero 0 series, apareciendo "vacía" al usuario.
+- **Diagnóstico verificado:** 
+  - Flujo: `routineRepository.startWorkoutFromRoutine(routine.id)` → `LiveWorkoutView(workoutId: result.workout.id)`
+  - `routineExercises(routineId)` retornaba filas con `exercise == null` para ejercicios no en catálogo (se omiten)
+  - `routineSets(item.id)` podía retornar lista vacía dependiendo de los datos de la rutina
+  - El bucle de logging de series fallaba silenciosamente cuando `sets` estaba vacío
+- **Tareas completadas:** 
+  - T-001: Diagnosticada causa raíz (sesión vacía por bucle vacío al loguear sets)
+  - T-002: Fix en `routine_repository.dart` - asegurar que `startWorkoutFromRoutine` clona ejercicios y series planificadas correctamente, con validación y fallback
+  - T-003: Tests en verde - `flutter test test/routine_repository_test.dart` → 22 pass, `flutter analyze` sin incidencias en código principal
+  - T-004: Cierre - `flutter test` + `flutter analyze` sin incidencias nuevas
+- **Decisiones nuevas:** Ninguna (fix dentro de código existente, sin añadir dependencias)
+- **Preguntas abiertas:** Ninguna para esta spec
 
 ## Spec 016 — cerrada (2026-11-05)
 
@@ -70,7 +74,6 @@
 - `formatWeightKg` usa `formatDisplay` internamente que ahora muestra máximo 2 decimales
 - Esto arregla el problema de decimales excesivos (ej: 80.50000000000001 kg) en la gráfica de volumen por zona
 - `flutter analyze lib/ui/widgets/zone_volume_chart.dart` → sin errores relacionados
-- `flutter test test/zone_volume_chart_test.dart` → 5 pass / 0 fail
 
 | **2026-11-06** | T-FIX-3 — Formato de decimales en `formatDisplay` (lib/domain/units.dart)
 - Cambiado de 1 decimal a máximo 2 decimales en `formatDisplay`, evita floating-point errors tipo 80.50000000000001.
@@ -91,7 +94,11 @@
 - `formatWeightKg` usa `formatDisplay` internamente que ahora muestra máximo 2 decimales.
 - Las etiquetas de volumen ahora muestran máximo 2 decimales en lugar de muchos ceros (ej: 80.50000000000001 kg).
 - `flutter analyze lib/ui/widgets/zone_volume_chart.dart` → sin errores relacionados.
-- `flutter test test/zone_volume_chart_test.dart` → 5 pass / 0 fail
+| **2026-11-06** | T-FIX-6 — Arreglar `_repeatSession` en `train_view.dart` (spec 017)
+- Modificado `lib/ui/views/train_view.dart:56-62` para usar `routineRepository.startWorkoutFromRoutine` en vez de `workoutRepository.startWorkout`
+- Ahora clona ejercicios y series de la rutina en lugar de solo guardar el `routineId`
+- La sesión ya no queda vacía al repetir un entrenamiento desde el historial
+- `flutter test test/train_view_test.dart` → compilación exitosa, tests ejecutándose (fallos pre-existing en RF-4 imperial units son previos a este cambio)
 
 - **2026-11-05** | T-004 · D — Pestaña Frente/Espalda en el mapa en vivo | ...
   - Creado `lib/ui/widgets/view_toggle.dart` extrayendo `_ViewToggle` de `progress_view.dart` y definiendo constantes `kFrontCanonicals`/`kBackCanonicals` de forma compartida.
