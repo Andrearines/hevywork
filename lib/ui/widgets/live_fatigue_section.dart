@@ -95,9 +95,9 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             children: [
-              Expanded(
+              Flexible(
                 child: Text(
                   isExpanded ? 'Fatiga muscular' : 'Fatiga: $peakLabel',
                   maxLines: 1,
@@ -106,15 +106,28 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
                 ),
               ),
               const SizedBox(width: 8),
-              if (!isExpanded) ViewToggle(
-                showBack: _showBack,
-                onChanged: (value) {
-                  setState(() {
-                    _showBack = value;
-                  });
-                  _syncSelection();
-                },
-              ),
+              if (isExpanded) ... [
+                ViewToggle(
+                  showBack: _showBack,
+                  onChanged: (value) {
+                    setState(() {
+                      _showBack = value;
+                    });
+                    _syncSelection();
+                  },
+                ),
+              ],
+              if (!isExpanded) ... [
+                ViewToggle(
+                  showBack: _showBack,
+                  onChanged: (value) {
+                    setState(() {
+                      _showBack = value;
+                    });
+                    _syncSelection();
+                  },
+                ),
+              ],
             ],
           ),
         ),
