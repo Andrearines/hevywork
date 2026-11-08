@@ -1,4 +1,5 @@
-# hevywork
+# hevywork 1.0.0
+
 
 App de entrenamiento en Flutter: rutinas, registro de sesiones, objetivos,
 medidas corporales, mapa muscular de fatiga y catálogo de ejercicios con
