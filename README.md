@@ -1,4 +1,4 @@
-# hevywork 1.0.0
+# hevywork 1.2.0
 
 
 App de entrenamiento en Flutter: rutinas, registro de sesiones, objetivos,
