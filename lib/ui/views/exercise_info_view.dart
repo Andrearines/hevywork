@@ -314,8 +314,8 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   }
 
   List<Widget> _secondaryMuscleBadges(String secondaries) {
-    final labels = secondaries.split(',').map((m) => muscleLabel(m.trim())).toList();
-    return labels.map((label) => _badge(label)).toList();
+    final muscles = _parseSecondaryMuscles(secondaries);
+    return muscles.map((m) => _badge(muscleLabel(m))).toList();
   }
 
   Widget _badge(String text) {
