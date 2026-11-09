@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
@@ -154,21 +155,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 64.0),
         children: [
-          _buildMedia(exercise),
-          const SizedBox(height: 12),
           _buildIdentityBadges(exercise),
-          _buildCuesSection(exercise),
+          const SizedBox(height: 12),
+          _buildMedia(exercise),
           const SizedBox(height: 24),
-          _buildSessionHistory(),
-          _buildActivationBar(exercise),
-          const SizedBox(height: 16),
-          if (exercise.attribution != null) ...[
-            const SizedBox(height: 8),
-            Text(exercise.attribution!, style: const TextStyle(fontSize: 10, color: ThemeColors.kOutline)),
-          ],
-          const SizedBox(height: 16),
-          _buildRestSetting(),
-          const SizedBox(height: 16),
           _buildKpiGrid(),
           const SizedBox(height: 24),
           ChartWidget.ExerciseProgressChart(
@@ -182,6 +172,16 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               setState(() {});
             },
           ),
+          const SizedBox(height: 24),
+          _buildCuesSection(exercise),
+          const SizedBox(height: 24),
+          _buildSessionHistory(),
+          _buildRestSetting(),
+          const SizedBox(height: 8),
+          if (exercise.attribution != null) ...[
+            Text(exercise.attribution!, style: const TextStyle(fontSize: 10, color: ThemeColors.kOutline)),
+          ],
+          const SizedBox(height: 16),
         ],
       ),
       bottomNavigationBar: _buildCTABar(),
@@ -814,6 +814,33 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       ),
     );
   }
+  /// Tarjeta compacta para ≥³.ª sesión (sin chevron, sola línea de resumen).
+  Widget _buildCompactSessionCard(
+    ExerciseSessionSummary session, {
+    required String units,
+  }) {
+    final top = exerciseKpis([session]).topSet;
+    final weight = weightUnitOf(units);
+    final topText = top != null
+        ? ' · Top: ${formatWeightKg(top.weightKg, units)} $weight × ${top.reps} reps'
+        : '';
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: const BoxDecoration(
+        color: ThemeColors.kSurfaceContainer,
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+      ),
+      child: Text(
+        '${session.completedSetCount} sets completados$topText',
+        style: const TextStyle(
+          fontSize: 12,
+          color: ThemeColors.kOnSurface,
+        ),
+      ),
+    );
+  }
 
   Widget _buildSessionHeader(
     ExerciseSessionSummary session, {
@@ -1170,7 +1197,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return 'Hace $yearsLabel ${yearsLabel == 1 ? 'año' : 'años'}';
   }
 
-  /// CTA bottom bar sticky: botón blanco 48 dp sobre el safe area.
+  /// CTA bottom bar sticky: botón 48 dp translúcido sobre el safe area.
   /// Con sesión activa: addExercise + snackbar "¡Añadido a la sesión activa!".
   /// Sin sesión activa: startWorkout + addExercise + snackbar "Sesión iniciada con el ejercicio".
   Widget _buildCTABar() {
@@ -1179,54 +1206,64 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       button: true,
       label: hasActiveWorkout ? 'Añadir ejercicio a la sesión activa' : 'Iniciar sesión y añadir ejercicio',
       child: Container(
+        key: const Key('exercise-info-cta'),
         height: 48,
         margin: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(
-          color: ThemeColors.kPrimary,
+          color: ThemeColors.kSurface.withValues(alpha: 0.8),
           borderRadius: const BorderRadius.all(Radius.circular(8)),
-          boxShadow: [], // sin sombras (Apple minimalist)
+          boxShadow: [],
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: const BorderRadius.all(Radius.circular(8)),
-            onTap: () async {
-              final workoutRepo = widget.workoutRepository;
-              if (workoutRepo == null) return;
-              if (hasActiveWorkout) {
-                // Sesión activa: añadir ejercicio existente
-                await workoutRepo.addExercise(
-                  workoutId: _activeWorkout!.id,
-                  exerciseId: widget.exercise.id,
-                );
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('¡Añadido a la sesión activa!')),
-                );
-              } else {
-                // Sin sesión activa: iniciar sesión y añadir ejercicio
-                final newWorkout = await workoutRepo.startWorkout();
-                if (!mounted) return;
-                await workoutRepo.addExercise(
-                  workoutId: newWorkout.id,
-                  exerciseId: widget.exercise.id,
-                );
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Sesión iniciada con el ejercicio')),
-                );
-              }
-              // RF-19: tras el tap hay exactamente una sesión activa
-              // El workflow de startWorkout ya maneja la sesión única (RF-5, RF-19)
-            },
-            child: Center(
-              child: Text(
-                hasActiveWorkout
-                    ? 'Añadir a rutina'
-                    : 'Iniciar sesión',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: ThemeColors.kOnPrimary,
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: const BorderRadius.all(Radius.circular(8)),
+              onTap: () async {
+                final workoutRepo = widget.workoutRepository;
+                if (workoutRepo == null) return;
+                if (hasActiveWorkout) {
+                  // Sesión activa: añadir ejercicio existente
+                  await workoutRepo.addExercise(
+                    workoutId: _activeWorkout!.id,
+                    exerciseId: widget.exercise.id,
+                  );
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('¡Añadido a la sesión activa!')),
+                  );
+                } else {
+                  // Sin sesión activa: iniciar sesión y añadir ejercicio
+                  final newWorkout = await workoutRepo.startWorkout();
+                  if (!mounted) return;
+                  await workoutRepo.addExercise(
+                    workoutId: newWorkout.id,
+                    exerciseId: widget.exercise.id,
+                  );
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Sesión iniciada con el ejercicio')),
+                  );
+                }
+                // RF-19: tras el tap hay exactamente una sesión activa
+                // El workflow de startWorkout ya maneja la sesión única (RF-5, RF-19)
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.add_circle, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Añadir a Rutina o Iniciar Sesión',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: ThemeColors.kOnPrimary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

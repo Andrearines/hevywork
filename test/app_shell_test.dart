@@ -99,10 +99,20 @@ void main() {
         expect(find.text(label), findsOneWidget);
       }
 
-      expect(find.text('HevyWork'), findsOneWidget);
+      expect(find.text('HevyWork'), findsNothing);
       expect(find.text('Entrenar'), findsOneWidget);
       expect(find.text('Historial & Calendario'), findsOneWidget);
       expect(find.text('Sin sesiones todavía'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('la cabecera muestra el logo en lugar de texto', (tester) async {
+      await tester.pumpWidget(const HevyWorkApp());
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(Key('app-bar-logo')), findsOneWidget);
+      expect(find.text('HevyWork'), findsNothing);
 
       await unmount(tester);
     });

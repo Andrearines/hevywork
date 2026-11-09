@@ -37,11 +37,14 @@ PreferredSize hevyAppBar(
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        'HevyWork',
-                        style: textTheme.headlineSmall
-                            ?.copyWith(color: kPrimary),
+                      Image.asset(
+                        'assets/images/logo.png',
+                        height: 32,
+                        fit: BoxFit.contain,
+                        semanticLabel: 'HevyWork',
+                        key: Key('app-bar-logo'),
                       ),
+                      SizedBox(width: 8),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 8),
                         child: Container(

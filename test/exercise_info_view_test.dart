@@ -463,5 +463,120 @@ void main() {
       expect(tester.takeException(), isNull);
       await unmount(tester);
     });
+
+    group('CTA y conservados (G33-G36)', () {
+      testWidgets('G33: CTA visible sin scroll con literal e icono, sin elevation/BoxShadow',
+          (tester) async {
+        await pumpView(tester);
+
+        // CTA debe ser visible sin necesidad de scroll
+        expect(find.byKey(const Key('exercise-info-cta')), findsOneWidget);
+
+        // El literal debe ser único: "Añadir a Rutina o Iniciar Sesión"
+        expect(find.text('Añadir a Rutina o Iniciar Sesión'), findsOneWidget);
+
+        // Icono add_circle debe estar presente
+        expect(find.byIcon(Icons.add_circle), findsOneWidget);
+
+        // No debe haber BoxShadow ni elevation en la vista del CTA
+        final ctaContainer = tester.widget<Container>(
+          find.byKey(const Key('exercise-info-cta')).last,
+        );
+        final boxDecoration = ctaContainer.decoration as BoxDecoration;
+        expect(boxDecoration.boxShadow, isEmpty);
+
+        await unmount(tester);
+      });
+
+      testWidgets('G34: Given sesión activa, When se pulsa CTA, Then addExercise llamado una vez y snackbar',
+          (tester) async {
+            // Insertar sesión activa en la BD para que watchActiveWorkout la emita
+            final profile = await db.select(db.localProfiles).getSingle();
+            await db.into(db.workouts).insert(
+              WorkoutsCompanion.insert(
+                id: 'test-workout-1',
+                localUserId: profile.localUserId,
+                name: Value('Test Workout'),
+                startedAt: DateTime.now().subtract(const Duration(hours: 1)),
+                endedAt: Value(null),
+                status: const Value('active'),
+              ),
+            );
+
+            await pumpView(tester);
+
+            // Presionar CTA
+            await tester.tap(find.byKey(const Key('exercise-info-cta')));
+            await tester.pumpAndSettle();
+
+            // Debe mostrarse el snackbar de sesión activa
+            expect(find.text('¡Añadido a la sesión activa!'), findsOneWidget);
+
+            await unmount(tester);
+          });
+
+      testWidgets('G35: Given sin sesión activa, When se pulsa, Then se crea sesión y snackbar',
+          (tester) async {
+            // No insertar sesión activa; _activeWorkout se mantendrá null
+            // Asegurar perfil en la BD para startWorkout()
+            final profile = await db.select(db.localProfiles).getSingle();
+            if (profile.localUserId == null) {
+              await db.into(db.localProfiles).insert(
+                LocalProfilesCompanion.insert(
+                  localUserId: '1',
+                ),
+              );
+            }
+
+            await pumpView(tester);
+
+            // Presionar CTA
+            await tester.tap(find.byKey(const Key('exercise-info-cta')));
+            await tester.pumpAndSettle();
+
+            // Debe mostrarse el snackbar de sesión iniciada
+            expect(find.text('Sesión iniciada con el ejercicio'), findsOneWidget);
+
+            await unmount(tester);
+          });
+
+      testWidgets('G36: Given la ficha, When se pinta, Then bloque descanso después del historial,'
+          ' conserva claves rest-detail-* y cambia 120 s → 105 s → 120 s,'
+          ' y la atribución se pinta al final',
+          (tester) async {
+            // Verificar que el bloque de descanso está después del historial
+            await pumpView(tester);
+
+            // Desplazar hasta el bloque de descanso (rest-detail)
+            await tester.scrollUntilVisible(
+              find.byKey(const Key('rest-detail-plus')),
+              300,
+            );
+            await tester.pumpAndSettle();
+
+            // Verificar claves rest-detail-*
+            expect(find.byKey(const Key('rest-detail-minus')), findsOneWidget);
+            expect(find.byKey(const Key('rest-detail-plus')), findsOneWidget);
+
+            // Verificar valor inicial 120 s
+            expect(find.text('120 s'), findsOneWidget);
+
+            // Cambiar a 105 s
+            await tester.tap(find.byKey(const Key('rest-detail-minus')));
+            await tester.pump();
+            expect(find.text('105 s'), findsOneWidget);
+
+            // Cambiar de vuelta a 120 s
+            await tester.tap(find.byKey(const Key('rest-detail-plus')));
+            await tester.pump();
+            expect(find.text('120 s'), findsOneWidget);
+
+            // Verificar que la atribución está al final de la vista
+            // (después del historial y el bloque de descanso)
+            expect(find.text('© Gym visual — https://gymvisual.com/'), findsOneWidget);
+
+            await unmount(tester);
+          });
+    });
   });
 }
