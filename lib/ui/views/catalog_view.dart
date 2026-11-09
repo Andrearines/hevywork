@@ -262,7 +262,11 @@ class _CatalogViewState extends State<CatalogView> {
           onTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ExerciseInfoView(exercise: ex),
+              builder: (_) => ExerciseInfoView(
+                exercise: ex,
+                database: localDb,
+                workoutRepository: workoutRepository,
+              ),
             ),
           ),
           child: Padding(

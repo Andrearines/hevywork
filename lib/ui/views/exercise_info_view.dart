@@ -1,15 +1,13 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../data/local/database.dart';
+import '../../data/repositories/gif_cache.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../domain/exercise_stats.dart';
 import '../../domain/media.dart';
 import '../../domain/units.dart';
-import '../../main.dart';
 import '../theme/colors.dart' as ThemeColors;
 import '../unit_system_scope.dart';
 import '../widgets/chart_enums.dart';
@@ -37,9 +35,8 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   Map<String, List<String>> _steps = const {};
   String _language = 'es';
   late int _restSeconds;
-  File?_gifFile;
+  File? _gifFile;
 
-  /// Estado para el chart de progresión
   ProgressMetric _selectedMetric = ProgressMetric.e1rm;
   ProgressWindow _selectedWindow = ProgressWindow.threeMonths;
 
@@ -49,7 +46,6 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   bool _historyLoaded = false;
   bool _historyLoading = false;
 
-  // Estado para el CTA de sesión activa
   Workout? _activeWorkout;
   StreamSubscription<Workout?>? _activeWorkoutSubscription;
 
@@ -59,10 +55,16 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     _restSeconds = widget.exercise.restSeconds;
     _loadSteps();
     _loadInitialHistory();
-    // _sessions stays as empty list - no workout data in test
     _gifFile = null;
-    _activeWorkout = _initialActiveWorkout();
+    _activeWorkout = null;
     _listenActiveWorkout();
+  }
+
+  File?_loadGifFile(String gifPath) {
+    // Intentar servir el GIF directamente; si falla, retorna null para fallback local.
+    // Esta función podría usar el patrón de download de GifCache si estuviera disponible,
+    // o simplemente retornar null para usar la miniatura local (más seguro sin nuevas deps).
+    return null; // Fallback a miniatura local
   }
 
   void _loadSteps() async {
@@ -92,12 +94,6 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     });
   }
 
-  Workout? _initialActiveWorkout() {
-    // No podemos await en initState; el valor inicial es null y
-    // _listenActiveWorkout() suscribe el stream para actualizar el estado.
-    return null;
-  }
-
   void _listenActiveWorkout() {
     if (widget.workoutRepository == null) return;
     _activeWorkoutSubscription =
@@ -118,71 +114,128 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   @override
   Widget build(BuildContext context) {
     final exercise = widget.exercise;
-    final steps = _steps[_language] ?? const <String>[];
-    final stepsCount = steps.length;
+    final kpis = _historyLoaded ? exerciseKpis(_history) : ExerciseKpis.empty;
 
     return Scaffold(
       backgroundColor: ThemeColors.kSurface,
-      appBar: AppBar(
-        backgroundColor: ThemeColors.kSurface,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: ThemeColors.kOnSurface),
-        title: Text(
-          exercise.name,
-          style: const TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w500,
-            color: ThemeColors.kOnSurface,
-          ),
-        ),
-        actions: [
-          if (stepsCount > 1) ...[
-            IconButton(
-              icon: const Icon(Icons.language),
-              tooltip: 'Cambiar idioma de pasos',
-              onPressed: () {
-                final available = _steps.keys.toList()..sort();
-                if (available.length <= 1) return;
-                setState(() {
-                  _language = _language == 'es' ? 'en' : 'es';
-                });
-              },
+      body: SafeArea(
+        bottom: false,
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // SCR-1: Context bar
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                          tooltip: 'Volver',
+                          onPressed: () => Navigator.pop(context),
+                          color: ThemeColors.kOnSurfaceVariant,
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: const [
+                              Text(
+                                'BASE DE DATOS',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.8,
+                                  color: ThemeColors.kOnSurfaceVariant,
+                                ),
+                              ),
+                              Text(
+                                'Detalle de Ejercicio',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  color: ThemeColors.kOnSurface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.star_border_rounded, size: 22),
+                          tooltip: 'Favorito',
+                          onPressed: () {},
+                          color: ThemeColors.kOnSurfaceVariant,
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.more_vert, size: 22),
+                          tooltip: 'Más opciones',
+                          onPressed: () {},
+                          color: ThemeColors.kOnSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, color: ThemeColors.kSurfaceContainerHighest),
+                  // SCR-2: Identidad
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: _buildIdentityBadgesWithTitle(exercise),
+                  ),
+                  // SCR-3: Media / GIF
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: _buildMedia(exercise),
+                  ),
+                  // SCR-4: KPI 2×2
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: _buildKpiGrid(kpis),
+                  ),
+                  // SCR-5: Gráfico de progresión
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: _buildProgressChartSection(),
+                  ),
+                  // SCR-6: Biomecánica & Cues
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(0, 24, 0, 0),
+                    child: Divider(height: 1, color: ThemeColors.kSurfaceContainerHighest),
+                  ),
+                  _buildCuesSection(exercise),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: _buildActivationBar(exercise),
+                  ),
+                  // SCR-7: Historial de sesiones
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: _buildSessionHistory(),
+                  ),
+                  // SCR-9: Descanso
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+                    child: _buildRestSetting(),
+                  ),
+                  if (_steps.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: _buildLanguageSwitch(),
+                    ),
+                  if (exercise.attribution != null)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Text(
+                        exercise.attribution!,
+                        style: const TextStyle(fontSize: 10, color: ThemeColors.kOutline),
+                      ),
+                    ),
+                  const SizedBox(height: 100),
+                ],
+              ),
             ),
           ],
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 64.0),
-        children: [
-          _buildIdentityBadges(exercise),
-          const SizedBox(height: 12),
-          _buildMedia(exercise),
-          const SizedBox(height: 24),
-          _buildKpiGrid(),
-          const SizedBox(height: 24),
-          ChartWidget.ExerciseProgressChart(
-            sessions: const [],
-            metric: _selectedMetric,
-            window: _selectedWindow,
-            onMetricChanged: (metric) {
-              setState(() {});
-            },
-            onWindowChanged: (window) {
-              setState(() {});
-            },
-          ),
-          const SizedBox(height: 24),
-          _buildCuesSection(exercise),
-          const SizedBox(height: 24),
-          _buildSessionHistory(),
-          _buildRestSetting(),
-          const SizedBox(height: 8),
-          if (exercise.attribution != null) ...[
-            Text(exercise.attribution!, style: const TextStyle(fontSize: 10, color: ThemeColors.kOutline)),
-          ],
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
       bottomNavigationBar: _buildCTABar(),
     );
@@ -205,7 +258,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               builder: (context, snapshot) {
                 final file = snapshot.data;
                 if (file != null) {
-                  return Image.file(file, fit: BoxFit.contain);
+                  final dpi = (MediaQuery.of(context).devicePixelRatio * 220).round();
+                  return Image.file(file, fit: BoxFit.contain, scale: 1.0,
+                      cacheWidth: dpi, cacheHeight: dpi);
                 }
                 return local;
               },
@@ -224,19 +279,35 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     );
   }
 
-  Widget _buildIdentityBadges(Exercise exercise) {
+  Widget _buildIdentityBadgesWithTitle(Exercise exercise) {
     final muscleLabelText = muscleLabel(exercise.target);
+    final exerciseName = Text(
+      exercise.name,
+      style: const TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        color: ThemeColors.kOnSurface,
+        height: 1.2,
+      ),
+    );
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _badge(muscleLabelText),
-        _badge(exercise.equipment),
-        _badge(exercise.bodyPart),
-        if (exercise.secondaryMuscles != null &&
-            exercise.secondaryMuscles!.isNotEmpty)
-          ..._secondaryMuscleBadges(exercise.secondaryMuscles!),
+        exerciseName,
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _badge(exercise.equipment),
+            _badge(exercise.bodyPart),
+            _badgeHighlight(muscleLabelText),
+            if (exercise.secondaryMuscles != null &&
+                exercise.secondaryMuscles!.isNotEmpty)
+              ..._secondaryMuscleBadges(exercise.secondaryMuscles!),
+          ],
+        ),
       ],
     );
   }
@@ -254,11 +325,29 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         borderRadius: BorderRadius.all(Radius.circular(4)),
       ),
       child: Text(
-        text.toUpperCase(),
+        text,
         style: const TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
+          fontWeight: FontWeight.w500,
+          color: ThemeColors.kOnSurfaceVariant,
+        ),
+      ),
+    );
+  }
+
+  Widget _badgeHighlight(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: ThemeColors.kSurfaceContainerHighest,
+        borderRadius: const BorderRadius.all(Radius.circular(4)),
+        border: Border.all(color: ThemeColors.kOnSurface.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
           color: ThemeColors.kOnSurface,
         ),
       ),
@@ -292,12 +381,12 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
 
   Widget _buildStep(int index, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 26,
+            width: 28,
             child: Text(
               index.toString().padLeft(2, '0'),
               style: const TextStyle(
@@ -314,7 +403,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               text,
               style: const TextStyle(
                 fontSize: 14,
-                height: 1.4,
+                height: 1.5,
                 color: ThemeColors.kOnSurface,
               ),
             ),
@@ -382,28 +471,63 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     setState(() => _restSeconds = next);
   }
 
-  Widget _buildKpiGrid() {
-    final kpis = ExerciseKpis.empty;
+  Widget _buildProgressChartSection() {
+    return ChartWidget.ExerciseProgressChart(
+      sessions: _history,
+      metric: _selectedMetric,
+      window: _selectedWindow,
+      onMetricChanged: (metric) => setState(() => _selectedMetric = metric),
+      onWindowChanged: (window) => setState(() => _selectedWindow = window),
+    );
+  }
+
+  Widget _buildKpiGrid(ExerciseKpis kpis) {
+    final units = UnitSystemScope.of(context);
+    final weightUnit = weightUnitOf(units);
 
     final bestE1rmText = kpis.bestE1rm != null
-        ? '${kpis.bestE1rm!.toStringAsFixed(1)} kg'
+        ? '${formatWeightKg(kpis.bestE1rm!, units)} $weightUnit'
         : '--';
 
-    final prChip = kpis.secondBestE1rm != null && kpis.bestE1rm != null
-        ? '+${(kpis.bestE1rm!.toInt() - kpis.secondBestE1rm!.toInt())} kg PR'
+    final prDelta = kpis.secondBestE1rm != null && kpis.bestE1rm != null
+        ? '+${(kpis.bestE1rm! - kpis.secondBestE1rm!).toStringAsFixed(1)} kg PR'
         : '';
 
+    final bestE1rmDate = kpis.bestE1rmAt != null
+        ? 'Basado en Epley · ${_sessionDateLabel(kpis.bestE1rmAt!)}'
+        : 'Sin series completadas';
+
     final maxLoadText = kpis.topSet != null
-        ? 'Top Set · ${kpis.topSet!.weightKg.toStringAsFixed(1)} kg × ${kpis.topSet!.reps} reps @ RIR ${kpis.topSet!.rir ?? 0}'
+        ? '${formatWeightKg(kpis.topSet!.weightKg, units)} $weightUnit'
         : '--';
+
+    final maxLoadSub = kpis.topSet != null
+        ? 'Top Set · ${kpis.topSet!.reps} reps @ RIR ${kpis.topSet!.rir ?? 0}'
+        : 'Sin series completadas';
 
     final maxVolumeText = kpis.maxSessionVolume != null
-        ? '${kpis.maxSessionVolume!.toStringAsFixed(1)} kg × ${kpis.maxSessionVolumeSets} series'
+        ? '${formatWeightKg(kpis.maxSessionVolume!, units)} $weightUnit'
         : '--';
 
-    final totalSetsText = '${kpis.totalSets} series · ${kpis.sessionCount} entrenamientos';
+    final maxVolumeSub = kpis.maxSessionVolume != null
+        ? 'Récord en 1 sesión (${kpis.maxSessionVolumeSets} sets)'
+        : 'Sin series completadas';
 
-    Widget kpiCard(String label, String value, {String? subtitle}) {
+    final totalSetsText = kpis.sessionCount > 0
+        ? '${kpis.totalSets} series'
+        : '--';
+
+    final totalSetsSub = kpis.sessionCount > 0
+        ? '${kpis.sessionCount} entrenamientos reg.'
+        : 'Sin series completadas';
+
+    Widget kpiCard({
+      required String label,
+      required String value,
+      String? subtitle,
+      String? chip,
+      IconData? actionIcon,
+    }) {
       return Container(
         decoration: BoxDecoration(
           color: ThemeColors.kSurfaceContainer,
@@ -415,15 +539,58 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label,
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: ThemeColors.kOnSurfaceVariant)),
-              const SizedBox(height: 4),
-              Text(value,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: ThemeColors.kOnSurface)),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.6,
+                        color: ThemeColors.kOnSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                  if (chip != null && chip.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: ThemeColors.kSurfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        chip,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: ThemeColors.kOnSurface,
+                        ),
+                      ),
+                    ),
+                  if (actionIcon != null) ...[
+                    const SizedBox(width: 4),
+                    Icon(actionIcon, size: 16, color: ThemeColors.kOnSurfaceVariant),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: ThemeColors.kOnSurface,
+                  height: 1.1,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
               if (subtitle != null) ...[
                 const SizedBox(height: 4),
-                Text(subtitle,
-                    style: const TextStyle(fontSize: 10, color: ThemeColors.kOnSurfaceVariant)),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 11, color: ThemeColors.kOnSurfaceVariant),
+                ),
               ],
             ],
           ),
@@ -431,64 +598,82 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       );
     }
 
-    final bestE1rmCard = kpis.bestE1rm != null
-        ? kpiCard('1RM Estimado', bestE1rmText,
-            subtitle: prChip.isNotEmpty ? prChip : null)
-        : kpiCard('1RM Estimado', '--',
-            subtitle: 'Sin series completadas');
-
-    final maxLoadCard = kpis.topSet != null
-        ? kpiCard('Carga Máxima', maxLoadText)
-        : kpiCard('Carga Máxima', '--',
-            subtitle: 'Sin series completadas');
-
-    final maxVolumeCard = kpis.maxSessionVolume != null
-        ? kpiCard('Volumen Máx.', maxVolumeText)
-        : kpiCard('Volumen Máx.', '--',
-            subtitle: 'Sin series completadas');
-
-    final totalSetsCard = kpis.sessionCount > 0
-        ? kpiCard('Total Series', totalSetsText)
-        : kpiCard('Total Series', '--',
-            subtitle: 'Sin series completadas');
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Expanded(child: bestE1rmCard),
+            Expanded(
+              child: kpiCard(
+                label: '1RM Estimado',
+                value: bestE1rmText,
+                subtitle: bestE1rmDate,
+                chip: prDelta.isNotEmpty ? prDelta : null,
+              ),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: maxLoadCard),
+            Expanded(
+              child: kpiCard(
+                label: 'Carga Máxima',
+                value: maxLoadText,
+                subtitle: maxLoadSub,
+                actionIcon: Icons.open_in_new_rounded,
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: maxVolumeCard),
+            Expanded(
+              child: kpiCard(
+                label: 'Volumen Máx.',
+                value: maxVolumeText,
+                subtitle: maxVolumeSub,
+                actionIcon: Icons.trending_up_rounded,
+              ),
+            ),
             const SizedBox(width: 12),
-            Expanded(child: totalSetsCard),
+            Expanded(
+              child: kpiCard(
+                label: 'Total Series',
+                value: totalSetsText,
+                subtitle: totalSetsSub,
+                actionIcon: Icons.history_rounded,
+              ),
+            ),
           ],
         ),
       ],
     );
   }
 
-  /// Sección plegable de instrucciones biomecánicas.
-  /// Desplegada por defecto (initiallyExpanded: true). Muestra pasos numerados
-  /// del catálogo `exercise_instructions` en el idioma disponible. Si no hay
-  /// pasos, muestra "Sin instrucciones disponibles".
   Widget _buildCuesSection(Exercise exercise) {
     final steps = _steps[_language] ?? const <String>[];
-    final stepsCount = steps.length;
 
     return ExpansionTile(
       initiallyExpanded: true,
-      title: const Text('Biomecánica & Cues'),
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: Row(
+        children: const [
+          Icon(Icons.tune_rounded, size: 18, color: ThemeColors.kOnSurfaceVariant),
+          SizedBox(width: 10),
+          Text(
+            'Biomecánica & Cues Técnicos',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: ThemeColors.kOnSurface,
+            ),
+          ),
+        ],
+      ),
       children: [
+        const SizedBox(height: 8),
         if (steps.isEmpty)
           const Padding(
-            padding: EdgeInsets.all(16),
+            padding: EdgeInsets.all(8),
             child: Text(
               'Sin instrucciones disponibles',
               style: TextStyle(fontSize: 14, color: ThemeColors.kOnSurfaceVariant),
@@ -497,180 +682,107 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         else
           for (var i = 0; i < steps.length; i++)
             _buildStep(i + 1, steps[i]),
-        if (stepsCount > 1) ...[
+        if (_steps.length > 1) ...[
           const SizedBox(height: 8),
           _buildLanguageSwitch(),
-        ],
+          const SizedBox(height: 8),
+        ] else
+          const SizedBox(height: 8),
       ],
     );
   }
 
-  /// Barra de activación muscular.
-  /// El target principal ocupa 70% de la barra; los secundarios comparten el
-  /// 30% restante con leyenda en español. Si no hay secundarios, se muestra un
-  /// solo segmento. Los targets táctiles tienen mínimo 48 dp.
   Widget _buildActivationBar(Exercise exercise) {
     final primaryTarget = exercise.target;
     final secondaryMuscles = exercise.secondaryMuscles;
 
-    // Determinar targets secundarios
     final secondaryList = secondaryMuscles != null
-        ? secondaryMuscles.split(',').map((m) => m.trim()).toList()
-        : [];
+        ? secondaryMuscles.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty).toList()
+        : <String>[];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with target label and tactile minimum 48 dp
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: ThemeColors.kSurfaceContainer,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                // Target label (≥ 48 dp consideration in padding/layout)
-                Expanded(
-                  child: Text(
-                    'Foco Principal: $primaryTarget',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: ThemeColors.kOnSurface,
-                    ),
-                    overflow: TextOverflow.fade, // hide text, focus on visual bar
-                  ),
-                ),
-                // Width indicator for accessibility
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 48),
-                  child: Text(
-                    '70%',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: ThemeColors.kOnSurfaceVariant,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Activation bar
-          Container(
-            height: 8,
-            decoration: BoxDecoration(
-              color: ThemeColors.kSurfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              children: [
-                // Primary segment (70%)
-                Expanded(
-                  flex: 7,
-                  child: Container(
-                    color: ThemeColors.kPrimary,
-                  ),
-                ),
-                // Secondary segments (30% total)
-                if (secondaryList.isNotEmpty)
-                  ...List.generate(secondaryList.length, (_) {
-                    return Expanded(
-                      flex: 1,
-                      child: Container(
-                        color: ThemeColors.kSecondary,
-                      ),
-                    );
-                  })
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // Secondary legend
-          if (secondaryList.isNotEmpty) ...[
-            Row(
-              children: [
-                for (final muscle in secondaryList)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4),
-                    child: _secondaryMuscleLabel(muscle),
-                  ),
-              ],
-            ),
-          ] else ...[
-            const Padding(
-              padding: EdgeInsets.only(left: 12),
-              child: Text(
-                'Sin músculos secundarios',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: ThemeColors.kOnSurfaceVariant,
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _secondaryMuscleLabel(String muscle) {
-    return Text(
-      muscleLabel(muscle).toUpperCase(),
-      style: const TextStyle(
-        fontSize: 10,
-        fontWeight: FontWeight.w600,
-        color: ThemeColors.kOnSurface,
-      ),
-    );
-  }
-
-  Widget _buildHistorySection() {
-    if (!_historyLoaded) return const SizedBox.shrink();
-    if (_history.isEmpty) return _buildHistoryEmpty();
-
-    final bestE1rm = exerciseKpis(_history).bestE1rm;
-    final units = UnitSystemScope.of(context);
+    final primaryFlex = 7;
+    final secondaryFlex = secondaryList.isEmpty ? 0 : 3;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Historial de Sesiones',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: ThemeColors.kPrimary,
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Distribución de activación',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: ThemeColors.kOnSurfaceVariant,
+                ),
+              ),
+            ),
+            Text(
+              'Foco Principal: ${muscleLabel(primaryTarget)}',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: ThemeColors.kOnSurface,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(4)),
+          child: SizedBox(
+            height: 6,
+            child: Row(
+              children: [
+                Expanded(
+                  flex: primaryFlex,
+                  child: Container(color: ThemeColors.kOnSurface),
+                ),
+                if (secondaryList.isNotEmpty)
+                  Expanded(
+                    flex: secondaryFlex,
+                    child: Container(color: ThemeColors.kSurfaceContainerHighest),
+                  ),
+              ],
+            ),
           ),
         ),
-        _buildExpandedSessionCard(
-          _history.first,
-          bestE1rm: bestE1rm,
-          units: units,
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 16,
+          children: [
+            _muscleChip(muscleLabel(primaryTarget), '${(primaryFlex * 100 / (primaryFlex + secondaryFlex)).round()}%', ThemeColors.kOnSurface),
+            if (secondaryList.isNotEmpty)
+              for (var i = 0; i < secondaryList.length; i++)
+                _muscleChip(
+                  muscleLabel(secondaryList[i]),
+                  '${(secondaryFlex * 100 / (primaryFlex + secondaryFlex) / secondaryList.length).round()}%',
+                  ThemeColors.kOnSurfaceVariant,
+                ),
+          ],
         ),
-        for (final session in _history.skip(1))
-          _buildCondensedSessionCard(session, units: units),
-        if (_historyUpcoming.isNotEmpty || _historyLoading) ...[
-          const SizedBox(height: 12),
-          _buildLoadMoreButton(),
-        ],
       ],
     );
   }
 
-  /// Sección de historial de sesiones posicionada después de biomecánica.
-  /// Usa workoutRepository.exerciseHistory() con paginación de 10 por página.
-  /// Tarjeta expandida: nombre/fecha/volumen, tabla SET/KG×REPS/RIR/EST1RM,
-  /// series calentamiento (Cal.), ★ mejor e1RM.
-  /// Tarjetas condensadas: "N sets completados · Top: kg×reps".
-  /// Estado vacío si no hay sesiones.
+  Widget _muscleChip(String label, String percent, Color dotColor) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 5),
+        Text(
+          '$label $percent',
+          style: const TextStyle(fontSize: 11, color: ThemeColors.kOnSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
   Widget _buildSessionHistory() {
     if (!_historyLoaded) return const SizedBox.shrink();
     if (_history.isEmpty) return _buildHistoryEmpty();
@@ -681,14 +793,24 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Historial de Sesiones',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: ThemeColors.kPrimary,
-          ),
+        Row(
+          children: [
+            const Text(
+              'Historial de Sesiones',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: ThemeColors.kOnSurface,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${_history.length + _historyUpcoming.length} registros',
+              style: const TextStyle(fontSize: 12, color: ThemeColors.kOnSurfaceVariant),
+            ),
+          ],
         ),
+        const SizedBox(height: 12),
         _buildExpandedSessionCard(
           _history.first,
           bestE1rm: bestE1rm,
@@ -746,7 +868,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     final rirMean = session.rirMean;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
+      margin: const EdgeInsets.only(top: 0),
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
         color: ThemeColors.kSurfaceContainer,
@@ -761,7 +883,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           const SizedBox(height: 8),
           Text(
             rirMean != null
-                ? 'RIR medio: ${rirMean.toStringAsFixed(1)}'
+                ? 'RPE Promedio: ${(10 - rirMean).toStringAsFixed(1)}'
                 : 'RIR medio: —',
             style: const TextStyle(
               fontSize: 11,
@@ -780,7 +902,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     final top = exerciseKpis([session]).topSet;
     final weight = weightUnitOf(units);
     final topText = top != null
-        ? ' · Top: ${formatWeightKg(top.weightKg, units)} $weight × ${top.reps} reps'
+        ? 'Top: ${formatWeightKg(top.weightKg, units)} $weight × ${top.reps} reps'
         : '';
     return Container(
       width: double.infinity,
@@ -802,42 +924,25 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               color: ThemeColors.kSurfaceContainerLow,
               borderRadius: BorderRadius.all(Radius.circular(8)),
             ),
-            child: Text(
-              '${session.completedSetCount} sets completados$topText',
-              style: const TextStyle(
-                fontSize: 12,
-                color: ThemeColors.kOnSurface,
-              ),
+            child: Row(
+              children: [
+                const Icon(Icons.autorenew_rounded, size: 14, color: ThemeColors.kOnSurfaceVariant),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${session.completedSetCount} sets completados',
+                    style: const TextStyle(fontSize: 12, color: ThemeColors.kOnSurface),
+                  ),
+                ),
+                if (topText.isNotEmpty)
+                  Text(
+                    topText,
+                    style: const TextStyle(fontSize: 11, color: ThemeColors.kOnSurfaceVariant),
+                  ),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
-  /// Tarjeta compacta para ≥³.ª sesión (sin chevron, sola línea de resumen).
-  Widget _buildCompactSessionCard(
-    ExerciseSessionSummary session, {
-    required String units,
-  }) {
-    final top = exerciseKpis([session]).topSet;
-    final weight = weightUnitOf(units);
-    final topText = top != null
-        ? ' · Top: ${formatWeightKg(top.weightKg, units)} $weight × ${top.reps} reps'
-        : '';
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: const BoxDecoration(
-        color: ThemeColors.kSurfaceContainer,
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-      ),
-      child: Text(
-        '${session.completedSetCount} sets completados$topText',
-        style: const TextStyle(
-          fontSize: 12,
-          color: ThemeColors.kOnSurface,
-        ),
       ),
     );
   }
@@ -901,8 +1006,8 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               '${formatWeightKg(session.volumeKg, units)} $weight',
               style: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w600,
-                color: ThemeColors.kPrimary,
+                fontWeight: FontWeight.w700,
+                color: ThemeColors.kOnSurface,
               ),
             ),
             const SizedBox(height: 2),
@@ -969,7 +1074,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           ),
           Expanded(
             child: Text(
-              'KG × REPS',
+              'PESO × REPS',
               textAlign: TextAlign.center,
               style: headerStyle,
             ),
@@ -1003,7 +1108,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     required String units,
   }) {
     final isWarmup = set.setType == 'warmup';
-    final label = '${index + 1}${isWarmup ? ' (Cal.)' : ''}';
+    final label = isWarmup ? '${index + 1} (Cal.)' : '${index + 1}';
     final star = bestE1rm != null && set.countsForStats && set.e1rm == bestE1rm;
     final weight = weightUnitOf(units);
     final load =
@@ -1011,7 +1116,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     final e1rm = set.e1rm;
 
     final setCell = Text(
-      star ? '$label ★' : label,
+      star ? '$label ☆' : label,
       maxLines: 1,
       style: TextStyle(
         fontSize: 11,
@@ -1197,9 +1302,6 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return 'Hace $yearsLabel ${yearsLabel == 1 ? 'año' : 'años'}';
   }
 
-  /// CTA bottom bar sticky: botón 48 dp translúcido sobre el safe area.
-  /// Con sesión activa: addExercise + snackbar "¡Añadido a la sesión activa!".
-  /// Sin sesión activa: startWorkout + addExercise + snackbar "Sesión iniciada con el ejercicio".
   Widget _buildCTABar() {
     final hasActiveWorkout = _activeWorkout != null;
     return Semantics(
@@ -1207,64 +1309,57 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       label: hasActiveWorkout ? 'Añadir ejercicio a la sesión activa' : 'Iniciar sesión y añadir ejercicio',
       child: Container(
         key: const Key('exercise-info-cta'),
-        height: 48,
-        margin: const EdgeInsets.symmetric(horizontal: 16),
+        height: 64,
+        margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         decoration: BoxDecoration(
-          color: ThemeColors.kSurface.withValues(alpha: 0.8),
-          borderRadius: const BorderRadius.all(Radius.circular(8)),
-          boxShadow: [],
+          color: ThemeColors.kOnSurface,
+          borderRadius: const BorderRadius.all(Radius.circular(12)),
         ),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: const BorderRadius.all(Radius.circular(8)),
-              onTap: () async {
-                final workoutRepo = widget.workoutRepository;
-                if (workoutRepo == null) return;
-                if (hasActiveWorkout) {
-                  // Sesión activa: añadir ejercicio existente
-                  await workoutRepo.addExercise(
-                    workoutId: _activeWorkout!.id,
-                    exerciseId: widget.exercise.id,
-                  );
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('¡Añadido a la sesión activa!')),
-                  );
-                } else {
-                  // Sin sesión activa: iniciar sesión y añadir ejercicio
-                  final newWorkout = await workoutRepo.startWorkout();
-                  if (!mounted) return;
-                  await workoutRepo.addExercise(
-                    workoutId: newWorkout.id,
-                    exerciseId: widget.exercise.id,
-                  );
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Sesión iniciada con el ejercicio')),
-                  );
-                }
-                // RF-19: tras el tap hay exactamente una sesión activa
-                // El workflow de startWorkout ya maneja la sesión única (RF-5, RF-19)
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.add_circle, size: 20),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Añadir a Rutina o Iniciar Sesión',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: ThemeColors.kOnPrimary,
-                      ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
+            onTap: () async {
+              final workoutRepo = widget.workoutRepository;
+              if (workoutRepo == null) return;
+              if (hasActiveWorkout) {
+                await workoutRepo.addExercise(
+                  workoutId: _activeWorkout!.id,
+                  exerciseId: widget.exercise.id,
+                );
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('¡Añadido a la sesión activa!')),
+                );
+              } else {
+                final newWorkout = await workoutRepo.startWorkout();
+                if (!mounted) return;
+                await workoutRepo.addExercise(
+                  workoutId: newWorkout.id,
+                  exerciseId: widget.exercise.id,
+                );
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Sesión iniciada con el ejercicio')),
+                );
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.add_circle_outline_rounded, size: 20, color: ThemeColors.kSurface),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Añadir a Rutina o Iniciar Sesión',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: ThemeColors.kSurface,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

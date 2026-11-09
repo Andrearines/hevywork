@@ -17,6 +17,7 @@ import '../unit_system_scope.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/exercise_chips.dart';
 import '../widgets/exercise_thumb.dart';
+import '../views/exercise_info_view.dart';
 import '../widgets/live_fatigue_section.dart';
 
 typedef LogSetCallback = Future<void> Function(
@@ -1396,9 +1397,21 @@ class _ExerciseCardState extends State<_ExerciseCard>
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ExerciseThumb(
-                exercise: widget.exercise,
-                size: 44,
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => ExerciseInfoView(
+                      exercise: widget.exercise,
+                      database: localDb,
+                      workoutRepository: workoutRepository,
+                    ),
+                  ),
+                ),
+                child: ExerciseThumb(
+                  exercise: widget.exercise,
+                  size: 44,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1679,9 +1692,21 @@ class _CollapsedExerciseCardContent extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ExerciseThumb(
-                  exercise: exercise,
-                  size: 44,
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => ExerciseInfoView(
+                        exercise: exercise,
+                        database: localDb,
+                        workoutRepository: workoutRepository,
+                      ),
+                    ),
+                  ),
+                  child: ExerciseThumb(
+                    exercise: exercise,
+                    size: 44,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

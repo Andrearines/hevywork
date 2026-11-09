@@ -10,6 +10,7 @@ import '../../domain/training_calendar.dart';
 import '../../main.dart';
 import '../theme/colors.dart';
 import '../widgets/exercise_thumb.dart';
+import 'exercise_info_view.dart';
 import 'live_workout_view.dart';
 import 'routine_detail_view.dart';
 import 'routine_editor_view.dart';
@@ -1124,51 +1125,34 @@ class _SecondaryCard extends StatelessWidget {
 /// Usa `Wrap` en vez de `Row` para no desbordar en móvil estrecho ni con
 /// texto escalado; es plana, sin sombras, con el radio del resto de thumbs.
 class _ExerciseThumbStrip extends StatelessWidget {
-  /// Cuántas miniaturas se muestran antes del contador «+N».
-  static const int _visible = 4;
-
   final List<Exercise> exercises;
 
   const _ExerciseThumbStrip({required this.exercises});
 
   @override
   Widget build(BuildContext context) {
-    if (exercises.isEmpty) return const SizedBox.shrink();
-    final visible = exercises.take(_visible).toList();
-    final hidden = exercises.length - visible.length;
     return Wrap(
       spacing: 8,
-      runSpacing: 8,
+      runSpacing: 4,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        for (final exercise in visible)
-          ExerciseThumb(exercise: exercise, size: 44),
-        if (hidden > 0) _MoreThumb(count: hidden),
+        for (final exercise in exercises) GestureDetector(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(
+              builder: (_) => ExerciseInfoView(
+                exercise: exercise,
+                database: localDb,
+                workoutRepository: workoutRepository,
+              ),
+            ),
+          ),
+          child: ExerciseThumb(
+            exercise: exercise,
+            size: 44,
+          ),
+        ),
       ],
-    );
-  }
-}
-
-/// Contador «+N» con la forma de una miniatura, para el resto de ejercicios.
-class _MoreThumb extends StatelessWidget {
-  final int count;
-
-  const _MoreThumb({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: kSurfaceContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        '+$count',
-        style: Theme.of(context).textTheme.labelMedium
-            ?.copyWith(color: kOnSurfaceVariant, fontWeight: FontWeight.w600),
-      ),
     );
   }
 }

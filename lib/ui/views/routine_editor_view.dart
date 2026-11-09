@@ -11,6 +11,7 @@ import '../unit_system_scope.dart';
 import '../widgets/exercise_chips.dart';
 import '../widgets/exercise_picker.dart';
 import '../widgets/exercise_thumb.dart';
+import '../views/exercise_info_view.dart';
 
 /// Etiquetas cortas de los tipos de serie para la tabla del editor.
 const Map<String, String> _setTypeLabels = {
@@ -717,9 +718,21 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
                   ? Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ExerciseThumb(
-                          exercise: draft.exercise!,
-                          size: 44,
+                        GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => ExerciseInfoView(
+                                exercise: draft.exercise!,
+                                database: localDb,
+                                workoutRepository: workoutRepository,
+                              ),
+                            ),
+                          ),
+                          child: ExerciseThumb(
+                            exercise: draft.exercise!,
+                            size: 44,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         ExerciseChips(exercise: draft.exercise!),
