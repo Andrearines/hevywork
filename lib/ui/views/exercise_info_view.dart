@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 
@@ -695,10 +696,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   Widget _buildActivationBar(Exercise exercise) {
     final primaryTarget = exercise.target;
     final secondaryMuscles = exercise.secondaryMuscles;
-
-    final secondaryList = secondaryMuscles != null
-        ? secondaryMuscles.split(',').map((m) => m.trim()).where((m) => m.isNotEmpty).toList()
-        : <String>[];
+    final secondaryList = _parseSecondaryMuscles(secondaryMuscles);
 
     final primaryFlex = 7;
     final secondaryFlex = secondaryList.isEmpty ? 0 : 3;
@@ -763,6 +761,21 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         ),
       ],
     );
+  }
+
+  List<String> _parseSecondaryMuscles(String? secondaryMuscles) {
+    if (secondaryMuscles == null || secondaryMuscles.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(secondaryMuscles);
+      if (decoded is! List) return [];
+      return decoded
+          .where((item) => item is String)
+          .map((item) => (item ?? '').toString().trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Widget _muscleChip(String label, String percent, Color dotColor) {

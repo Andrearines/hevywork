@@ -2,17 +2,17 @@
 
 ## State
 - **Date:** Mon Nov 09 2026
-- **Active agent:** Sub-agent (verification/fix of catalog_view.dart)
-- **Last task completed:** Added `database` and `workoutRepository` parameters to `ExerciseInfoView` constructor call in `catalog_view.dart`
+- **Active agent:** Sub-agent (refactoring _buildActivationBar secondary muscles parsing)
+- **Last task completed:** Refactored `_buildActivationBar` to use `_parseSecondaryMuscles` for safe secondaryMuscles parsing
 
 ## Bitácora
-- **Tarea:** T-verify-catalog-view-params
-- **Descripción:** Verificar y arreglar `lib/ui/views/catalog_view.dart` líneas ~262-270 para asegurar que `database: localDb, workoutRepository: workoutRepository` se pasan al constructor de `ExerciseInfoView`.
-- **Resultado:** Los parámetros no estaban presentes en la llamada del constructor (solo venía `exercise: ex`). Se añadieron ambos parámetros. El widget `ExerciseInfoView` ya los acepta como opcionales y los usa de forma segura (null-checks internos).
-- **Tests ejecutados:** `flutter test` — 188 passed, 2 failed (fallos preexistentes en test files unrelated: `live_fatigue_section_test.dart`, `zone_volume_chart_test.dart` por imports faltantes; y `routines_view_test.dart` con fallos de UI timing). `flutter analyze` — 135 issues (majority pre-existing warnings/info about unused vars, library doc comments, etc.; ningún error nuevo por este cambio).
+- **Tarea:** T-parse-secondarymuscles-safe
+- **Descripción:** Añadido método `_parseSecondaryMuscles` privado paraparsear `secondaryMuscles` de forma segura evitando TypeErrors de `jsonDecode` + `map`/`where` en tiempo de ejecución. Reemplazado el parsing inline en `_buildActivationBar` por llamada a este método. Nueva método incluye validación de tipo (`decoded is! List`), manejo de errores (`try/catch`) y filtrado de elementos no-string y vacíos.
+- **Resultado:** `flutter test` - tests passing (188 passed, pre-existing failures unrelated). `flutter analyze` - warnings pre-existentes solo, sin errores nuevos.
 
 ## Decisiones
-- **D-xxx:** No se tomó nueva decisión de diseño; la tarea era un fix de parámetros ya existentes en el constructor del widget.
+- **D-xxx:** Se añadió método `_parseSecondaryMuscles` privado para parseo seguro de `secondaryMuscles` usando `jsonDecode` con validación de tipo y manejo de errores. Se eliminó el parsing inline con `split(',')` + `map` + `where` en `_buildActivationBar`. El nuevo método retorna `List<String>` vacío ante nulos, strings vacíos, datos no-list o errores de parseo.
+- **D-xxx2:** Se añadió import `dart:convert` para soporte de `jsonDecode`.
 
 ## Preguntas abiertas
-- **Q-xxx:** Ninguna. La tarea estaba clara y el cambio es directo.
+- **Q-xxx:** Ninguna. El fix es directo y el método ahora compila correctamente.
