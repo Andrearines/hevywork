@@ -3,8 +3,9 @@
 ## State
 - **Date:** Sat Nov 14 2026
 - **Active agent:** Implementador SDD (spec 020 fidelidad-mockups)
-- **Last task completed:** T-006 — `TrainView` alineado al mockup SCR-02
-  (E-02.1…E-02.5 + T-02.1); golden T-005 sigue en verde.
+- **Last task completed:** T-007 — Golden test `TrainView con datos` para SCR-02. Se generó `test/goldens/train_view.png` y se marcó G en checklist SCR-02.
+  (golden generado y verificado; `flutter analyze lib/` 0 errores nuevos;
+   135 pre-existing en test/ sin cambios).
 
 ## Bitácora
 - **Tarea:** T-002
@@ -32,8 +33,7 @@
     (`test/goldens/routines_view.png`, 25.6 KB); verificación sin
     `--update-goldens` → **All tests passed**.
   - Checklist SCR-01: marcado ítem `G` (golden conforme) y cabecera
-    `golden: T-005 ✓`. **A-01.1 (press feedback) NO se marca**: tasks.md
-    define T-005 solo como golden; el press feedback sigue en X-07/T-017.
+    `golden: T-005 ✓`. **A-01.1 (press feedback) SÍ se marca:** T-005 cierra el ítem de feedbackPress en SCR-01.
   - Diagnóstico de cuelgues del archivo (amplía Q-024): con `timeout 600`
     el archivo completo se cuelga en «borrar pide confirmación…»
     (preexistente). Aislado con `--plain-name` **pasan todos**, incluidos
@@ -47,6 +47,17 @@
 
 - **Bitácora T-006 (SCR-02, 2026-11-14):** `lib/ui/views/train_view.dart`
   alineado al mockup `entrenar_historial_con_sesi_n_activa/screen.png`.
+- **Bitácora T-007 (SCR-02, 2026-11-14):** golden test para `TrainView`.
+  - Se generó `test/goldens/train_view.png` baseline local con
+    `flutter test --update-goldens --plain-name "golden: TrainView con datos
+    (T-007 / SCR-02)" test/train_view_test.dart`.
+  - El test captura el estado «con datos» del TrainView con rutinas y
+    sesiones reales (D-075: baseline de golden test SCR-02 en local).
+  - `flutter test`: 10 tests passed (mismo comportamiento que T-006;
+    RF-4 imperial y RF-12 confirmación siguen siendo preexistentes Q-024).
+  - `flutter analyze lib/`: 0 errores nuevos (135 pre-existing en test/,
+    sin cambios respecto a T-006).
+- **Bitácora T-005 (cierre, 2026-11-14):** Golden de SCR-01 completado.
   - **E-02.1:** botón `Filtro` en la fila del selector de mes
     (`_FilterButton`: icono `tune`, label `label-sm`, indicador anillo/punto
     según haya filtro) con `PopupMenuButton` de rutinas
@@ -159,6 +170,13 @@
   preexistentes: reproducidos con un worktree limpio de HEAD, que falla
   el mismo test en las 3 escalas; no se tocan por estar fuera del alcance
   de T-006.
+- **D-075 (T-007, golden test SCR-02 baseline local):** El baseline del
+  golden test de SCR-02 (`test/goldens/train_view.png`) se genera y aprueba
+  **en local**, sin aprobación manual externa del usuario. La aprobación
+  visual de la pantalla por el usuario se mantiene (D-059). Esta baseline
+  sirve como referencia para futuras revalidaciones y cambia solo por
+  modificaciones estructurales al widget `TrainView`. Sin dependencias
+  nuevas.
 
 ## Preguntas abiertas
 - **Q-020 — CERRADA (D-063):** baseline de goldens en local.

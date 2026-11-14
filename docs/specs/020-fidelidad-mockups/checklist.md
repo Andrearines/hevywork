@@ -126,12 +126,12 @@ Alineación: **T-004** ✓ · golden: **T-005** ✓ · estados: **T-016**.
       `kSurfaceContainerHighest` (1085-1089). — T-002, T-009
 - [ ] T-01.1 · `fontSize: 14` y `18` literales en la vista (X-04) en cabecera
       y estados; `letterSpacing: 0.8` manual en vez de rol `label-sm`. — T-003/T-006
-- [ ] A-01.1 · Sin press feedback ni transición al abrir menú/CTA. — T-005, X-07
+- [x] A-01.1 · Sin press feedback ni transición al abrir menú/CTA. — T-005, X-07
 
 ---
 
 ## SCR-02 — Entrenar (histórico + sesión activa) · `TrainView` · mockup `entrenar_historial_con_sesi_n_activa/screen.png`
-Alineación: **T-006** ✓ · golden: **T-007**, estados: **T-016**.
+Alineación: **T-006** ✓ · golden: **T-007** ✓ · estados: **T-016**.
 
 ### conforme
 - [x] E · Toggle de dos modos `Registro en Vivo` / `Historial & Calendario`
@@ -170,6 +170,10 @@ Alineación: **T-006** ✓ · golden: **T-007**, estados: **T-016**.
 - [x] E-02.5 · `_NewSessionCard` verificada: solo se renderiza en el modo
       `Registro en Vivo` (test «el modo Registro conserva la tarjeta Nueva
       sesión»); no se goldeneará fuera de estado. — T-006 (verificado), T-016
+- [x] G · Golden de SCR-02 generado en verde con estado «con datos»:
+      `test/goldens/train_view.png` (baseline local, D-075), capturado por
+      `test/train_view_test.dart` («golden: TrainView con datos
+      (T-007 / SCR-02)»). — T-007
 - [ ] E-02.6 · Estados vacío (`_EmptyHistory`, 964-969) y carga/error. — T-016
 - [ ] C-02.1 · Tarjetas del clúster sin borde uniforme (X-06) y labels con
       `kOnSurfaceVariant` (X-01). — T-002, T-007

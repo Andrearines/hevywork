@@ -432,5 +432,30 @@ void main() {
 
       await unmount(tester);
     });
+
+    testWidgets('golden: TrainView con datos (T-007 / SCR-02)', (tester) async {
+      await localDb.into(localDb.routines).insert(
+            RoutinesCompanion.insert(
+              id: 'rutina-para-pruebas',
+              localUserId: 'perfil-pruebas',
+              name: 'Empuje A',
+              goal: const Value('Hipertrofia'),
+            ),
+          );
+      await seedFinishedSession(
+        'sesion-para-pruebas',
+        endedAt: DateTime.now().subtract(const Duration(days: 1)),
+        routineId: 'rutina-para-pruebas',
+        name: 'Empuje A',
+      );
+      await pumpView(tester);
+
+      await expectLater(
+        find.byType(TrainView),
+        matchesGoldenFile('goldens/train_view.png'),
+      );
+
+      await unmount(tester);
+    });
   });
 }
