@@ -9,7 +9,7 @@ import '../../data/repositories/workout_repository.dart';
 import '../../domain/exercise_stats.dart';
 import '../../domain/media.dart';
 import '../../domain/units.dart';
-import '../theme/colors.dart' as ThemeColors;
+import '../../app/theme/palette.dart' as palette;
 import '../unit_system_scope.dart';
 import '../widgets/chart_enums.dart';
 import '../widgets/exercise_thumb.dart';
@@ -118,7 +118,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     final kpis = _historyLoaded ? exerciseKpis(_history) : ExerciseKpis.empty;
 
     return Scaffold(
-      backgroundColor: ThemeColors.kSurface,
+      backgroundColor: palette.kSurface,
       body: SafeArea(
         bottom: false,
         child: CustomScrollView(
@@ -136,7 +136,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
                           tooltip: 'Volver',
                           onPressed: () => Navigator.pop(context),
-                          color: ThemeColors.kOnSurfaceVariant,
+                          color: palette.kOnSurfaceVariant,
                         ),
                         Expanded(
                           child: Column(
@@ -148,7 +148,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                                   fontSize: 10,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.8,
-                                  color: ThemeColors.kOnSurfaceVariant,
+                                  color: palette.kOnSurfaceVariant,
                                 ),
                               ),
                               Text(
@@ -156,7 +156,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w500,
-                                  color: ThemeColors.kOnSurface,
+                                  color: palette.kOnSurface,
                                 ),
                               ),
                             ],
@@ -166,18 +166,18 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                           icon: const Icon(Icons.star_border_rounded, size: 22),
                           tooltip: 'Favorito',
                           onPressed: () {},
-                          color: ThemeColors.kOnSurfaceVariant,
+                          color: palette.kOnSurfaceVariant,
                         ),
                         IconButton(
                           icon: const Icon(Icons.more_vert, size: 22),
                           tooltip: 'Más opciones',
                           onPressed: () {},
-                          color: ThemeColors.kOnSurfaceVariant,
+                          color: palette.kOnSurfaceVariant,
                         ),
                       ],
                     ),
                   ),
-                  const Divider(height: 1, color: ThemeColors.kSurfaceContainerHighest),
+                  const Divider(height: 1, color: palette.kSurfaceContainerHighest),
                   // SCR-2: Identidad
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -201,7 +201,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                   // SCR-6: Biomecánica & Cues
                   const Padding(
                     padding: EdgeInsets.fromLTRB(0, 24, 0, 0),
-                    child: Divider(height: 1, color: ThemeColors.kSurfaceContainerHighest),
+                    child: Divider(height: 1, color: palette.kSurfaceContainerHighest),
                   ),
                   _buildCuesSection(exercise),
                   Padding(
@@ -228,7 +228,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: Text(
                         exercise.attribution!,
-                        style: const TextStyle(fontSize: 10, color: ThemeColors.kOutline),
+                        style: const TextStyle(fontSize: 10, color: palette.kOutline),
                       ),
                     ),
                   const SizedBox(height: 100),
@@ -248,9 +248,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return Container(
       height: 220,
       decoration: BoxDecoration(
-        color: ThemeColors.kSurfaceContainer,
+        color: palette.kSurfaceContainer,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
-        border: Border.fromBorderSide(BorderSide(color: ThemeColors.kSurfaceContainerHighest)),
+        border: Border.fromBorderSide(BorderSide(color: palette.kSurfaceContainerHighest)),
       ),
       clipBehavior: Clip.antiAlias,
       child: _gifFile != null
@@ -287,7 +287,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       style: const TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.w700,
-        color: ThemeColors.kOnSurface,
+        color: palette.kOnSurface,
         height: 1.2,
       ),
     );
@@ -322,7 +322,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: const BoxDecoration(
-        color: ThemeColors.kSurfaceContainerHighest,
+        color: palette.kSurfaceContainerHighest,
         borderRadius: BorderRadius.all(Radius.circular(4)),
       ),
       child: Text(
@@ -330,7 +330,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w500,
-          color: ThemeColors.kOnSurfaceVariant,
+          color: palette.kOnSurfaceVariant,
         ),
       ),
     );
@@ -340,16 +340,16 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: ThemeColors.kSurfaceContainerHighest,
+        color: palette.kSurfaceContainerHighest,
         borderRadius: const BorderRadius.all(Radius.circular(4)),
-        border: Border.all(color: ThemeColors.kOnSurface.withValues(alpha: 0.3)),
+        border: Border.all(color: palette.kOnSurface.withValues(alpha: 0.3)),
       ),
       child: Text(
         text,
         style: const TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: ThemeColors.kOnSurface,
+          color: palette.kOnSurface,
         ),
       ),
     );
@@ -366,14 +366,14 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             selected: language == _language,
             onSelected: (_) => setState(() => _language = language),
             showCheckmark: false,
-            selectedColor: ThemeColors.kSurfaceContainerHighest,
-            backgroundColor: ThemeColors.kSurfaceContainerLow,
-            side: const BorderSide(color: ThemeColors.kSurfaceContainerHighest),
+            selectedColor: palette.kSurfaceContainerHighest,
+            backgroundColor: palette.kSurfaceContainerLow,
+            side: const BorderSide(color: palette.kSurfaceContainerHighest),
             labelStyle: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.6,
-              color: language == _language ? ThemeColors.kPrimary : ThemeColors.kOnSurfaceVariant,
+              color: language == _language ? palette.kPrimary : palette.kOnSurfaceVariant,
             ),
           ),
       ],
@@ -393,7 +393,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: ThemeColors.kOutline,
+                color: palette.kOutline,
                 fontFeatures: [FontFeature.tabularFigures()],
               ),
             ),
@@ -405,7 +405,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               style: const TextStyle(
                 fontSize: 14,
                 height: 1.5,
-                color: ThemeColors.kOnSurface,
+                color: palette.kOnSurface,
               ),
             ),
           ),
@@ -419,22 +419,22 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
       decoration: BoxDecoration(
-        color: ThemeColors.kSurfaceContainer,
+        color: palette.kSurfaceContainer,
         borderRadius: const BorderRadius.all(Radius.circular(8)),
       ),
       child: Row(
         children: [
-          const Icon(Icons.timer_outlined, size: 18, color: ThemeColors.kOnSurfaceVariant),
+          const Icon(Icons.timer_outlined, size: 18, color: palette.kOnSurfaceVariant),
           const SizedBox(width: 10),
           Expanded(
             child: Text('Descanso por defecto',
-              style: theme.textTheme.bodyLarge?.copyWith(color: ThemeColors.kOnSurface),
+              style: theme.textTheme.bodyLarge?.copyWith(color: palette.kOnSurface),
             ),
           ),
           Text(
             '$_restSeconds s',
             style: theme.textTheme.titleMedium?.copyWith(
-              color: ThemeColors.kPrimary,
+              color: palette.kPrimary,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
@@ -442,11 +442,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             key: const Key('rest-detail-minus'),
             tooltip: 'Reducir 15 s',
             onPressed: _restSeconds > 15 ? () => _changeRest(-15) : null,
-            icon: const Icon(Icons.remove_rounded, color: ThemeColors.kOnSurfaceVariant),
+            icon: const Icon(Icons.remove_rounded, color: palette.kOnSurfaceVariant),
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             style: IconButton.styleFrom(
-              backgroundColor: ThemeColors.kSurfaceContainerHighest,
+              backgroundColor: palette.kSurfaceContainerHighest,
               shape: const StadiumBorder(),
             ),
           ),
@@ -454,11 +454,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             key: const Key('rest-detail-plus'),
             tooltip: 'Aumentar 15 s',
             onPressed: _restSeconds < 300 ? () => _changeRest(15) : null,
-            icon: const Icon(Icons.add_rounded, color: ThemeColors.kOnSurfaceVariant),
+            icon: const Icon(Icons.add_rounded, color: palette.kOnSurfaceVariant),
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
             style: IconButton.styleFrom(
-              backgroundColor: ThemeColors.kSurfaceContainerHighest,
+              backgroundColor: palette.kSurfaceContainerHighest,
               shape: const StadiumBorder(),
             ),
           ),
@@ -531,9 +531,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     }) {
       return Container(
         decoration: BoxDecoration(
-          color: ThemeColors.kSurfaceContainer,
+          color: palette.kSurfaceContainer,
           borderRadius: const BorderRadius.all(Radius.circular(8)),
-          border: Border.fromBorderSide(BorderSide(color: ThemeColors.kSurfaceContainerHighest)),
+          border: Border.fromBorderSide(BorderSide(color: palette.kSurfaceContainerHighest)),
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -549,7 +549,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.6,
-                        color: ThemeColors.kOnSurfaceVariant,
+                        color: palette.kOnSurfaceVariant,
                       ),
                     ),
                   ),
@@ -557,7 +557,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: ThemeColors.kSurfaceContainerHighest,
+                        color: palette.kSurfaceContainerHighest,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -565,13 +565,13 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                         style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: ThemeColors.kOnSurface,
+                          color: palette.kOnSurface,
                         ),
                       ),
                     ),
                   if (actionIcon != null) ...[
                     const SizedBox(width: 4),
-                    Icon(actionIcon, size: 16, color: ThemeColors.kOnSurfaceVariant),
+                    Icon(actionIcon, size: 16, color: palette.kOnSurfaceVariant),
                   ],
                 ],
               ),
@@ -581,7 +581,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: ThemeColors.kOnSurface,
+                  color: palette.kOnSurface,
                   height: 1.1,
                   fontFeatures: [FontFeature.tabularFigures()],
                 ),
@@ -590,7 +590,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 11, color: ThemeColors.kOnSurfaceVariant),
+                  style: const TextStyle(fontSize: 11, color: palette.kOnSurfaceVariant),
                 ),
               ],
             ],
@@ -658,14 +658,14 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
       title: Row(
         children: const [
-          Icon(Icons.tune_rounded, size: 18, color: ThemeColors.kOnSurfaceVariant),
+          Icon(Icons.tune_rounded, size: 18, color: palette.kOnSurfaceVariant),
           SizedBox(width: 10),
           Text(
             'Biomecánica & Cues Técnicos',
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: ThemeColors.kOnSurface,
+              color: palette.kOnSurface,
             ),
           ),
         ],
@@ -677,7 +677,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             padding: EdgeInsets.all(8),
             child: Text(
               'Sin instrucciones disponibles',
-              style: TextStyle(fontSize: 14, color: ThemeColors.kOnSurfaceVariant),
+              style: TextStyle(fontSize: 14, color: palette.kOnSurfaceVariant),
             ),
           )
         else
@@ -711,7 +711,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 'Distribución de activación',
                 style: const TextStyle(
                   fontSize: 12,
-                  color: ThemeColors.kOnSurfaceVariant,
+                  color: palette.kOnSurfaceVariant,
                 ),
               ),
             ),
@@ -720,7 +720,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: ThemeColors.kOnSurface,
+                color: palette.kOnSurface,
               ),
             ),
           ],
@@ -734,12 +734,12 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               children: [
                 Expanded(
                   flex: primaryFlex,
-                  child: Container(color: ThemeColors.kOnSurface),
+                  child: Container(color: palette.kOnSurface),
                 ),
                 if (secondaryList.isNotEmpty)
                   Expanded(
                     flex: secondaryFlex,
-                    child: Container(color: ThemeColors.kSurfaceContainerHighest),
+                    child: Container(color: palette.kSurfaceContainerHighest),
                   ),
               ],
             ),
@@ -749,13 +749,13 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         Wrap(
           spacing: 16,
           children: [
-            _muscleChip(muscleLabel(primaryTarget), '${(primaryFlex * 100 / (primaryFlex + secondaryFlex)).round()}%', ThemeColors.kOnSurface),
+            _muscleChip(muscleLabel(primaryTarget), '${(primaryFlex * 100 / (primaryFlex + secondaryFlex)).round()}%', palette.kOnSurface),
             if (secondaryList.isNotEmpty)
               for (var i = 0; i < secondaryList.length; i++)
                 _muscleChip(
                   muscleLabel(secondaryList[i]),
                   '${(secondaryFlex * 100 / (primaryFlex + secondaryFlex) / secondaryList.length).round()}%',
-                  ThemeColors.kOnSurfaceVariant,
+                  palette.kOnSurfaceVariant,
                 ),
           ],
         ),
@@ -790,7 +790,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         const SizedBox(width: 5),
         Text(
           '$label $percent',
-          style: const TextStyle(fontSize: 11, color: ThemeColors.kOnSurfaceVariant),
+          style: const TextStyle(fontSize: 11, color: palette.kOnSurfaceVariant),
         ),
       ],
     );
@@ -813,13 +813,13 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: ThemeColors.kOnSurface,
+                color: palette.kOnSurface,
               ),
             ),
             const SizedBox(width: 8),
             Text(
               '${_history.length + _historyUpcoming.length} registros',
-              style: const TextStyle(fontSize: 12, color: ThemeColors.kOnSurfaceVariant),
+              style: const TextStyle(fontSize: 12, color: palette.kOnSurfaceVariant),
             ),
           ],
         ),
@@ -845,7 +845,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
-        color: ThemeColors.kSurfaceContainer,
+        color: palette.kSurfaceContainer,
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
       child: const Column(
@@ -856,7 +856,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: ThemeColors.kOnSurface,
+              color: palette.kOnSurface,
             ),
           ),
           SizedBox(height: 6),
@@ -865,7 +865,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             style: TextStyle(
               fontSize: 12,
               height: 1.4,
-              color: ThemeColors.kOnSurfaceVariant,
+              color: palette.kOnSurfaceVariant,
             ),
           ),
         ],
@@ -884,7 +884,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       margin: const EdgeInsets.only(top: 0),
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        color: ThemeColors.kSurfaceContainer,
+        color: palette.kSurfaceContainer,
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
       child: Column(
@@ -900,7 +900,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 : 'RIR medio: —',
             style: const TextStyle(
               fontSize: 11,
-              color: ThemeColors.kOnSurfaceVariant,
+              color: palette.kOnSurfaceVariant,
             ),
           ),
         ],
@@ -922,7 +922,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(12),
       decoration: const BoxDecoration(
-        color: ThemeColors.kSurfaceContainer,
+        color: palette.kSurfaceContainer,
         borderRadius: BorderRadius.all(Radius.circular(12)),
       ),
       child: Column(
@@ -934,23 +934,23 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: const BoxDecoration(
-              color: ThemeColors.kSurfaceContainerLow,
+              color: palette.kSurfaceContainerLow,
               borderRadius: BorderRadius.all(Radius.circular(8)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.autorenew_rounded, size: 14, color: ThemeColors.kOnSurfaceVariant),
+                const Icon(Icons.autorenew_rounded, size: 14, color: palette.kOnSurfaceVariant),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '${session.completedSetCount} sets completados',
-                    style: const TextStyle(fontSize: 12, color: ThemeColors.kOnSurface),
+                    style: const TextStyle(fontSize: 12, color: palette.kOnSurface),
                   ),
                 ),
                 if (topText.isNotEmpty)
                   Text(
                     topText,
-                    style: const TextStyle(fontSize: 11, color: ThemeColors.kOnSurfaceVariant),
+                    style: const TextStyle(fontSize: 11, color: palette.kOnSurfaceVariant),
                   ),
               ],
             ),
@@ -980,7 +980,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                     width: 6,
                     height: 6,
                     decoration: const BoxDecoration(
-                      color: ThemeColors.kPrimary,
+                      color: palette.kPrimary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -993,7 +993,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: ThemeColors.kOnSurface,
+                        color: palette.kOnSurface,
                       ),
                     ),
                   ),
@@ -1005,7 +1005,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 '${_relativeLabel(session.endedAt)}',
                 style: const TextStyle(
                   fontSize: 11,
-                  color: ThemeColors.kOnSurfaceVariant,
+                  color: palette.kOnSurfaceVariant,
                 ),
               ),
             ],
@@ -1020,7 +1020,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: ThemeColors.kOnSurface,
+                color: palette.kOnSurface,
               ),
             ),
             const SizedBox(height: 2),
@@ -1028,7 +1028,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               'Volumen total',
               style: TextStyle(
                 fontSize: 10,
-                color: ThemeColors.kOnSurfaceVariant,
+                color: palette.kOnSurfaceVariant,
               ),
             ),
           ],
@@ -1046,7 +1046,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
       decoration: const BoxDecoration(
-        color: ThemeColors.kSurfaceContainerLow,
+        color: palette.kSurfaceContainerLow,
         borderRadius: BorderRadius.all(Radius.circular(8)),
       ),
       child: Column(
@@ -1070,13 +1070,13 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       fontSize: 10,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.6,
-      color: ThemeColors.kOnSurfaceVariant,
+      color: palette.kOnSurfaceVariant,
     );
     return Container(
       padding: const EdgeInsets.only(bottom: 6),
       decoration: const BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: ThemeColors.kSurfaceContainerHighest),
+          bottom: BorderSide(color: palette.kSurfaceContainerHighest),
         ),
       ),
       child: const Row(
@@ -1134,7 +1134,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       style: TextStyle(
         fontSize: 11,
         fontWeight: star ? FontWeight.w600 : FontWeight.w500,
-        color: star ? ThemeColors.kPrimary : ThemeColors.kOnSurfaceVariant,
+        color: star ? palette.kPrimary : palette.kOnSurfaceVariant,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
@@ -1146,7 +1146,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           : const BoxDecoration(
               border: Border(
                 bottom:
-                    BorderSide(color: ThemeColors.kSurfaceContainerHighest),
+                    BorderSide(color: palette.kSurfaceContainerHighest),
               ),
             ),
       child: Row(
@@ -1169,7 +1169,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: star ? FontWeight.w600 : FontWeight.w500,
-                color: ThemeColors.kOnSurface,
+                color: palette.kOnSurface,
               ),
             ),
           ),
@@ -1180,7 +1180,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 11,
-                color: ThemeColors.kOnSurfaceVariant,
+                color: palette.kOnSurfaceVariant,
               ),
             ),
           ),
@@ -1192,7 +1192,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               maxLines: 1,
               style: TextStyle(
                 fontSize: 11,
-                color: star ? ThemeColors.kPrimary : ThemeColors.kOnSurfaceVariant,
+                color: star ? palette.kPrimary : palette.kOnSurfaceVariant,
               ),
             ),
           ),
@@ -1213,10 +1213,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         key: const Key('history-load-more'),
         onPressed: loading ? null : _loadMoreHistory,
         style: FilledButton.styleFrom(
-          backgroundColor: ThemeColors.kSurfaceContainerHighest,
-          foregroundColor: ThemeColors.kOnSurface,
-          disabledBackgroundColor: ThemeColors.kSurfaceContainer,
-          disabledForegroundColor: ThemeColors.kOnSurfaceVariant,
+          backgroundColor: palette.kSurfaceContainerHighest,
+          foregroundColor: palette.kOnSurface,
+          disabledBackgroundColor: palette.kSurfaceContainer,
+          disabledForegroundColor: palette.kOnSurfaceVariant,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 16),
           shape: const RoundedRectangleBorder(
@@ -1226,7 +1226,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.history, size: 16, color: ThemeColors.kOnSurfaceVariant),
+            const Icon(Icons.history, size: 16, color: palette.kOnSurfaceVariant),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -1325,7 +1325,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         height: 64,
         margin: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         decoration: BoxDecoration(
-          color: ThemeColors.kOnSurface,
+          color: palette.kOnSurface,
           borderRadius: const BorderRadius.all(Radius.circular(12)),
         ),
         child: Material(
@@ -1362,14 +1362,14 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.add_circle_outline_rounded, size: 20, color: ThemeColors.kSurface),
+                  const Icon(Icons.add_circle_outline_rounded, size: 20, color: palette.kSurface),
                   const SizedBox(width: 10),
                   const Text(
                     'Añadir a Rutina o Iniciar Sesión',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: ThemeColors.kSurface,
+                      color: palette.kSurface,
                     ),
                   ),
                 ],

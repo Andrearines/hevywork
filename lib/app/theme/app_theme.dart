@@ -125,10 +125,10 @@ ThemeData buildAppTheme() {
     ),
     labelSmall: TextStyle(
       fontFamily: 'Geist',
-      fontSize: 10,
-      fontWeight: FontWeight.w400,
-      height: 14 / 10,
-      letterSpacing: 0.02 * 10,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      height: 14 / 11,
+      letterSpacing: 0.06 * 11,
       color: kOnSurface,
     ),
   );

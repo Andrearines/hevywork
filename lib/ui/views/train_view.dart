@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../../data/local/database.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../data/repositories/routine_repository.dart';
+import '../../domain/profile_stats.dart';
 import '../../domain/training_calendar.dart';
 import '../../domain/units.dart';
 import '../../main.dart';
@@ -34,9 +35,11 @@ class _TrainViewState extends State<TrainView> {
       workoutRepository.watchActiveWorkout();
   late final Stream<List<WorkoutSummary>> _history =
       workoutRepository.watchFinishedWorkouts();
+  late final Stream<ProfileStats> _stats = profileRepository.watchStats();
 
   TrainMode _mode = TrainMode.history;
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
+  String? _routineFilter;
 
   Future<void> _openSession(String workoutId) async {
     await Navigator.of(context).push(
@@ -141,51 +144,129 @@ class _TrainViewState extends State<TrainView> {
             child: _NewSessionCard(onStart: _startNewSession),
           ),
         ] else ...[
-          StreamBuilder<List<WorkoutSummary>>(
-            stream: _history,
-            builder: (context, snapshot) {
-              final history = snapshot.data ?? const <WorkoutSummary>[];
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _MonthSelector(
-                    month: _month,
-                    sessionCount: sessionsInMonth(
-                      [for (final s in history) s.endedAt],
-                      _month,
+          StreamBuilder<List<Routine>>(
+            stream: routineRepository.watchRoutines(),
+            builder: (context, routineSnapshot) {
+              final routines = routineSnapshot.data ?? const <Routine>[];
+              return StreamBuilder<ProfileStats>(
+                stream: _stats,
+                builder: (context, statsSnapshot) {
+                  return StreamBuilder<List<WorkoutSummary>>(
+                    stream: _history,
+                    builder: (context, snapshot) => _buildHistory(
+                      context,
+                      snapshot.data ?? const <WorkoutSummary>[],
+                      routines,
+                      _prCounts(statsSnapshot.data),
                     ),
-                    onPrevious: () => _shiftMonth(-1),
-                    onNext: () => _shiftMonth(1),
-                  ),
-                  _TrainingCalendar(
-                    month: _month,
-                    markers: trainedDayMarkers([
-                      for (final s in history)
-                        (endedAt: s.endedAt, routineName: s.title),
-                    ]),
-                  ),
-                  _StreakBanner(history: history),
-                  _MetricsCluster(history: history),
-                  _RecentSessionsHeader(count: history.length),
-                  if (history.isEmpty)
-                    const _EmptyHistory()
-                  else
-                    for (final summary in history)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        child: _HistoryCard(
-                          summary: summary,
-                          onRepeat: () => _repeatSession(summary),
-                          onDelete: () => _deleteSession(summary),
-                        ),
-                      ),
-                  const _PastSessionCta(),
-                ],
+                  );
+                },
               );
             },
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildHistory(
+    BuildContext context,
+    List<WorkoutSummary> history,
+    List<Routine> routines,
+    Map<DateTime, int> prCounts,
+  ) {
+    final textTheme = Theme.of(context).textTheme;
+    final feed = _routineFilter == null
+        ? history
+        : [
+            for (final summary in history)
+              if (summary.routineId == _routineFilter) summary,
+          ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MonthSelector(
+          month: _month,
+          sessionCount: sessionsInMonth(
+            [for (final s in history) s.endedAt],
+            _month,
+          ),
+          phaseLabel: _phaseLabel(history, routines),
+          routines: routines,
+          selectedRoutineId: _routineFilter,
+          onFilter: (routineId) => setState(() => _routineFilter = routineId),
+          onPrevious: () => _shiftMonth(-1),
+          onNext: () => _shiftMonth(1),
+        ),
+        _TrainingCalendar(
+          month: _month,
+          markers: trainedDayMarkers([
+            for (final s in history)
+              (endedAt: s.endedAt, routineName: s.title),
+          ]),
+        ),
+        _StreakBanner(history: history),
+        _MetricsCluster(history: history),
+        _RecentSessionsHeader(count: feed.length),
+        if (history.isEmpty)
+          const _EmptyHistory()
+        else if (feed.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              'Sin sesiones con este filtro',
+              textAlign: TextAlign.center,
+              style: textTheme.bodySmall?.copyWith(color: kOutline),
+            ),
+          )
+        else
+          for (final summary in feed)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: _HistoryCard(
+                summary: summary,
+                prCount: prCounts[summary.endedAt] ?? 0,
+                onOpenSummary: () => _openSetsSummary(summary),
+                onRepeat: () => _repeatSession(summary),
+                onDelete: () => _deleteSession(summary),
+              ),
+            ),
+        const _PastSessionCta(),
+      ],
+    );
+  }
+
+  String? _phaseLabel(List<WorkoutSummary> history, List<Routine> routines) {
+    final goals = {for (final routine in routines) routine.id: routine.goal};
+    for (final summary in history) {
+      final ended = summary.endedAt;
+      if (ended.year != _month.year || ended.month != _month.month) continue;
+      final routineId = summary.routineId;
+      final goal = routineId == null ? null : goals[routineId];
+      if (goal == null || goal.isEmpty) continue;
+      return 'FASE DE ${goal.toUpperCase()}';
+    }
+    return null;
+  }
+
+  Map<DateTime, int> _prCounts(ProfileStats? stats) {
+    final counts = <DateTime, int>{};
+    for (final record in stats?.records ?? const <PersonalRecord>[]) {
+      final achievedAt = record.achievedAt;
+      if (achievedAt == null) continue;
+      counts[achievedAt] = (counts[achievedAt] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  Future<void> _openSetsSummary(WorkoutSummary summary) {
+    return showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kSurfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+      ),
+      builder: (sheetContext) => _SetsSummarySheet(summary: summary),
     );
   }
 }
@@ -254,8 +335,12 @@ class _ActiveSessionCard extends StatelessWidget {
                       const SizedBox(width: 4),
                       Text(
                         _elapsedLabel(elapsed),
-                        style: textTheme.labelSmall
-                            ?.copyWith(color: kPrimary),
+                        style: textTheme.labelSmall?.copyWith(
+                          color: kPrimary,
+                          fontFeatures: const [
+                            FontFeature.tabularFigures(),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -335,12 +420,20 @@ class _NewSessionCard extends StatelessWidget {
 class _MonthSelector extends StatelessWidget {
   final DateTime month;
   final int sessionCount;
+  final String? phaseLabel;
+  final List<Routine> routines;
+  final String? selectedRoutineId;
+  final ValueChanged<String?> onFilter;
   final VoidCallback onPrevious;
   final VoidCallback onNext;
 
   const _MonthSelector({
     required this.month,
     required this.sessionCount,
+    required this.phaseLabel,
+    required this.routines,
+    required this.selectedRoutineId,
+    required this.onFilter,
     required this.onPrevious,
     required this.onNext,
   });
@@ -354,30 +447,148 @@ class _MonthSelector extends StatelessWidget {
         children: [
           _RoundButton(icon: Icons.chevron_left, onTap: onPrevious),
           Expanded(
+            flex: 2,
             child: Column(
               children: [
                 Text(
                   monthLabel(month),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: textTheme.titleMedium?.copyWith(
-                    color: kPrimary,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: textTheme.headlineSmall?.copyWith(color: kPrimary),
                 ),
                 Text(
-                  sessionCount == 1
-                      ? '1 sesión'
-                      : '$sessionCount sesiones',
-                  style: textTheme.labelSmall
-                      ?.copyWith(color: kOutline, letterSpacing: 0.4),
+                  phaseLabel ??
+                      (sessionCount == 1
+                          ? '1 sesión'
+                          : '$sessionCount sesiones'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: kOutline,
+                    letterSpacing: phaseLabel == null ? 0.4 : 0.6,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
           ),
           _RoundButton(icon: Icons.chevron_right, onTap: onNext),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: _FilterButton(
+                  routines: routines,
+                  selectedRoutineId: selectedRoutineId,
+                  onSelected: onFilter,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+}
+
+class _FilterButton extends StatelessWidget {
+  final List<Routine> routines;
+  final String? selectedRoutineId;
+  final ValueChanged<String?> onSelected;
+
+  const _FilterButton({
+    required this.routines,
+    required this.selectedRoutineId,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final active = selectedRoutineId != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        PopupMenuButton<String>(
+          tooltip: 'Filtro',
+          color: kSurfaceContainer,
+          surfaceTintColor: Colors.transparent,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(12)),
+            side: BorderSide(color: kSurfaceContainerHighest),
+          ),
+          onSelected: (value) => onSelected(value.isEmpty ? null : value),
+          itemBuilder: (menuContext) => [
+            PopupMenuItem(
+              value: '',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (!active) ...[
+                    const Icon(Icons.check, size: 16, color: kPrimary),
+                    const SizedBox(width: 8),
+                  ],
+                  const Text('Todas las sesiones'),
+                ],
+              ),
+            ),
+            for (final routine in routines)
+              PopupMenuItem(
+                value: routine.id,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (routine.id == selectedRoutineId) ...[
+                      const Icon(Icons.check, size: 16, color: kPrimary),
+                      const SizedBox(width: 8),
+                    ],
+                    Text(routine.name),
+                  ],
+                ),
+              ),
+          ],
+          child: Material(
+            color: kSurfaceContainerLow,
+            borderRadius: BorderRadius.circular(8),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.tune, size: 16, color: kOnSurfaceVariant),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Filtro',
+                    style: textTheme.labelSmall
+                        ?.copyWith(color: kOnSurfaceVariant),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Container(
+          width: 10,
+          height: 10,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: kPrimary.withValues(alpha: 0.2),
+            shape: BoxShape.circle,
+          ),
+          child: Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: active ? kPrimary : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -540,6 +751,7 @@ class _DayCell extends StatelessWidget {
                       ? kPrimary
                       : kOnSurface,
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
           const SizedBox(height: 2),
@@ -555,10 +767,8 @@ class _DayCell extends StatelessWidget {
               child: Text(
                 day.marker!,
                 style: textTheme.labelSmall?.copyWith(
-                  fontSize: 9,
                   height: 1,
                   color: isToday ? kSurface : kPrimary,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             )
@@ -566,7 +776,6 @@ class _DayCell extends StatelessWidget {
             Text(
               'HOY',
               style: textTheme.labelSmall?.copyWith(
-                fontSize: 9,
                 height: 1,
                 color: kPrimary,
                 letterSpacing: 0.6,
@@ -633,7 +842,11 @@ class _StreakBanner extends StatelessWidget {
                     children: [
                       Text(
                         '$streak',
-                        style: textTheme.titleLarge,
+                        style: textTheme.titleLarge?.copyWith(
+                          fontFeatures: const [
+                            FontFeature.tabularFigures(),
+                          ],
+                        ),
                       ),
                       const SizedBox(width: 6),
                       Flexible(
@@ -671,7 +884,10 @@ class _StreakBanner extends StatelessWidget {
                   '$thisWeek/$weeklyGoal esta semana',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: textTheme.labelSmall?.copyWith(color: kOnSurface),
+                  style: textTheme.labelSmall?.copyWith(
+                    color: kOnSurface,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             ),
@@ -736,11 +952,15 @@ class _MetricsCluster extends StatelessWidget {
 /// ejercicios destacados.
 class _HistoryCard extends StatelessWidget {
   final WorkoutSummary summary;
+  final int prCount;
+  final VoidCallback onOpenSummary;
   final VoidCallback onRepeat;
   final VoidCallback onDelete;
 
   const _HistoryCard({
     required this.summary,
+    required this.prCount,
+    required this.onOpenSummary,
     required this.onRepeat,
     required this.onDelete,
   });
@@ -758,13 +978,52 @@ class _HistoryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _dayLabel(summary.endedAt),
-            style: textTheme.labelSmall?.copyWith(
-              color: kOutline,
-              letterSpacing: 0.4,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  _dayLabel(summary.endedAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.labelSmall?.copyWith(
+                    color: kOutline,
+                    letterSpacing: 0.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (prCount > 0) ...[
+                const SizedBox(width: 8),
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: kPrimary.withValues(alpha: 0.4),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: kSurfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      prCount == 1 ? '1 PR Logrado' : '$prCount PRs Logrados',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: kPrimary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 2),
           Text(
@@ -830,6 +1089,9 @@ class _HistoryCard extends StatelessWidget {
                       style: textTheme.bodyMedium?.copyWith(
                         color: kPrimary,
                         fontWeight: FontWeight.w500,
+                        fontFeatures: const [
+                          FontFeature.tabularFigures(),
+                        ],
                       ),
                     ),
                   ],
@@ -837,77 +1099,225 @@ class _HistoryCard extends StatelessWidget {
               ),
           ],
           const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Material(
-                  color: kSurfaceContainer,
-                  borderRadius: BorderRadius.circular(8),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: onDelete,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
+          Row(
+            children: [
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final showChevron = constraints.maxWidth >= 120;
+                    return InkWell(
+                      onTap: onOpenSummary,
+                      borderRadius: BorderRadius.circular(8),
+                      highlightColor: kSurfaceContainerHigh,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 2,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Ver resumen completo de series',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: textTheme.labelLarge?.copyWith(
+                                  color: kOnSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                            if (showChevron) ...[
+                              const SizedBox(width: 4),
+                              const Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: kOnSurfaceVariant,
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.delete_outline,
-                            size: 14,
+                    );
+                  },
+                ),
+              ),
+              Material(
+                color: kSurfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onDelete,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.delete_outline,
+                          size: 14,
+                          color: kError,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Borrar',
+                          style: textTheme.labelMedium?.copyWith(
                             color: kError,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Borrar',
-                            style: textTheme.labelMedium?.copyWith(
-                              color: kError,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Material(
-                  color: kSurfaceContainer,
-                  borderRadius: BorderRadius.circular(8),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: onRepeat,
-                    child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.replay, size: 14, color: kPrimary),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Repetir',
-                            style: textTheme.labelMedium?.copyWith(
-                              color: kPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
+              ),
+              const SizedBox(width: 8),
+              Material(
+                color: kSurfaceContainer,
+                borderRadius: BorderRadius.circular(8),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onRepeat,
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.replay, size: 14, color: kPrimary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Repetir',
+                          style: textTheme.labelMedium?.copyWith(
+                            color: kPrimary,
+                            fontWeight: FontWeight.w600,
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+}
+
+class _SetsSummarySheet extends StatelessWidget {
+  final WorkoutSummary summary;
+
+  const _SetsSummarySheet({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final unitSystem = UnitSystemScope.of(context);
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 20 + bottom),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Resumen de series',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: textTheme.titleMedium?.copyWith(color: kPrimary),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close, size: 20, color: kOnSurfaceVariant),
+              ),
+            ],
+          ),
+          Text(
+            summary.title ?? 'Entrenamiento libre',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodyMedium?.copyWith(color: kOnSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          StreamBuilder<List<({WorkoutExercise item, Exercise exercise})>>(
+            stream: workoutRepository.watchExercises(summary.id),
+            builder: (context, exerciseSnapshot) {
+              final exercises =
+                  exerciseSnapshot.data ??
+                  const <({WorkoutExercise item, Exercise exercise})>[];
+              if (exercises.isEmpty) {
+                return Text(
+                  'Sin series registradas',
+                  style: textTheme.bodySmall?.copyWith(color: kOutline),
+                );
+              }
+              return StreamBuilder<List<WorkoutSet>>(
+                stream: workoutRepository.watchSets(summary.id),
+                builder: (context, setSnapshot) {
+                  final sets = setSnapshot.data ?? const <WorkoutSet>[];
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final entry in exercises) ...[
+                            Text(
+                              entry.exercise.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: textTheme.labelLarge
+                                  ?.copyWith(color: kPrimary),
+                            ),
+                            const SizedBox(height: 4),
+                            for (final (index, set) in sets
+                                .where((s) =>
+                                    s.workoutExerciseId == entry.item.id)
+                                .indexed)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Text(
+                                  _setLine(index, set, unitSystem),
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: set.completed
+                                        ? kOnSurface
+                                        : kOutline,
+                                  ),
+                                ),
+                              ),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _setLine(int index, WorkoutSet set, String unitSystem) {
+  final weight = _weight(displayWeightKg(set.weightKg, unitSystem));
+  final rir = set.rir == null ? '' : ' (RIR ${set.rir})';
+  final pending = set.completed ? '' : ' · pendiente';
+  return '${index + 1} · $weight ${weightUnitOf(unitSystem)} × '
+      '${set.reps}$rir$pending';
 }
 
 class _FeedMetric extends StatelessWidget {
@@ -934,6 +1344,7 @@ class _FeedMetric extends StatelessWidget {
             style: textTheme.bodyLarge?.copyWith(
               color: kPrimary,
               fontWeight: FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -1014,7 +1425,12 @@ class _RecentSessionsHeader extends StatelessWidget {
                     color: kSurfaceContainerHigh,
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text('$count', style: textTheme.labelSmall),
+                  child: Text(
+                    '$count',
+                    style: textTheme.labelSmall?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
                 ),
               ],
             ),

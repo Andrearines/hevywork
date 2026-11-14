@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/app/theme/app_theme.dart';
 import 'package:hevywork/data/local/database.dart';
+import 'package:hevywork/data/repositories/fatigue_repository.dart';
 import 'package:hevywork/data/repositories/routine_repository.dart';
 import 'package:hevywork/data/repositories/template_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
@@ -20,6 +21,7 @@ void main() {
 
   setUpAll(() {
     localDb = AppDatabase(NativeDatabase.memory());
+    fatigueRepository = FatigueRepository(localDb);
     syncEngine = SyncEngine(localDb, null);
     workoutRepository = WorkoutRepository(localDb);
     routineRepository = RoutineRepository(localDb, workoutRepository);
@@ -632,6 +634,24 @@ void main() {
     expect(stored.category, 'PPL');
     expect(stored.level, isNull);
     expect(stored.targetDays, 2);
+
+    await unmount(tester);
+  });
+
+  testWidgets('golden: RoutinesView con datos (T-005 / CA-01)', (tester) async {
+    await createRoutine(name: 'Tren superior');
+    await createRoutine(
+      name: 'Secundaria',
+      description: 'División balanceada',
+      level: 'Intermedio',
+      targetDays: 4,
+    );
+    await pumpView(tester);
+
+    await expectLater(
+      find.byType(RoutinesView),
+      matchesGoldenFile('goldens/routines_view.png'),
+    );
 
     await unmount(tester);
   });

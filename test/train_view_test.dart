@@ -255,6 +255,125 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('el selector de mes muestra la fase del ciclo y filtra el '
+        'feed por rutina (E-02.1, E-02.2)', (tester) async {
+      await localDb.into(localDb.routines).insert(
+            RoutinesCompanion.insert(
+              id: 'rutina-hipertrofia',
+              localUserId: 'perfil-pruebas',
+              name: 'Empuje A',
+              goal: const Value('Hipertrofia'),
+            ),
+          );
+      await localDb.into(localDb.routines).insert(
+            RoutinesCompanion.insert(
+              id: 'rutina-fuerza',
+              localUserId: 'perfil-pruebas',
+              name: 'Pierna B',
+              goal: const Value('Fuerza'),
+            ),
+          );
+      await seedFinishedSession(
+        'sesion-empuje',
+        endedAt: DateTime.now().subtract(const Duration(hours: 3)),
+        routineId: 'rutina-hipertrofia',
+        name: 'Empuje A',
+      );
+      await seedFinishedSession(
+        'sesion-pierna',
+        endedAt: DateTime.now().subtract(const Duration(days: 2)),
+        routineId: 'rutina-fuerza',
+        name: 'Pierna B',
+      );
+
+      await pumpView(tester);
+
+      expect(find.text('FASE DE HIPERTROFIA'), findsOneWidget);
+      expect(find.text('Filtro'), findsOneWidget);
+      expect(find.text('Empuje A'), findsOneWidget);
+      expect(find.text('Pierna B'), findsOneWidget);
+
+      await tester.tap(find.text('Filtro'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(PopupMenuItem<String>, 'Pierna B'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Empuje A'), findsNothing);
+      expect(find.text('Pierna B'), findsOneWidget);
+      expect(find.text('FASE DE HIPERTROFIA'), findsOneWidget);
+
+      await tester.tap(find.text('Filtro'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(PopupMenuItem<String>, 'Todas las sesiones'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Empuje A'), findsOneWidget);
+      expect(find.text('FASE DE HIPERTROFIA'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('el enlace Ver resumen completo de series abre el resumen '
+        'de la sesión (E-02.3)', (tester) async {
+      await seedFinishedSession(
+        'sesion-resumen',
+        endedAt: DateTime.now().subtract(const Duration(days: 1)),
+        name: 'Push A',
+      );
+
+      await pumpView(tester);
+
+      expect(find.text('Ver resumen completo de series'), findsOneWidget);
+
+      await tester.tap(find.text('Ver resumen completo de series'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Resumen de series'), findsOneWidget);
+      expect(find.text('1 · 60 kg × 8'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Resumen de series'), findsNothing);
+
+      await unmount(tester);
+    });
+
+    testWidgets('la tarjeta anuncia los PRs logrados en la sesión (E-02.4)',
+        (tester) async {
+      await seedFinishedSession(
+        'sesion-pr',
+        endedAt: DateTime.now().subtract(const Duration(days: 1)),
+        name: 'Push A',
+      );
+
+      await pumpView(tester);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('1 PR Logrado'), findsOneWidget);
+
+      await unmount(tester);
+    });
+
+    testWidgets('el modo Registro conserva la tarjeta Nueva sesión (E-02.5)',
+        (tester) async {
+      await pumpView(tester);
+
+      expect(find.text('Nueva sesión'), findsNothing);
+
+      await tester.tap(find.text('Registro en Vivo'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Nueva sesión'), findsOneWidget);
+
+      await tester.tap(find.text('Historial & Calendario'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Nueva sesión'), findsNothing);
+
+      await unmount(tester);
+    });
+
     testWidgets('en imperial el feed presenta tonelaje y series en lb (RF-4)',
         (tester) async {
       await seedFinishedSession(
