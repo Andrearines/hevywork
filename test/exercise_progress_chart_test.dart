@@ -1,5 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hevywork/ui/widgets/chart_enums.dart';
 import 'package:hevywork/ui/widgets/exercise_progress_chart.dart';
 
 void main() {

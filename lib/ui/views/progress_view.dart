@@ -19,6 +19,7 @@ import '../unit_system_scope.dart';
 import '../widgets/capped_scroll.dart';
 import '../widgets/fatigue_trend_chart.dart' as FTC;
 import '../widgets/muscle_map.dart';
+import '../widgets/measure_evolution.dart';
 import '../widgets/zone_volume_chart.dart' as ZVC;
 import '../widgets/weight_trend.dart';
 import 'body_metric_editor_view.dart';
@@ -144,7 +145,6 @@ class _ProgressViewState extends State<ProgressView> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _headerRow(),
         Expanded(
           child: StreamBuilder<List<Goal>>(
             stream: _goals,
@@ -190,8 +190,13 @@ class _ProgressViewState extends State<ProgressView> {
                             ),
                           ),
                           _FatigueSection(fatigue: fatigueSnap.data),
-                          if (goals != null) ..._goalSection(goals),
-                          const _MeasuresEntry(),
+                          _MeasuresInline(
+                            records: records,
+                            range: _range,
+                            weightGoal: goals == null
+                                ? null
+                                : _activeWeightGoal(goals),
+                          ),
                           const _PhotosSection(),
                           const _DevicesCallout(),
                         ],
@@ -203,7 +208,6 @@ class _ProgressViewState extends State<ProgressView> {
             },
           ),
         ),
-        _newGoalBar(),
       ],
     );
   }
@@ -1256,6 +1260,38 @@ class _MeasuresEntry extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Inline widget that combines MeasuresSection, MeasureEvolution and
+/// _DevicesCallout within ProgressView, showing real data (D-061) without
+/// placeholder "próximamente". Displays measures and evolution directly in
+/// the Progress screen without navigating away.
+class _MeasuresInline extends StatelessWidget {
+  final List<BodyMetric> records;
+  final int range;
+  final Goal? weightGoal;
+
+  const _MeasuresInline({
+    required this.records,
+    required this.range,
+    required this.weightGoal,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          MeasuresSection(records: records),
+          MeasureEvolution(records: records),
+          _DevicesCallout(),
+        ],
       ),
     );
   }
@@ -3014,13 +3050,11 @@ class _DevicesCallout extends StatelessWidget {
       padding: const EdgeInsets.only(top: 20),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => _openSoon(
-          context,
-          title: 'Dispositivos',
-          message:
-              'Próximamente podrás conectar tu báscula y caliper por '
-              'Bluetooth y sincronizar peso y grasa automáticamente.',
-        ),
+        onTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Sin dispositivos conectados todavía")),
+          );
+        },
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: const BoxDecoration(

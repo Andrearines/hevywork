@@ -300,6 +300,7 @@ void main() {
     expect(find.text('¿Borrar "Tren superior"?'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(TextButton, 'Borrar'));
+    await tester.pumpAndSettle();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump(const Duration(milliseconds: 100));

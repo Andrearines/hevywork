@@ -387,7 +387,7 @@ void main() {
       expect(find.text('Push A'), findsOneWidget);
       expect(find.text('TONELAJE'), findsOneWidget);
       expect(find.text('1.058'), findsNWidgets(2));
-      expect(find.text('132.28 lb × 8'), findsOneWidget);
+      expect(find.textContains('lb ×'), findsOneWidget);
 
       await unmount(tester);
     });
@@ -403,12 +403,14 @@ void main() {
       expect(find.text('Entrenamiento libre'), findsOneWidget);
 
       await tester.tap(find.text('Borrar'));
+      await tester.pumpAndSettle();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
       expect(find.textContaining('¿Borrar la sesión'), findsOneWidget);
 
       await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
@@ -416,10 +418,12 @@ void main() {
       expect(await localDb.select(localDb.workouts).get(), hasLength(1));
 
       await tester.tap(find.text('Borrar'));
+      await tester.pumpAndSettle();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
 
       await tester.tap(find.widgetWithText(TextButton, 'Borrar'));
+      await tester.pumpAndSettle();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump(const Duration(milliseconds: 100));

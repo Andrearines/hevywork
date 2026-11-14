@@ -9,7 +9,7 @@ void main() {
 
   // Datos de prueba: MuscleZoneStats con volumen y fatiga variados
   // Usando valores double para compatibilidad con el typedef
-  final stats = [
+  final List<MuscleZoneStats> stats = [
     (muscle: 'pectorals', weeklyVolume: 12000.0, sets: 8, fatigue: 0.8),
     (muscle: 'lats', weeklyVolume: 9500.0, sets: 6, fatigue: 0.6),
     (muscle: 'quadriceps', weeklyVolume: 15000.0, sets: 10, fatigue: 0.7),

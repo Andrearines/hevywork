@@ -250,19 +250,17 @@ Alineación: **T-010**, golden: **T-011**, estados: **T-016**.
       (3049).
 
 ### diferencias
-- [ ] E-04.1 · El orden real es: `_headerRow()` **`Mis metas`** (272,277) →
-      rango → peso → composición → fatiga → **sección de metas con
-      `_GoalCard`** (1703) → medidas → fotos → dispositivos → **barra `Nueva
-      meta`** (378). Los mockups no llevan «Mis metas», ni la sección de metas,
-      ni la barra de nueva meta en Progreso. — T-010
-- [ ] E-04.2 · El mockup muestra **dentro de Progreso** la lista «Medidas
+- [x] E-04.1 · El orden real es: rango → peso → composición → fatiga →
+      sección de medidas inline (Mederas + Evolución) → fotos → dispositivos.
+      Se quitaron «Mis metas», sección de metas y barra Nueva meta de Progress
+      según mockup SCR-04 — T-010/T-011.
+- [x] E-04.2 · El mockup muestra **dentro de Progreso** la lista «Medidas
       Corporales» (Pecho/Torso, Brazo, Cintura, Cuádriceps, Pantorrilla con
       deltas) y, en la variante b, la sección «Evolución de Medidas» con sus
       pills y stats (`Ratio Cintura/Pecho`, `Crecimiento muscular`). La app
-      solo pone una tarjeta-enlace `_MeasuresEntry` «Medidas» (1188-1241) que
-      abre `MeasuresView`, donde viven ambas secciones
-      (`measures_view.dart:99`, `measure_evolution.dart:86`). Reubicar según
-      mockup manteniendo la funcionalidad real (D-061). — T-010
+      tiene `_MeasuresInline` integrado en Progress, con `MeasuresSection` +
+      `MeasureEvolution` + `_DevicesCallout`, mostrando datos reales (D-061),
+      sin necesidad de navegar a `MeasuresView`. — T-011
 - [ ] E-04.3 · Leyenda `Recuperado (≤10)` (648) frente a `Recuperado (<10 s)`
       del mockup; texto a ajustar. — T-010
 - [ ] E-04.4 · La variante b proyecta `Próx 15 Mar` con leyenda

@@ -10,6 +10,7 @@ import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/unit_system_scope.dart';
+import 'package:hevywork/ui/views/exercise_info_view.dart';
 import 'package:hevywork/ui/views/exercise_detail_view.dart';
 import 'package:hevywork/ui/views/routine_detail_view.dart';
 
@@ -196,7 +197,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump(const Duration(milliseconds: 150));
 
-    expect(find.byType(ExerciseDetailView), findsOneWidget);
+    expect(find.byType(ExerciseInfoView), findsOneWidget);
     expect(find.text('Press de banca'), findsWidgets);
 
     await unmount(tester);

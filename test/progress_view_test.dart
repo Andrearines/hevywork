@@ -226,13 +226,10 @@ void main() {
         ),
       );
 
-  testWidgets('sin metas ni registros muestra ambas secciones vacías',
+  testWidgets('sin metas ni registros muestra estado vacío ProgressView',
       (tester) async {
     await pumpView(tester);
 
-    expect(find.text('Aún no tienes metas'), findsOneWidget);
-    expect(find.text('Mis metas'), findsOneWidget);
-    expect(find.text('Nueva meta'), findsOneWidget);
     expect(find.text('Peso y medidas'), findsOneWidget);
     expect(find.text('Nueva Medida'), findsOneWidget);
     expect(
@@ -381,14 +378,14 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('Nueva meta abre el editor', (tester) async {
+  testWidgets('Nueva Medida abre el editor de registro', (tester) async {
     await pumpView(tester);
 
-    await tester.tap(find.widgetWithText(ElevatedButton, 'Nueva meta'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Nueva Medida'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
 
-    expect(find.text('Guardar meta'), findsOneWidget);
+    expect(find.text('Nuevo registro'), findsOneWidget);
 
     await unmount(tester);
   });
