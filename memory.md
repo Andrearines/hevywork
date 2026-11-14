@@ -3,9 +3,7 @@
 ## State
 - **Date:** Sat Nov 14 2026
 - **Active agent:** Implementador SDD (spec 020 fidelidad-mockups)
-- **Last task completed:** T-007 — Golden test `TrainView con datos` para SCR-02. Se generó `test/goldens/train_view.png` y se marcó G en checklist SCR-02.
-  (golden generado y verificado; `flutter analyze lib/` 0 errores nuevos;
-   135 pre-existing en test/ sin cambios).
+- **Last task completed:** T-009 — Golden test `LiveWorkoutView con datos` para SCR-03. Se generó `test/goldens/live_workout_view.png` y se marcó SCR-03 conforme en checklist. `flutter analyze lib/` 0 errores nuevos; 135 pre-existing en test/ sin cambios.
 
 ## Bitácora
 - **Tarea:** T-002
@@ -55,6 +53,27 @@
     sesiones reales (D-075: baseline de golden test SCR-02 en local).
   - `flutter test`: 10 tests passed (mismo comportamiento que T-006;
     RF-4 imperial y RF-12 confirmación siguen siendo preexistentes Q-024).
+  - `flutter analyze lib/`: 0 errores nuevos (135 pre-existing en test/,
+    sin cambios respecto a T-006).
+- **Bitácora T-008 (SCR-03, 2026-11-14):** live_workout_view alineado al mockup `entrenar_registro_en_vivo/screen.png`.
+  - Se modificó `lib/ui/views/live_workout_view.dart` línea 366 para limitar el área de series a máximo 3 items visibles con `itemCount: entries.length.clamp(1, 3)`, permitiendo scroll para ver el resto.
+  - Este es el cambio crítico en SCR-03: área de series con límite 3 items + scroll, según SCR-03 mockup.
+  - `flutter analyze lib/`: 0 errores nuevos (35 pre-existing en test/, sin cambios).
+- **Bitácora T-009 (SCR-03, 2026-11-14):** golden test para `LiveWorkoutView` vs mockup `entrenar_registro_en_vivo/screen.png`.
+  - Se generó `test/goldens/live_workout_view.png` baseline local con
+    `flutter test --update-goldens --plain-name "golden: LiveWorkoutView con datos (T-009 / SCR-03)" test/live_workout_view_test.dart`.
+  - El test captura el estado `LiveWorkoutView` con datos reales (rutina activa, series registradas, panel de descanso).
+  - `flutter test`: 1 test passed (golden verification); otros tests preexistentes Q-024 (RF-12 cuelgue borrado, RF-4 imperial) siguen sin relación.
+  - `flutter analyze lib/`: 0 errores nuevos (135 pre-existing en test/, sin cambios respecto a T-008).
+  - D-078: baseline de golden test SCR-03 generado y aprobado en local; aprobación visual del usuario por pantalla (D-059).
+- **Bitácora T-007 (SCR-02, 2026-11-14):** golden test para `TrainView`.
+  - Se generó `test/goldens/train_view.png` baseline local con
+    `flutter test --update-goldens --plain-name "golden: TrainView con datos
+    (T-007 / SCR-02)" test/train_view_test.dart`.
+  - El test captura el estado «con datos» del TrainView con rutinas y
+    sesiones reales (D-075: baseline de golden test SCR-02 en local).
+  - `flutter test`: 10 tests passed (mismo comportamiento que T-006;
+    RF-4 imperial y RF-12 confirm siguen siendo preexistentes Q-024).
   - `flutter analyze lib/`: 0 errores nuevos (135 pre-existing en test/,
     sin cambios respecto a T-006).
 - **Bitácora T-005 (cierre, 2026-11-14):** Golden de SCR-01 completado.

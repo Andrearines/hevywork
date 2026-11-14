@@ -363,7 +363,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                             SliverPadding(
                               padding: const EdgeInsets.fromLTRB(0, 16, 0, 80),
                               sliver: SliverList.builder(
-                                itemCount: entries.length,
+                                itemCount: entries.length.clamp(1, 3),
                                 itemBuilder: (context, index) {
                                   final entry = entries[index];
                                   final isFirst = index == 0;

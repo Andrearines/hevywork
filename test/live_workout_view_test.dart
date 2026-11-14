@@ -931,4 +931,21 @@ void main() {
 
     await dismissSnackBars(tester);
   });
+
+  testWidgets('golden: LiveWorkoutView con datos (T-009 / SCR-03)', (tester) async {
+    final workout = await workoutRepository.startWorkout();
+    final item = await workoutRepository.addExercise(
+      workoutId: workout.id,
+      exerciseId: 'bench-press',
+    );
+
+    await pumpView(tester, workout.id);
+
+    await expectLater(
+      find.byType(LiveWorkoutView),
+      matchesGoldenFile('goldens/live_workout_view.png'),
+    );
+
+    await dismissSnackBars(tester);
+  });
 }

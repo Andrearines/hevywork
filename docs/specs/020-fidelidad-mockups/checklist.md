@@ -205,19 +205,19 @@ Alineación: **T-008**, golden: **T-009**, estados: **T-016**.
       `Ajuste Rápido:` (2026) y `Añadir serie` (2064).
 
 ### diferencias
-- [ ] E-03.1 · El mockup muestra la nav inferior; `LiveWorkoutView` es ruta
+[- [x] E-03.1 · El mockup muestra la nav inferior; `LiveWorkoutView` es ruta
       propia sin `bottomNavigationBar` (solo `AppBar`). Decidir si se mantiene
       la sesión a pantalla completa (recomendado por la naturaleza de la ruta)
       o se monta la pill. — T-008
-- [ ] E-03.2 · La app añade la fila de métricas `VOLUMEN` / `SERIES` /
+[- [x] E-03.2 · La app añade la fila de métricas `VOLUMEN` / `SERIES` /
       `1RM MAX` (551-558) que el mockup no muestra. — T-008
-- [ ] E-03.3 · El mockup concentra descanso `01:43 +30s` dentro de la tarjeta
+[- [x] E-03.3 · El mockup concentra descanso `01:43 +30s` dentro de la tarjeta
       de sesión; la app separa un panel de descanso con estados
       `LISTO / EN PAUSA / DESCANSO ACTIVO` (741) y avisos de progresión
       sugerida (848-863, 2341-2444). — T-008
-- [ ] E-03.4 · Estados vacío (`Añade tu primer ejercicio…`, 354), carga
+[- [x] E-03.4 · Estados vacío (`Añade tu primer ejercicio…`, 354), carga
       (`Cargando sesión...`, 243) y error (`Sesión no encontrada`, 255). — T-016
-- [ ] C-03.1 · Fila de series completadas y check en `kSurfaceContainerHighest`
+[- [x] C-03.1 · Fila de series completadas y check en `kSurfaceContainerHighest`
       vs fila activa; validar contraste AA con los tokens de T-002. — T-002/T-009
 - [ ] T-03.1 · Mayor carga de `fontSize` literal de las 6 vistas (14×10, 12×6,
       20×4, 16×3, 10×3, 11×1; X-04). El `tabular-nums` **ya está declarado en
@@ -225,9 +225,9 @@ Alineación: **T-008**, golden: **T-009**, estados: **T-016**.
       2416) y en `exercise_info_view.dart` en 4 (397, 438, 586, 1138): T-008 lo
       conserva y lo extiende a lo que retoque; T-003 lo lleva al resto de
       vistas. — T-003, T-008
-- [ ] B-03.1 · Radios 6/8/12 y pills 999; falta el 16 de contenedor (X-05). —
+[- [x] B-03.1 · Radios 6/8/12 y pills 999; falta el 16 de contenedor (X-05). —
       T-009
-- [ ] A-03.1 · Marca de serie completada sin transición de propiedades
+[- [x] A-03.1 · Marca de serie completada sin transición de propiedades
       exactas; controles `Terminar`/`Añadir serie` sin press `scale(0.97)`. —
       T-009, X-07
 
