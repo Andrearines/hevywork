@@ -16,8 +16,6 @@ import '../../domain/units.dart';
 import '../../main.dart';
 import '../theme/colors.dart';
 import '../unit_system_scope.dart';
-import '../widgets/capped_scroll.dart';
-import '../widgets/metric_cluster.dart';
 import '../widgets/section_header.dart';
 import 'soon_view.dart';
 
@@ -32,8 +30,6 @@ const Map<String, String> _goalTypeLabels = {
   'consistency': 'Constancia',
 };
 
-const int _visibleGoalTiles = 3;
-const double _goalTileHeight = 54;
 const String _avatarBucket = 'profile-photos';
 
 class ProfileView extends StatefulWidget {
@@ -467,8 +463,6 @@ class _ProfileViewState extends State<ProfileView> {
           onEditName: _editName,
           onPickAvatar: _pickAvatar,
         ),
-        const SectionHeader(title: 'Tus métricas'),
-        _Metrics(profile: _profile, stats: _stats),
         const SectionHeader(title: 'Objetivos'),
         _Goals(goals: _goals),
         const SectionHeader(title: 'Récords personales'),
@@ -571,35 +565,9 @@ class _Header extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kSurfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.local_fire_department,
-                              size: 12,
-                              color: kTertiaryContainer,
-                            ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                'Nivel $level',
-                                style: textTheme.labelSmall
-                                    ?.copyWith(color: kTertiaryContainer),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                      _AthleteBadge(level: level),
+                      const SizedBox(height: 12),
+                      _MetricsHeader(profile: profile, stats: stats),
                     ],
                   ),
                 ),
@@ -612,11 +580,67 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _Metrics extends StatelessWidget {
+class _AthleteBadge extends StatelessWidget {
+  final String level;
+
+  const _AthleteBadge({required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: kSurfaceContainerHigh,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.local_fire_department,
+                size: 12,
+                color: kTertiaryContainer,
+              ),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  'Nivel $level',
+                  style: textTheme.labelSmall
+                      ?.copyWith(color: kTertiaryContainer),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 6),
+        const Text(
+          'Atleta Pro',
+          style: TextStyle(
+            color: kPrimary,
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricsHeader extends StatelessWidget {
   final Stream<LocalProfile> profile;
   final Stream<ProfileStats> stats;
 
-  const _Metrics({required this.profile, required this.stats});
+  const _MetricsHeader({
+    required this.profile,
+    required this.stats,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -630,26 +654,82 @@ class _Metrics extends StatelessWidget {
             final unitSystem = profileSnapshot.data?.unitSystem ?? 'metric';
             final unit = unitSystem == 'imperial' ? 'lb' : 'kg';
             final factor = unitSystem == 'imperial' ? 2.2046226218 : 1.0;
-            return MetricCluster(
-              metrics: [
-                (
-                  label: 'Sesiones',
-                  value: '${data.finishedSessions}',
+            return Row(
+              children: [
+                Expanded(
+                  child: _MetricColumn(
+                    label: 'Sesiones',
+                    value: '${data.finishedSessions}',
+                    icon: Icons.fitness_center,
+                    unit: '',
+                  ),
                 ),
-                (
-                  label: 'Volumen total',
-                  value:
-                      '${_formatThousands(data.totalVolumeKg * factor)} $unit',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _MetricColumn(
+                    label: 'Volumen total',
+                    value:
+                        '${_formatThousands(data.totalVolumeKg * factor)} $unit',
+                    icon: Icons.trending_up,
+                    unit: '',
+                  ),
                 ),
-                (
-                  label: 'Racha',
-                  value: '${data.weekStreak} sem',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _MetricColumn(
+                    label: 'Racha',
+                    value: '${data.weekStreak} sem',
+                    icon: Icons.local_fire_department,
+                    unit: '',
+                  ),
                 ),
               ],
             );
           },
         );
       },
+    );
+  }
+}
+
+class _MetricColumn extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final String unit;
+
+  const _MetricColumn({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.unit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: textTheme.headlineSmall,
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Icon(icon, size: 16, color: kTertiaryContainer),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                style: textTheme.labelSmall?.copyWith(color: kOnSurfaceVariant),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
@@ -681,16 +761,10 @@ class _Goals extends StatelessWidget {
         if (active.isEmpty) {
           return const _EmptyHint('Aún no tienes objetivos activos.');
         }
-        return CappedScroll(
-          itemCount: active.length,
-          visibleItems: _visibleGoalTiles,
-          itemHeight: _goalTileHeight,
-          child: Column(
-            children: [
-              for (final goal in active)
-                _GoalTile(goal: goal, textTheme: textTheme),
-            ],
-          ),
+        return Column(
+          children: [
+            for (final goal in active) _GoalTile(goal: goal, textTheme: textTheme),
+          ],
         );
       },
     );
@@ -763,6 +837,27 @@ class _RecordsState extends State<_Records> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Récords Personales',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                fontSize: 18,
+              ),
+            ),
+            const Text(
+              '1RM Estimado',
+              style: TextStyle(
+                color: kOnSurfaceVariant,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         SegmentedButton<bool>(
           showSelectedIcon: false,
           segments: const [

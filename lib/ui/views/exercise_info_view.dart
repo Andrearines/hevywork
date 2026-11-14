@@ -292,11 +292,35 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       ),
     );
 
+    // TIER S · 1RM chip alongside the title (conserved from spec 015/019 convention)
+    final tierChip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: palette.kSurfaceContainerHighest,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: const Text(
+        'TIER S · 1RM',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: palette.kPrimary,
+        ),
+      ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        exerciseName,
-        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            exerciseName,
+            const Spacer(),
+            tierChip,
+          ],
+        ),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -473,12 +497,109 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   }
 
   Widget _buildProgressChartSection() {
-    return ChartWidget.ExerciseProgressChart(
-      sessions: _history,
-      metric: _selectedMetric,
-      window: _selectedWindow,
-      onMetricChanged: (metric) => setState(() => _selectedMetric = metric),
-      onWindowChanged: (window) => setState(() => _selectedWindow = window),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Chart metric tabs (1RM Estimado / Carga Máx (kg) / Volumen)
+        _buildChartMetricTabs(),
+        const SizedBox(height: 8),
+        // Timeframe filters (1M / 3M / 6M / 1A / Todo)
+        _buildChartWindowTabs(),
+        const SizedBox(height: 12),
+        ChartWidget.ExerciseProgressChart(
+          sessions: _history,
+          metric: _selectedMetric,
+          window: _selectedWindow,
+          onMetricChanged: (metric) => setState(() => _selectedMetric = metric),
+          onWindowChanged: (window) => setState(() => _selectedWindow = window),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartMetricTabs() {
+    final List<String> metricLabels = [
+      '1RM Estimado',
+      'Carga Máx (kg)',
+      'Volumen',
+    ];
+    final List<ProgressMetric> metrics = [
+      ProgressMetric.e1rm,
+      ProgressMetric.load,
+      ProgressMetric.volume,
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(metricLabels.length, (index) {
+        final isSelected = _selectedMetric == metrics[index];
+        return ChoiceChip(
+          label: Text(
+            metricLabels[index],
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isSelected ? palette.kPrimary : palette.kOnSurfaceVariant,
+              letterSpacing: 0.6,
+            ),
+          ),
+          selected: isSelected,
+          onSelected: (_) => setState(() => _selectedMetric = metrics[index]),
+          showCheckmark: false,
+          selectedColor: palette.kSurfaceContainerHighest,
+          backgroundColor: palette.kSurfaceContainerLow,
+          side: BorderSide(color: palette.kSurfaceContainerHighest),
+          labelStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.6,
+            color: palette.kPrimary,
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildChartWindowTabs() {
+    final List<String> windowLabels = ['1M', '3M', '6M', '1A', 'Todo'];
+    final List<ProgressWindow> windows = [
+      ProgressWindow.oneMonth,
+      ProgressWindow.threeMonths,
+      ProgressWindow.sixMonths,
+      ProgressWindow.oneYear,
+      ProgressWindow.all,
+    ];
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: List.generate(windowLabels.length, (index) {
+        final isSelected = _selectedWindow == windows[index];
+        return ChoiceChip(
+          label: Text(
+            windowLabels[index],
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: isSelected ? palette.kPrimary : palette.kOnSurfaceVariant,
+              letterSpacing: 0.6,
+            ),
+          ),
+          selected: isSelected,
+          onSelected: (_) => setState(() => _selectedWindow = windows[index]),
+          showCheckmark: false,
+          selectedColor: palette.kSurfaceContainerHighest,
+          backgroundColor: palette.kSurfaceContainerLow,
+          side: BorderSide(color: palette.kSurfaceContainerHighest),
+          labelStyle: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.6,
+            color: palette.kPrimary,
+          ),
+        );
+      }),
     );
   }
 

@@ -146,7 +146,6 @@ void main() {
 
     expect(find.text('Atleta'), findsOneWidget);
     expect(find.text('Nivel Principiante'), findsOneWidget);
-    expect(find.text('Tus métricas'), findsOneWidget);
     expect(find.text('Sesiones'), findsOneWidget);
     expect(find.text('Volumen total'), findsOneWidget);
     expect(find.text('Racha'), findsOneWidget);
