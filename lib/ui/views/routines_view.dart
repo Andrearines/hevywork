@@ -249,8 +249,8 @@ class _RoutinesViewState extends State<RoutinesView> {
         ),
         const SizedBox(height: 4),
         if (filtered.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(24),
+          Padding(
+            padding: const EdgeInsets.all(24),
             child: Center(
               child: Text(
                 'No hay rutinas en esta categoría',
@@ -370,6 +370,7 @@ class _EmptyRoutines extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -382,20 +383,19 @@ class _EmptyRoutines extends StatelessWidget {
               color: kOnSurfaceVariant,
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'Aún no tienes rutinas',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: textTheme.headlineSmall?.copyWith(
                 color: kOnSurface,
-                fontSize: 18,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               'Crea una plantilla con tus ejercicios y entrena con ella.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: kOnSurfaceVariant, fontSize: 14),
+              style: textTheme.bodyMedium?.copyWith(color: kOnSurfaceVariant),
             ),
             const SizedBox(height: 16),
             SizedBox(

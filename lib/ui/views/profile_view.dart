@@ -465,7 +465,6 @@ class _ProfileViewState extends State<ProfileView> {
         ),
         const SectionHeader(title: 'Objetivos'),
         _Goals(goals: _goals),
-        const SectionHeader(title: 'Récords personales'),
         _Records(profile: _profile, stats: _stats),
         const SectionHeader(title: 'Configuración de Atleta'),
         _Settings(
@@ -1144,17 +1143,6 @@ class _Settings extends StatelessWidget {
               title: 'Exportar datos',
               subtitle: 'CSV / Copia de seguridad completa',
               onTap: onExport,
-            ),
-            _SettingsRow(
-              icon: Icons.bluetooth,
-              title: 'Dispositivos',
-              subtitle: 'Báscula, caliper y frecuencia cardiaca',
-              trailing: const Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: kOnSurfaceVariant,
-              ),
-              onTap: onOpenDevices,
             ),
             _SettingsRow(
               icon: signedIn ? Icons.logout : Icons.login,

@@ -209,14 +209,14 @@ class _TrainViewState extends State<TrainView> {
         _MetricsCluster(history: history),
         _RecentSessionsHeader(count: feed.length),
         if (history.isEmpty)
-          const _EmptyHistory()
+          _EmptyHistory()
         else if (feed.isEmpty)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               'Sin sesiones con este filtro',
               textAlign: TextAlign.center,
-              style: textTheme.bodySmall?.copyWith(color: kOutline),
+              style: textTheme.bodySmall?.copyWith(color: kOnSurfaceVariant),
             ),
           )
         else
@@ -1368,8 +1368,9 @@ class _EmptyHistory extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.history, size: 28, color: kOutline),
+            Icon(Icons.history, size: 28, color: kOnSurfaceVariant),
             const SizedBox(height: 8),
             Text(
               'Sin sesiones todavía',
@@ -1379,7 +1380,7 @@ class _EmptyHistory extends StatelessWidget {
             Text(
               'Termina tu primera sesión y aparecerá aquí.',
               textAlign: TextAlign.center,
-              style: textTheme.bodySmall?.copyWith(color: kOutline),
+              style: textTheme.bodySmall?.copyWith(color: kOnSurfaceVariant),
             ),
           ],
         ),

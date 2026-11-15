@@ -128,12 +128,11 @@ class _MeasureEvolutionState extends State<MeasureEvolution> {
                 ),
                 const SizedBox(height: 12),
                 if (points.length < 2)
-                  SizedBox(
-                    height: 140,
-                    width: double.infinity,
-                    child: const Center(
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(
                       child: Text(
-                        'Registra medidas para ver la tendencia',
+                        'Sin datos de medida',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: kOnSurfaceVariant,

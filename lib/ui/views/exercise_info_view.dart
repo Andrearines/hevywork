@@ -961,35 +961,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   }
 
   Widget _buildHistoryEmpty() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: palette.kSurfaceContainer,
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-      ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Aún no hay sesiones con este ejercicio',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: palette.kOnSurface,
-            ),
-          ),
-          SizedBox(height: 6),
-          Text(
-            'Usa «Añadir a Rutina o Iniciar Sesión» para registrar tu primera serie.',
-            style: TextStyle(
-              fontSize: 12,
-              height: 1.4,
-              color: palette.kOnSurfaceVariant,
-            ),
-          ),
-        ],
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Text(
+        'Sin sesiones con este ejercicio',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: palette.kOnSurfaceVariant),
       ),
     );
   }

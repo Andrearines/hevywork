@@ -198,7 +198,7 @@ class _ProgressViewState extends State<ProgressView> {
                                 : _activeWeightGoal(goals),
                           ),
                           const _PhotosSection(),
-                          const _DevicesCallout(),
+                          _MeasuresHistory(records: records),
                         ],
                       );
                     },
@@ -1290,9 +1290,92 @@ class _MeasuresInline extends StatelessWidget {
         children: [
           MeasuresSection(records: records),
           MeasureEvolution(records: records),
-          _DevicesCallout(),
         ],
       ),
+    );
+  }
+}
+
+/// Widget que muestra el historial de las últimas medidas tomadas,
+/// conectado al stream de body metrics para mostrar datos reales.
+class _MeasuresHistory extends StatefulWidget {
+  final List<BodyMetric> records;
+
+  const _MeasuresHistory({required this.records, super.key});
+
+  @override
+  State<_MeasuresHistory> createState() => _MeasuresHistoryState();
+}
+
+class _MeasuresHistoryState extends State<_MeasuresHistory> {
+  @override
+  Widget build(BuildContext context) {
+    final recordsStream = bodyMetricRepository.watchRecords();
+    return StreamBuilder<List<BodyMetric>>(
+      stream: recordsStream,
+      builder: (context, recordsSnap) {
+        final records = recordsSnap.data ?? const <BodyMetric>[];
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Historial de Medidas',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: kOnSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 8),
+              if (records.isEmpty)
+                const Text(
+                  'Aún no hay registros de medidas.',
+                  style: TextStyle(color: kOnSurfaceVariant, fontSize: 12),
+                )
+              else
+                _LastMeasureSummary(records: records),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LastMeasureSummary extends StatelessWidget {
+  final List<BodyMetric> records;
+
+  const _LastMeasureSummary({
+    required this.records,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final last = records.last;
+    final weightKg = last.weightKg;
+    final bodyFatPct = last.bodyFatPct;
+    return Row(
+      children: [
+        if (weightKg != null)
+          Expanded(
+            child: Text(
+              'Último peso: ${displayWeightKg(weightKg, UnitSystemScope.of(context))} kg',
+              style: const TextStyle(color: kOnSurface, fontSize: 12),
+            ),
+          ),
+        if (bodyFatPct != null)
+          const SizedBox(width: 12),
+        if (bodyFatPct != null)
+          Expanded(
+            child: Text(
+              'Cuerpo: ${bodyFatPct.toStringAsFixed(1)}%',
+              style: const TextStyle(color: kOnSurface, fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -3041,77 +3124,111 @@ class _PhotoPlaceholder extends StatelessWidget {
 /// Callout de dispositivos (spec 011, RF-2): báscula y caliper con el
 /// aspecto del mockup; sin dispositivos emparejados, estado vacío que
 /// enlaza a la spec.
-class _DevicesCallout extends StatelessWidget {
-  const _DevicesCallout();
+class _DeviceIcon extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Object? value;
+  final String unit;
+
+  const _DeviceIcon({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.unit,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Sin dispositivos conectados todavía")),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
             color: kSurfaceContainerHigh,
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+            shape: BoxShape.circle,
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: kSurfaceBright,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.sync, size: 20, color: kPrimary),
-              ),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Báscula y Caliper Conectados',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: 'SpaceGrotesk',
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: kPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Sin dispositivos conectados todavía',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: kOnSurfaceVariant,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right,
-                size: 20,
-                color: kOnSurfaceVariant,
-              ),
-            ],
+          child: Icon(icon, size: 20, color: kPrimary),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: textTheme.labelSmall?.copyWith(
+            color: kOnSurfaceVariant,
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
           ),
         ),
+        const SizedBox(height: 2),
+        Text(
+          _formatValue(value, unit),
+          style: textTheme.titleMedium?.copyWith(
+            color: kOnSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatValue(Object? value, String unit) {
+    if (value == null) return '–';
+    if (value is double) {
+      final v = value;
+      return '${v.toStringAsFixed(1)} $unit';
+    }
+    return '$value $unit';
+  }
+}
+
+class _DevicesCallout extends StatefulWidget {
+  const _DevicesCallout();
+
+  @override
+  State<_DevicesCallout> createState() => _DevicesCalloutState();
+}
+
+class _DevicesCalloutState extends State<_DevicesCallout> {
+  @override
+  Widget build(BuildContext context) {
+    final unitSystem = UnitSystemScope.of(context);
+    final weightUnit = weightUnitOf(unitSystem);
+    final recordsStream = bodyMetricRepository.watchRecords();
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: StreamBuilder<List<BodyMetric>>(
+        stream: recordsStream,
+        builder: (context, recordsSnap) {
+          final records = recordsSnap.data ?? const <BodyMetric>[];
+          return Container(
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: kSurfaceContainerHigh,
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                _DeviceIcon(
+                  icon: Icons.tune,
+                  label: 'Báscula',
+                  value: records.isNotEmpty ? records.last.weightKg : null,
+                  unit: weightUnit,
+                ),
+                const SizedBox(width: 12),
+                _DeviceIcon(
+                  icon: Icons.remove,
+                  label: 'Caliper',
+                  value: records.isNotEmpty ? records.last.bodyFatPct : null,
+                  unit: '%',
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }

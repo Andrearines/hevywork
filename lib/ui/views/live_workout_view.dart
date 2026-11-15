@@ -236,7 +236,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       builder: (context, workoutSnapshot) {
         if (workoutSnapshot.connectionState == ConnectionState.waiting ||
             workoutSnapshot.connectionState == ConnectionState.none) {
-          return const Scaffold(
+          return Scaffold(
             backgroundColor: kSurface,
             body: Center(
               child: Text(
@@ -248,7 +248,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
         }
         final workout = workoutSnapshot.data;
         if (workout == null) {
-          return const Scaffold(
+          return Scaffold(
             backgroundColor: kSurface,
             body: Center(
               child: Text(
@@ -285,7 +285,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
             stream: _exercises,
             builder: (context, exercisesSnapshot) {
               if (!exercisesSnapshot.hasData) {
-                return const Center(
+                return Center(
                   child: Text(
                     'Cargando sesión...',
                     style: TextStyle(color: kOnSurfaceVariant, fontSize: 14),
@@ -298,11 +298,10 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                 stream: _sets,
                 builder: (context, setsSnapshot) {
                   if (!setsSnapshot.hasData) {
-                    return const Center(
+                    return Center(
                       child: Text(
                         'Cargando sesión...',
-                        style:
-                            TextStyle(color: kOnSurfaceVariant, fontSize: 14),
+                        style: TextStyle(color: kOnSurfaceVariant, fontSize: 14),
                       ),
                     );
                   }
@@ -363,7 +362,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                             SliverPadding(
                               padding: const EdgeInsets.fromLTRB(0, 16, 0, 80),
                               sliver: SliverList.builder(
-                                itemCount: entries.length.clamp(1, 3),
+                                itemCount: entries.length,
                                 itemBuilder: (context, index) {
                                   final entry = entries[index];
                                   final isFirst = index == 0;

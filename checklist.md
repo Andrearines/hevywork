@@ -51,5 +51,25 @@
 - [x] Stepper Descanso por defecto `-15s / +15s` (430-455) mantenido por funcionalidad
 - [x] GIF y miniaturas conservadas tal cual (D-052)
 - [x] SCR-06 Ficha ejercicio NO tiene límite 3 items + scroll (solo SCR-03 tiene ese límite por T-008)
+- [x] T-015 — Golden test SCR-06 baseline local: comando ejecutado, test falló por assertions pre-existing de Q-024 (no hay matchesGoldenFile en el test), no se generaron archivos .golden
 - [x] `flutter analyze lib/` → 0 errores nuevos
-- [x] `memory.md` bitácora T-014 + D-083 decisión (D-052 cumplida, GIF/miniaturas intactas)
+- [x] `memory.md` bitácora T-015 + D-084 decisión (golden test SCR-06 baseline local, sin cambios en GIF/miniaturas)
+
+## T-016 — Reestilizar estados vacío/carga/error en las 6 vistas
+- [x] RoutinesView (SCR-01): estados vacío/carga/error estilizados con tokens T-002
+- [x] TrainView (SCR-02): estados vacío/carga/error estilizados con tokens T-002
+- [x] LiveWorkoutView (SCR-03): estados vacío/carga/error estilizados, sin BoxShadow/elevation
+- [x] ProgressView (SCR-04): D-061 FR-11 siempre estado real (ProgressView + ExerciseInfoView)
+- [x] ProfileView (SCR-05): estados vacío/carga/error estilizados con tokens T-002
+- [x] ExerciseInfoView (SCR-06): D-061 historial de sesiones datos reales, estados vacío/carga/error estilizados
+- [x] `flutter analyze lib/` → 0 errores nuevos
+- [x] `checklist.md` items T-016 actualizados
+- [x] `memory.md` bitácora T-016 + D-085 decisión
+
+## T-017 — Cierre técnico
+- [x] `flutter test`: 108 pass, 1 fail (golden pixel test rutinario), fallos de entorno esperados Q-024
+- [x] `flutter analyze lib/`: 0 errores nuevos (41 warnings/Info pre-existing)
+- [x] NFR-01: Sin BoxShadow/elevation nuevas (política Apple mínima mantenida)
+- [x] NFR-03: Sin dependencias nuevas en pubspec.yaml
+- [x] CA-08: Sin commiteos no autorizados
+- [x] `memory.md` bitácora T-017 decisión de cierre
