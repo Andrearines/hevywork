@@ -317,4 +317,50 @@ void main() {
 
     await unmount(tester);
   });
+
+  testWidgets('añadir una medida nueva conserva el registro previo del día',
+      (tester) async {
+    final today = BodyMetricRepository.dayOf(DateTime.now());
+    await bodyMetricRepository.upsert(
+      date: today,
+      weightKg: 80,
+      measures: const {'chest': 100},
+      notes: 'Mañana',
+    );
+
+    await pumpView(tester);
+
+    expect(find.text('Nuevo registro'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, 'Peso (kg)'))
+          .controller!
+          .text,
+      '80',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, 'Pecho (cm)'))
+          .controller!
+          .text,
+      '100',
+    );
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Pecho (cm)'),
+      '102.5',
+    );
+    await tester.tap(find.text('Guardar registro'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('Registro guardado'), findsOneWidget);
+    final rows = await localDb.select(localDb.bodyMetrics).get();
+    expect(rows, hasLength(1));
+    expect(rows.single.weightKg, 80);
+    expect(rows.single.notes, 'Mañana');
+    expect(decodeMeasures(rows.single.measuresJson)['chest'], 102.5);
+
+    await unmount(tester);
+  });
 }

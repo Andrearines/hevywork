@@ -10,7 +10,7 @@ void main() {
   late ExerciseProgressChart chart;
 
   setUp(() {
-    chart = const ExerciseProgressChart(
+    chart = ExerciseProgressChart(
       sessions: [],
       metric: ProgressMetric.volume,
       window: ProgressWindow.threeMonths,

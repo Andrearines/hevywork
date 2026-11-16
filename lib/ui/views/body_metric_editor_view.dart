@@ -32,6 +32,8 @@ class _BodyMetricEditorViewState extends State<BodyMetricEditorView> {
   late DateTime _date;
   bool _busy = false;
   String _unitSystem = 'metric';
+  BodyMetric? _existing;
+  Future<void>? _pendingLoad;
 
   @override
   void initState() {
@@ -40,19 +42,9 @@ class _BodyMetricEditorViewState extends State<BodyMetricEditorView> {
     _date = BodyMetricRepository.dayOf(DateTime.now());
     if (record != null) {
       _date = BodyMetricRepository.dayOf(record.date);
-      if (record.weightKg != null) _weightCtrl.text = _fmt(record.weightKg!);
-      if (record.bodyFatPct != null) {
-        _fatCtrl.text = _fmt(record.bodyFatPct!);
-      }
-      if (record.leanMassKg != null) {
-        _leanCtrl.text = _fmt(record.leanMassKg!);
-      }
-      final measures = decodeMeasures(record.measuresJson);
-      for (final id in kBodyMeasures) {
-        final value = measures[id];
-        if (value != null) _measureCtrls[id]!.text = _fmt(value);
-      }
-      if (record.notes != null) _notesCtrl.text = record.notes!;
+      _fillFrom(record);
+    } else {
+      _pendingLoad = _loadForDate(_date);
     }
   }
 
@@ -62,22 +54,47 @@ class _BodyMetricEditorViewState extends State<BodyMetricEditorView> {
     final units = UnitSystemScope.of(context);
     if (_unitSystem == units) return;
     _unitSystem = units;
-    final record = widget.record;
+    final record = _existing ?? widget.record;
     if (record == null) return;
+    _fillFrom(record);
+  }
+
+  /// Vuelca un registro al formulario en la unidad vigente; los campos sin
+  /// dato no se tocan.
+  void _fillFrom(BodyMetric record) {
     if (record.weightKg != null) {
-      _weightCtrl.text = _fmt(displayWeightKg(record.weightKg!, units));
+      _weightCtrl.text = _fmt(displayWeightKg(record.weightKg!, _unitSystem));
     }
-    if (record.bodyFatPct != null) _fatCtrl.text = _fmt(record.bodyFatPct!);
+    if (record.bodyFatPct != null) {
+      _fatCtrl.text = _fmt(record.bodyFatPct!);
+    }
     if (record.leanMassKg != null) {
-      _leanCtrl.text = _fmt(displayWeightKg(record.leanMassKg!, units));
+      _leanCtrl.text = _fmt(displayWeightKg(record.leanMassKg!, _unitSystem));
     }
     final measures = decodeMeasures(record.measuresJson);
     for (final id in kBodyMeasures) {
       final value = measures[id];
       if (value != null) {
-        _measureCtrls[id]!.text = _fmt(displayLengthCm(value, units));
+        _measureCtrls[id]!.text = _fmt(displayLengthCm(value, _unitSystem));
       }
     }
+    if (record.notes != null) _notesCtrl.text = record.notes!;
+  }
+
+  /// Un registro nuevo sobre un día que ya tiene registro precarga ese
+  /// registro: así añadir una medida no borra lo ya guardado.
+  Future<void> _loadForDate(DateTime day) async {
+    final found = await bodyMetricRepository.findByDate(day);
+    if (!mounted ||
+        found == null ||
+        widget.record != null ||
+        _date != BodyMetricRepository.dayOf(day)) {
+      return;
+    }
+    setState(() {
+      _existing = found;
+      _fillFrom(found);
+    });
   }
 
   @override
@@ -103,11 +120,20 @@ class _BodyMetricEditorViewState extends State<BodyMetricEditorView> {
       lastDate: DateTime.now(),
     );
     if (picked == null || !mounted) return;
-    setState(() => _date = BodyMetricRepository.dayOf(picked));
+    final day = BodyMetricRepository.dayOf(picked);
+    setState(() {
+      _date = day;
+      if (widget.record == null) _existing = null;
+    });
+    if (widget.record != null) return;
+    final load = _loadForDate(day);
+    _pendingLoad = load;
+    await load;
   }
 
   Future<void> _save() async {
     final messenger = ScaffoldMessenger.of(context);
+    await _pendingLoad;
 
     final weightText = _weightCtrl.text.trim();
     final double? weightKg;

@@ -167,7 +167,7 @@ class _ProgressViewState extends State<ProgressView> {
                     stream: _fatigue,
                     builder: (context, fatigueSnap) {
                       return ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
                           _rangeHeader(),
                           _MetricsSection(
@@ -984,6 +984,7 @@ class _MetricsSectionState extends State<_MetricsSection> {
           (date: record.date, weightKg: record.weightKg!),
     ];
     final latest = trendPoints.isEmpty ? null : trendPoints.last;
+    final recent = widget.records.take(3).toList();
 
     final goalKg = widget.weightGoal?.targetValue;
     final deadline = widget.weightGoal?.deadline;
@@ -1168,15 +1169,14 @@ class _MetricsSectionState extends State<_MetricsSection> {
           else
             Column(
               children: [
-                // Últimos 2 registros
-                for (var index = 0; index < (widget.records.length > 2 ? 2 : widget.records.length); index++)
+                for (var index = 0; index < recent.length; index++)
                   _RecordCard(
-                    record: widget.records[index],
+                    record: recent[index],
                     previous: index + 1 < widget.records.length
                         ? widget.records[index + 1]
                         : null,
-                    onEdit: () => widget.onEdit(widget.records[index]),
-                    onDelete: () => widget.onDelete(widget.records[index]),
+                    onEdit: () => widget.onEdit(recent[index]),
+                    onDelete: () => widget.onDelete(recent[index]),
                   ),
                 const SizedBox(height: 8),
               ],
@@ -1296,86 +1296,146 @@ class _MeasuresInline extends StatelessWidget {
   }
 }
 
-/// Widget que muestra el historial de las últimas medidas tomadas,
-/// conectado al stream de body metrics para mostrar datos reales.
-class _MeasuresHistory extends StatefulWidget {
+class _MeasuresHistory extends StatelessWidget {
   final List<BodyMetric> records;
 
-  const _MeasuresHistory({required this.records, super.key});
+  const _MeasuresHistory({required this.records});
 
-  @override
-  State<_MeasuresHistory> createState() => _MeasuresHistoryState();
-}
-
-class _MeasuresHistoryState extends State<_MeasuresHistory> {
   @override
   Widget build(BuildContext context) {
-    final recordsStream = bodyMetricRepository.watchRecords();
-    return StreamBuilder<List<BodyMetric>>(
-      stream: recordsStream,
-      builder: (context, recordsSnap) {
-        final records = recordsSnap.data ?? const <BodyMetric>[];
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Historial de Medidas',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: kOnSurfaceVariant,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (records.isEmpty)
-                const Text(
-                  'Aún no hay registros de medidas.',
-                  style: TextStyle(color: kOnSurfaceVariant, fontSize: 12),
-                )
-              else
-                _LastMeasureSummary(records: records),
-            ],
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Historial de Medidas',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: kOnSurface,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        );
-      },
+          const SizedBox(height: 8),
+          if (records.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: kSurfaceContainerLow,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kSurfaceContainerHighest),
+              ),
+              child: const Text(
+                'Aún no hay registros de medidas.',
+                style: TextStyle(color: kOnSurfaceVariant, fontSize: 13),
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 4,
+              ),
+              decoration: const BoxDecoration(
+                color: kSurfaceContainer,
+                borderRadius: BorderRadius.all(Radius.circular(12)),
+              ),
+              child: Column(
+                children: [
+                  for (var index = 0; index < records.length; index++) ...[
+                    if (index > 0)
+                      Container(height: 1, color: kSurfaceContainerHighest),
+                    _HistoryRow(record: records[index]),
+                  ],
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
 
-class _LastMeasureSummary extends StatelessWidget {
-  final List<BodyMetric> records;
+class _HistoryRow extends StatelessWidget {
+  final BodyMetric record;
 
-  const _LastMeasureSummary({
-    required this.records,
-    super.key,
-  });
+  const _HistoryRow({required this.record});
 
   @override
   Widget build(BuildContext context) {
-    final last = records.last;
-    final weightKg = last.weightKg;
-    final bodyFatPct = last.bodyFatPct;
-    return Row(
-      children: [
-        if (weightKg != null)
+    final theme = Theme.of(context);
+    final unitSystem = UnitSystemScope.of(context);
+    final weight = record.weightKg;
+    final bodyFatPct = record.bodyFatPct;
+    final measures = decodeMeasures(record.measuresJson);
+    final summary = [
+      for (final id in kBodyMeasures)
+        if (measures[id] != null)
+          '${measureLabel(id)} '
+          '${_fmtValue(displayLengthCm(measures[id]!, unitSystem))}',
+    ].join(' · ');
+    final detail = summary.isEmpty ? (record.notes ?? '') : summary;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Expanded(
-            child: Text(
-              'Último peso: ${displayWeightKg(weightKg, UnitSystemScope.of(context))} kg',
-              style: const TextStyle(color: kOnSurface, fontSize: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _formatDate(record.date),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: kOnSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (detail.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: kOnSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-        if (bodyFatPct != null)
           const SizedBox(width: 12),
-        if (bodyFatPct != null)
-          Expanded(
-            child: Text(
-              'Cuerpo: ${bodyFatPct.toStringAsFixed(1)}%',
-              style: const TextStyle(color: kOnSurface, fontSize: 12),
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (weight != null)
+                Text(
+                  '${_fmtValue(displayWeightKg(weight, unitSystem))} '
+                  '${weightUnitOf(unitSystem)}',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: kOnSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              if (bodyFatPct != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${bodyFatPct.toStringAsFixed(1)} %',
+                  style: const TextStyle(
+                    color: kOnSurfaceVariant,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
           ),
-      ],
+        ],
+      ),
     );
   }
 }

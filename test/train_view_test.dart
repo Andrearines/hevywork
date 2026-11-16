@@ -387,7 +387,7 @@ void main() {
       expect(find.text('Push A'), findsOneWidget);
       expect(find.text('TONELAJE'), findsOneWidget);
       expect(find.text('1.058'), findsNWidgets(2));
-      expect(find.textContains('lb ×'), findsOneWidget);
+      expect(find.textContaining('lb ×'), findsOneWidget);
 
       await unmount(tester);
     });

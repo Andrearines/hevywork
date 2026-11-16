@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test';
+import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hevywork/domain/muscle_fatigue.dart';
 import 'package:hevywork/ui/widgets/zone_volume_chart.dart';

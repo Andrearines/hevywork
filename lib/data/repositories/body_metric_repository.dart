@@ -121,6 +121,16 @@ class BodyMetricRepository {
     );
   }
 
+  /// Registro de un día cualquiera, o null si ese día no tiene (RF-2).
+  Future<BodyMetric?> findByDate(DateTime date) async {
+    final day = dayOf(date);
+    final profile = await _profile();
+    return (_db.select(_db.bodyMetrics)
+          ..where((t) =>
+              t.localUserId.equals(profile.localUserId) & t.date.equals(day)))
+        .getSingleOrNull();
+  }
+
   /// Último peso registrado, o null sin mediciones de peso.
   Future<double?> latestWeightKg() async {
     final row = await (_db.select(_db.bodyMetrics)

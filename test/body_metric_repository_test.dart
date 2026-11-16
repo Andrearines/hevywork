@@ -217,4 +217,34 @@ void main() {
       DateTime(2026, 10, 1),
     ]);
   });
+
+  test('un registro nuevo no elimina ni altera los de otros días', () async {
+    await repo.upsert(
+      date: DateTime(2026, 10, 1),
+      weightKg: 80,
+      measures: const {'chest': 100},
+      notes: 'Mañana',
+    );
+    await repo.upsert(
+      date: DateTime(2026, 10, 3),
+      measures: const {'waist': 80},
+    );
+
+    final rows = await db.select(db.bodyMetrics).get();
+    expect(rows, hasLength(2));
+    final first = rows.singleWhere((row) => row.date == DateTime(2026, 10, 1));
+    expect(first.weightKg, 80);
+    expect(first.measuresJson, contains('100'));
+    expect(first.notes, 'Mañana');
+    final second = rows.singleWhere((row) => row.date == DateTime(2026, 10, 3));
+    expect(second.weightKg, isNull);
+    expect(second.measuresJson, contains('80'));
+  });
+
+  test('findByDate devuelve el registro del día o null', () async {
+    await repo.upsert(date: DateTime(2026, 10, 5), weightKg: 80);
+
+    expect((await repo.findByDate(DateTime(2026, 10, 5, 20)))?.weightKg, 80);
+    expect(await repo.findByDate(DateTime(2026, 10, 6)), isNull);
+  });
 }

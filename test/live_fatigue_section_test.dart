@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test';
+import 'package:flutter_test/flutter_test.dart';
 
 import 'package:hevywork/domain/muscle_fatigue.dart';
 import 'package:hevywork/ui/widgets/live_fatigue_section.dart';
@@ -17,7 +17,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: LiveFatigueSection(
-              panel: FatiguePanel(
+              panel: (
                 fatigue: {'pectorals': 0.8, 'lats': 0.6},
                 zones: zoneStats,
                 trend: [],
@@ -39,7 +39,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: LiveFatigueSection(
-              panel: FatiguePanel(
+              panel: (
                 fatigue: {},
                 zones: const [],
                 trend: [],
@@ -64,7 +64,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: LiveFatigueSection(
-              panel: FatiguePanel(
+              panel: (
                 fatigue: {'pectorals': 0.8},
                 zones: zoneStats,
                 trend: [],
@@ -90,7 +90,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: LiveFatigueSection(
-              panel: FatiguePanel(
+              panel: (
                 fatigue: {'pectorals': 0.8},
                 zones: zoneStats,
                 trend: [],
@@ -116,7 +116,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: LiveFatigueSection(
-              panel: FatiguePanel(
+              panel: (
                 fatigue: {'pectorals': 0.8},
                 zones: zoneStats,
                 trend: [],
@@ -137,7 +137,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: LiveFatigueSection(
-              panel: FatiguePanel(
+              panel: (
                 fatigue: {},
                 zones: const [],
                 trend: [],
