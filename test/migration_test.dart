@@ -158,7 +158,7 @@ void main() {
 
       final db = AppDatabase(NativeDatabase(file));
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.read<int>('user_version'), 17);
+      expect(version.read<int>('user_version'), 18);
 
       final columns = await db
           .customSelect("SELECT name FROM pragma_table_info('exercises')")
@@ -218,7 +218,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final profiles = await reopened.select(reopened.localProfiles).get();
     expect(profiles, hasLength(1));
@@ -266,7 +266,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final exercise = await reopened.select(reopened.exercises).getSingle();
     expect(exercise.id, '0001');
@@ -345,7 +345,7 @@ void main() {
       final version = await reopened
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 17);
+      expect(version.read<int>('user_version'), 18);
 
       final profiles = await reopened.select(reopened.localProfiles).get();
       expect(profiles, hasLength(1));
@@ -380,7 +380,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final routineColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('routines')")
@@ -442,7 +442,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final goalColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('goals')")
@@ -528,7 +528,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final rows = await reopened.select(reopened.bodyMetrics).get();
     expect(rows, hasLength(1));
@@ -562,7 +562,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final columns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('muscle_fatigue')")
@@ -606,7 +606,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final setColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('routine_sets')")
@@ -653,7 +653,7 @@ void main() {
       final version = await reopened
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 17);
+      expect(version.read<int>('user_version'), 18);
 
       final columns = await reopened
           .customSelect("SELECT name FROM pragma_table_info('workout_sets')")
@@ -679,7 +679,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final columns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('local_profiles')")
@@ -711,7 +711,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final columns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('routines')")
@@ -752,7 +752,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     await reopened
         .into(reopened.progressPhotos)
@@ -791,7 +791,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final metricColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('body_metrics')")
@@ -842,7 +842,7 @@ void main() {
       final version = await reopened
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 17);
+      expect(version.read<int>('user_version'), 18);
 
       final tables = await reopened
           .customSelect(
@@ -879,11 +879,85 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 17);
+    expect(version.read<int>('user_version'), 18);
 
     final profiles = await reopened.select(reopened.localProfiles).get();
     expect(profiles, hasLength(1));
     expect(profiles.single.preferRpe, isFalse);
+
+    await reopened.close();
+  });
+
+  test('la v18 reaplica el parche muscular del catálogo y vacía el caché',
+      () async {
+    final db = AppDatabase(NativeDatabase(file));
+    for (final companion in [
+      ExercisesCompanion.insert(
+        id: '0031',
+        name: 'Curl con barra',
+        bodyPart: 'upper arms',
+        equipment: 'barbell',
+        target: 'biceps',
+        muscleGroup: 'forearms',
+        secondaryMuscles: const Value('["forearms"]'),
+      ),
+      ExercisesCompanion.insert(
+        id: '1003',
+        name: 'Remo en sentadilla con banda',
+        bodyPart: 'upper legs',
+        equipment: 'band',
+        target: 'glutes',
+        muscleGroup: 'glutes',
+        secondaryMuscles: const Value('["hamstrings","quadriceps","back"]'),
+      ),
+      ExercisesCompanion.insert(
+        id: '0001',
+        name: '3/4 sit-up',
+        bodyPart: 'waist',
+        equipment: 'body weight',
+        target: 'abs',
+        muscleGroup: 'hip flexors',
+        secondaryMuscles: const Value('["hip flexors","lower back"]'),
+      ),
+    ]) {
+      await db.into(db.exercises).insert(companion);
+    }
+    await db.into(db.muscleFatigue).insert(
+      MuscleFatigueCompanion.insert(
+        localUserId: 'perfil-antiguo',
+        muscle: 'hamstrings',
+        fatigue: 1,
+        raw: 100,
+        computedAt: DateTime(2026, 1, 1),
+      ),
+    );
+    await db.customStatement('PRAGMA user_version = 17');
+    await db.close();
+
+    final reopened = AppDatabase(NativeDatabase(file));
+    final rows = await reopened.select(reopened.exercises).get();
+    final byId = {for (final row in rows) row.id: row};
+
+    // Secundario completado y muscle_group derivado del primero.
+    expect(byId['0031']!.secondaryMuscles, '["forearms","brachialis"]');
+    expect(byId['0031']!.muscleGroup, 'forearms');
+    // muscle_group corregido en la única fila que no cumplía el invariante.
+    expect(byId['1003']!.muscleGroup, 'hamstrings');
+    expect(
+      byId['1003']!.secondaryMuscles,
+      '["hamstrings","quadriceps","back"]',
+    );
+    // Los ejercicios fuera del parche no se tocan.
+    expect(byId['0001']!.target, 'abs');
+    expect(byId['0001']!.muscleGroup, 'hip flexors');
+    expect(
+      byId['0001']!.secondaryMuscles,
+      '["hip flexors","lower back"]',
+    );
+
+    // El caché derivado se invalida para que se recalcule con los datos nuevos.
+    final cache = await reopened.select(reopened.muscleFatigue).get();
+    expect(cache, isEmpty);
 
     await reopened.close();
   });

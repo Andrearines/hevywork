@@ -873,7 +873,7 @@ class _ZoneRow extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${displayWeightKg(weeklyVolume, unitSystem).round()} '
+                  '${_fmtValue(displayWeightKg(weeklyVolume, unitSystem))} '
                   '${weightUnitOf(unitSystem)}',
                   style: const TextStyle(
                     color: kOnSurfaceVariant,
@@ -1266,7 +1266,7 @@ class _MeasuresEntry extends StatelessWidget {
 }
 
 /// Inline widget that combines MeasuresSection, MeasureEvolution and
-/// _DevicesCallout within ProgressView, showing real data (D-061) without
+/// DevicesCallout within ProgressView, showing real data (D-061) without
 /// placeholder "próximamente". Displays measures and evolution directly in
 /// the Progress screen without navigating away.
 class _MeasuresInline extends StatelessWidget {
@@ -1425,7 +1425,7 @@ class _HistoryRow extends StatelessWidget {
               if (bodyFatPct != null) ...[
                 const SizedBox(height: 2),
                 Text(
-                  '${bodyFatPct.toStringAsFixed(1)} %',
+                  '${formatDisplay(bodyFatPct)} %',
                   style: const TextStyle(
                     color: kOnSurfaceVariant,
                     fontSize: 12,
@@ -1765,12 +1765,7 @@ double _goalDisplayValue(Goal goal, double value, String unitSystem) =>
 String _goalUnit(Goal goal, String unitSystem) =>
     goal.type == 'consistency' ? 'sesiones' : weightUnitOf(unitSystem);
 
-String _fmtValue(double value) {
-  final text = value % 1 == 0
-      ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(1);
-  return _thousands(text);
-}
+String _fmtValue(double value) => _thousands(formatDisplay(value));
 
 String _thousands(String digits) {
   final parts = digits.split('.');
@@ -2190,7 +2185,7 @@ class _CompositionCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final deltaLabel = delta == null
         ? null
-        : '${delta! > 0 ? '+' : ''}${delta!.toStringAsFixed(1)} $unit';
+        : '${delta! > 0 ? '+' : ''}${_fmtValue(delta!)} $unit';
     final footerText =
         [deltaLabel, footer].whereType<String>().join(' · ');
     return Container(
@@ -2229,7 +2224,7 @@ class _CompositionCard extends StatelessWidget {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  value == null ? '—' : value!.toStringAsFixed(1),
+                  value == null ? '—' : _fmtValue(value!),
                   style: const TextStyle(
                     fontFamily: 'SpaceGrotesk',
                     fontSize: 36,
@@ -3238,21 +3233,21 @@ class _DeviceIcon extends StatelessWidget {
   String _formatValue(Object? value, String unit) {
     if (value == null) return '–';
     if (value is double) {
-      final v = value;
-      return '${v.toStringAsFixed(1)} $unit';
+      return '${formatDisplay(value)} $unit';
     }
     return '$value $unit';
   }
 }
 
-class _DevicesCallout extends StatefulWidget {
-  const _DevicesCallout();
+@visibleForTesting
+class DevicesCallout extends StatefulWidget {
+  const DevicesCallout({super.key});
 
   @override
-  State<_DevicesCallout> createState() => _DevicesCalloutState();
+  State<DevicesCallout> createState() => _DevicesCalloutState();
 }
 
-class _DevicesCalloutState extends State<_DevicesCallout> {
+class _DevicesCalloutState extends State<DevicesCallout> {
   @override
   Widget build(BuildContext context) {
     final unitSystem = UnitSystemScope.of(context);
@@ -3275,7 +3270,9 @@ class _DevicesCalloutState extends State<_DevicesCallout> {
                 _DeviceIcon(
                   icon: Icons.tune,
                   label: 'Báscula',
-                  value: records.isNotEmpty ? records.last.weightKg : null,
+                  value: records.isNotEmpty && records.last.weightKg != null
+                      ? displayWeightKg(records.last.weightKg!, unitSystem)
+                      : null,
                   unit: weightUnit,
                 ),
                 const SizedBox(width: 12),

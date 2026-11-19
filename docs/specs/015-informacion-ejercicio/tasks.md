@@ -183,3 +183,14 @@ Matriz de trazabilidad:
 - Q-3: heurística de activación 70/30 aceptada (T-005 la implementa;
   reversible a «sin porcentajes» con un cambio de presentación).
 - Q-4/Q-5: «añadir a rutina» y filtros del historial → v2.
+
+---
+
+## Reparación posterior acotada — 2026-11-17
+
+Los defectos nuevos del gráfico (ficha abierta desde `RoutineDetailView` sin
+repositorio, ventanas y paginación analítica) se delimitan en **spec 021 T-001**:
+`docs/specs/021-correccion-grafico-precision-numerica/`. Sus CA-01…CA-09
+complementan RF-8…RF-11 sin reabrir ni repetir T-001…T-008 de esta spec. La 021
+es la referencia activa para esta corrección; el resto de la 015 permanece
+cerrado.

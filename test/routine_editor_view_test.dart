@@ -269,6 +269,15 @@ void main() {
     expect(find.text('Push'), findsOneWidget);
     expect(find.text('Press de banca'), findsOneWidget);
     expect(find.text('Guardar cambios'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(Key('draft-set-kg-${originalSets.first.id}')),
+          )
+          .controller!
+          .text,
+      '60',
+    );
 
     await tester.enterText(
         find.byKey(const Key('routine-name')), 'Push pesado');

@@ -311,14 +311,35 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(
       find.widgetWithText(TextField, 'Altura (cm)'),
-      '180',
+      '180.25',
     );
     await tester.tap(find.text('Guardar'));
     await tester.pumpAndSettle();
 
-    expect(find.text('180 cm'), findsOneWidget);
+    expect(find.text('180.25 cm'), findsOneWidget);
     final profile = await profileRepository.current();
-    expect(profile.heightCm, 180);
+    expect(profile.heightCm, 180.25);
+
+    await unmount(tester);
+  });
+
+  testWidgets('021/T-002 CA-16: volumen y PR imperiales conservan decimales',
+      (tester) async {
+    await (localDb.update(localDb.localProfiles)
+          ..where((row) => row.id.equals(1)))
+        .write(const LocalProfilesCompanion(unitSystem: Value('imperial')));
+    await seedPr(
+      exerciseId: 'bench-press',
+      exerciseName: 'Press de banca',
+      ended: DateTime.now(),
+      weightKg: 40,
+      reps: 5,
+    );
+
+    await pumpView(tester);
+
+    expect(find.text('88.18 lb × 5'), findsOneWidget);
+    expect(find.text('440.92 lb'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -514,7 +535,7 @@ void main() {
       exerciseId: 'squat',
       exerciseName: 'Sentadilla',
       ended: DateTime.now(),
-      weightKg: 100,
+      weightKg: 61.25,
       reps: 5,
     );
     await seedPr(
@@ -528,7 +549,8 @@ void main() {
     await pumpView(tester);
 
     expect(find.text('Sentadilla'), findsOneWidget);
-    expect(find.text('100 kg × 5'), findsOneWidget);
+    expect(find.text('61.25 kg × 5'), findsOneWidget);
+    expect(find.text('706.25 kg'), findsOneWidget);
     expect(find.text('Press de banca'), findsNothing);
 
     await tester.tap(find.text('Histórico'));

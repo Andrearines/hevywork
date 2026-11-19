@@ -1823,6 +1823,7 @@ class _EditableSetRowState extends State<_EditableSetRow>
   bool _busy = false;
   String _unitSystem = 'metric';
   double? _rawKg;
+  bool _textEdited = false;
 
   @override
   bool get wantKeepAlive => true;
@@ -1851,9 +1852,22 @@ class _EditableSetRowState extends State<_EditableSetRow>
     super.didChangeDependencies();
     final units = UnitSystemScope.of(context);
     if (_unitSystem == units) return;
+    final previous = _unitSystem;
     _unitSystem = units;
+    if (_textEdited) {
+      final value = double.tryParse(_kgCtrl.text.trim().replaceAll(',', '.'));
+      if (value != null) {
+        final baseKg = toKg(value, previous);
+        _rawKg = baseKg;
+        _kgCtrl.text = formatDisplay(displayWeightKg(baseKg, units));
+      }
+      _textEdited = false;
+      return;
+    }
     final set = widget.set;
-    if (set != null) {
+    if (_rawKg != null) {
+      _kgCtrl.text = formatWeightKg(_rawKg!, units);
+    } else if (set != null) {
       _rawKg = set.weightKg;
       _kgCtrl.text = formatWeightKg(set.weightKg, units);
     }
@@ -1875,10 +1889,12 @@ class _EditableSetRowState extends State<_EditableSetRow>
       return;
     }
 
-    final displayWeight = _rawKg != null
-        ? displayWeightKg(_rawKg!, _unitSystem)
-        : double.tryParse(_kgCtrl.text.trim().replaceAll(',', '.')) ?? 0;
-    final weight = toKg(displayWeight, _unitSystem);
+    final weight = _rawKg != null && !_textEdited
+        ? _rawKg!
+        : toKg(
+            double.tryParse(_kgCtrl.text.trim().replaceAll(',', '.')) ?? 0,
+            _unitSystem,
+          );
     final reps = int.tryParse(_repsCtrl.text.trim());
     if (reps == null) {
       _showError('Indica las repeticiones');
@@ -1902,6 +1918,7 @@ class _EditableSetRowState extends State<_EditableSetRow>
         _rawKg = weight;
         _kgCtrl.text = formatWeightKg(weight, _unitSystem);
       }
+      _textEdited = false;
     } on SetValidationException catch (error) {
       _showError(error.message);
     } on SessionNotEditableException catch (error) {
@@ -1969,7 +1986,10 @@ class _EditableSetRowState extends State<_EditableSetRow>
                 child: _field(
                   key: Key('set-weight-${widget.rowId}'),
                   controller: _kgCtrl,
-                  onChanged: (_) => setState(() => _rawKg = null),
+                  onChanged: (_) => setState(() {
+                    _rawKg = null;
+                    _textEdited = true;
+                  }),
                 ),
               ),
               const SizedBox(width: 6),
@@ -2122,6 +2142,7 @@ class _EditableSetRowState extends State<_EditableSetRow>
     final nextRaw = toKg(nextDisplay, _unitSystem);
     setState(() {
       _rawKg = nextRaw;
+      _textEdited = false;
       _kgCtrl.text = formatDisplay(nextDisplay);
     });
   }

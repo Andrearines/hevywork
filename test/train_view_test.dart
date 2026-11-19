@@ -97,6 +97,7 @@ void main() {
     required DateTime endedAt,
     String? routineId,
     String? name,
+    double weightKg = 60,
   }) async {
     await localDb.into(localDb.workouts).insert(
           WorkoutsCompanion.insert(
@@ -122,7 +123,7 @@ void main() {
             id: '$id-set',
             workoutExerciseId: '$id-we',
             orderIndex: 0,
-            weightKg: const Value(60),
+            weightKg: Value(weightKg),
             reps: const Value(8),
             completed: const Value(true),
           ),
@@ -242,6 +243,7 @@ void main() {
         endedAt: DateTime.now().subtract(const Duration(days: 1, hours: 3)),
         routineId: 'rutina-push',
         name: 'Push A',
+        weightKg: 61.25,
       );
 
       await pumpView(tester);
@@ -250,6 +252,8 @@ void main() {
       expect(find.text('DURACIÓN'), findsOneWidget);
       expect(find.text('SERIES'), findsOneWidget);
       expect(find.text('TONELAJE'), findsOneWidget);
+      expect(find.text('490'), findsWidgets);
+      expect(find.text('61.25 kg × 8'), findsOneWidget);
       expect(find.text('Repetir'), findsOneWidget);
 
       await unmount(tester);
@@ -319,6 +323,7 @@ void main() {
         'sesion-resumen',
         endedAt: DateTime.now().subtract(const Duration(days: 1)),
         name: 'Push A',
+        weightKg: 61.25,
       );
 
       await pumpView(tester);
@@ -329,7 +334,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Resumen de series'), findsOneWidget);
-      expect(find.text('1 · 60 kg × 8'), findsOneWidget);
+      expect(find.text('1 · 61.25 kg × 8'), findsOneWidget);
 
       await tester.tap(find.byIcon(Icons.close));
       await tester.pumpAndSettle();
@@ -386,7 +391,7 @@ void main() {
 
       expect(find.text('Push A'), findsOneWidget);
       expect(find.text('TONELAJE'), findsOneWidget);
-      expect(find.text('1.058'), findsNWidgets(2));
+      expect(find.text('1.058.22'), findsNWidgets(2));
       expect(find.textContaining('lb ×'), findsOneWidget);
 
       await unmount(tester);

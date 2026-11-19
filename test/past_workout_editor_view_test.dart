@@ -223,8 +223,16 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Press de banca'), findsOneWidget);
-    expect(find.text('60.0'), findsOneWidget);
-    expect(find.text('65.0'), findsOneWidget);
+    final weightFields = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith('past-set-kg-'),
+    );
+    final weightControllers = tester.widgetList<TextField>(weightFields).toList();
+    expect(weightControllers, hasLength(2));
+    expect(weightControllers[0].controller!.text, '60');
+    expect(weightControllers[1].controller!.text, '65');
     expect(find.text('8'), findsOneWidget);
     expect(find.text('6'), findsOneWidget);
 

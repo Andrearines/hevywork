@@ -63,10 +63,9 @@ List<double> movingAverageKg(
   return (date: deadline, weightKg: crosses ? goalKg : projected);
 }
 
-/// Delta de peso con signo y una decimal en la unidad del sistema
-/// («-1.2 kg», «+0.4 lb»).
+/// Delta de peso con signo en la unidad del sistema.
 String kgDeltaLabel(double deltaKg, {String unitSystem = 'metric'}) {
   final value = displayWeightKg(deltaKg, unitSystem);
-  final text = value.toStringAsFixed(1);
-  return '${value > 0 ? '+' : ''}$text ${weightUnitOf(unitSystem)}';
+  return '${value > 0 ? '+' : ''}${formatDisplay(value)} '
+      '${weightUnitOf(unitSystem)}';
 }

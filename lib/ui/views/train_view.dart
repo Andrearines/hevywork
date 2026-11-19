@@ -938,7 +938,7 @@ class _MetricsCluster extends StatelessWidget {
           (
             label: 'Volumen mes',
             value: _thousands(
-              displayWeightKg(volume, UnitSystemScope.of(context)),
+              formatWeightKg(volume, UnitSystemScope.of(context)),
             ),
           ),
         ],
@@ -1057,7 +1057,7 @@ class _HistoryCard extends StatelessWidget {
                 _FeedMetric(
                   label: 'TONELAJE',
                   value: _thousands(
-                    displayWeightKg(summary.volumeKg, unitSystem),
+                    formatWeightKg(summary.volumeKg, unitSystem),
                   ),
                 ),
               ],
@@ -1082,7 +1082,7 @@ class _HistoryCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '${_weight(displayWeightKg(highlight.weightKg, unitSystem))} '
+                      '${formatWeightKg(highlight.weightKg, unitSystem)} '
                       '${weightUnitOf(unitSystem)} × '
                       '${highlight.reps}'
                       '${highlight.rir == null ? '' : ' (RIR ${highlight.rir})'}',
@@ -1313,7 +1313,7 @@ class _SetsSummarySheet extends StatelessWidget {
 }
 
 String _setLine(int index, WorkoutSet set, String unitSystem) {
-  final weight = _weight(displayWeightKg(set.weightKg, unitSystem));
+  final weight = formatWeightKg(set.weightKg, unitSystem);
   final rir = set.rir == null ? '' : ' (RIR ${set.rir})';
   final pending = set.completed ? '' : ' · pendiente';
   return '${index + 1} · $weight ${weightUnitOf(unitSystem)} × '
@@ -1555,13 +1555,11 @@ String _dayLabel(DateTime endedAt) {
   return 'HACE $diff DÍAS · $date';
 }
 
-String _weight(double kg) =>
-    kg == kg.roundToDouble() ? '${kg.round()}' : kg.toStringAsFixed(1);
-
-String _thousands(double value) {
-  final digits = value.round().toString();
-  return digits.replaceAllMapped(
+String _thousands(String text) {
+  final parts = text.split('.');
+  final digits = parts.first.replaceAllMapped(
     RegExp(r'\B(?=(\d{3})+(?!\d))'),
     (m) => '.',
   );
+  return parts.length == 1 ? digits : '$digits.${parts[1]}';
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart';
@@ -5,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
+import '../catalog_patches.dart';
 import 'tables/body_metrics.dart';
 import 'tables/exercises.dart';
 import 'tables/goals.dart';
@@ -46,7 +48,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -177,6 +179,23 @@ class AppDatabase extends _$AppDatabase {
       if (from < 18) {
         // Spec 012+: avatar del perfil (foto de perfil).
         await _addColumnIfMissing(m, localProfiles, localProfiles.avatarUrl);
+        // Corrección de datos musculares del catálogo (v18): reaplica el
+        // parche del asset, que solo se importa en bases vacías.
+        for (final entry in kCatalogMusclePatches.entries) {
+          final patch = entry.value;
+          await m.database.customStatement(
+            'UPDATE exercises SET target = ?, muscle_group = ?, '
+            'secondary_muscles = ? WHERE id = ?',
+            [
+              patch.target,
+              patch.secondaryMuscles.first,
+              jsonEncode(patch.secondaryMuscles),
+              entry.key,
+            ],
+          );
+        }
+        // Caché derivado: se reconstruye con `ensureFresh` o al cerrar sesión.
+        await m.database.customStatement('DELETE FROM muscle_fatigue');
       }
     },
   );

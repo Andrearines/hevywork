@@ -543,7 +543,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 350));
 
     expect(find.text('Progresión sugerida'), findsOneWidget);
-    expect(find.text('60 → 62.5 kg'), findsNWidgets(3));
+    expect(find.text('60 → 62.50 kg'), findsNWidgets(3));
 
     await tester.tap(find.text('Aceptar'));
     await tester.pump();
@@ -662,10 +662,10 @@ void main() {
       );
     }
 
-    await step('+1.3 kg', '61.3');
-    await step('+2.5 kg', '63.8');
-    await step('−1.3 kg', '62.5');
-    await step('−2.5 kg', '60');
+    await step('+1.25 kg', '61.25');
+    await step('+2.50 kg', '63.75');
+    await step('−1.25 kg', '62.50');
+    await step('−2.50 kg', '60');
 
     await unmount(tester);
   });

@@ -10,6 +10,7 @@ import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/unit_system_scope.dart';
+import 'package:hevywork/ui/widgets/exercise_progress_chart.dart';
 import 'package:hevywork/ui/views/exercise_info_view.dart';
 import 'package:hevywork/ui/views/exercise_detail_view.dart';
 import 'package:hevywork/ui/views/routine_detail_view.dart';
@@ -153,6 +154,69 @@ void main() {
     await tester.pump(const Duration(milliseconds: 10));
   }
 
+  Future<void> seedFinishedBenchSession(
+    String workoutId,
+    DateTime endedAt,
+    double weightKg,
+  ) async {
+    final profile = await localDb.select(localDb.localProfiles).getSingle();
+    await localDb.into(localDb.workouts).insert(
+          WorkoutsCompanion.insert(
+            id: workoutId,
+            localUserId: profile.localUserId,
+            startedAt: endedAt.subtract(const Duration(hours: 1)),
+            endedAt: Value(endedAt),
+            status: const Value('finished'),
+          ),
+        );
+    await localDb.into(localDb.workoutExercises).insert(
+          WorkoutExercisesCompanion.insert(
+            id: '$workoutId-bench',
+            workoutId: workoutId,
+            exerciseId: 'bench-press',
+            orderIndex: 1,
+          ),
+        );
+    await localDb.into(localDb.workoutSets).insert(
+          WorkoutSetsCompanion.insert(
+            id: '$workoutId-set',
+            workoutExerciseId: '$workoutId-bench',
+            orderIndex: 1,
+            weightKg: Value(weightKg),
+            reps: const Value(5),
+            rir: const Value(2),
+            completed: const Value(true),
+          ),
+        );
+  }
+
+  test('021/T-002 CA-16: el resumen conserva decimales y unidades', () async {
+    final routine = await createRoutine(
+      exercises: const [
+        RoutineExerciseDraft(
+          exerciseId: 'bench-press',
+          sets: [
+            RoutineSetDraft(reps: 8, rir: 2, weightKg: 61.25),
+            RoutineSetDraft(reps: 8, rir: 2, weightKg: 1.25),
+          ],
+        ),
+      ],
+    );
+    final item = await (localDb.select(localDb.routineExercises)
+          ..where((row) => row.routineId.equals(routine.id)))
+        .getSingle();
+    final sets = await routineRepository.routineSets(item.id);
+
+    expect(
+      setsSummary(sets, 'metric'),
+      '2 series · 8 reps · RIR 2 · 1.25-61.25 kg',
+    );
+    expect(
+      setsSummary(sets, 'imperial'),
+      '2 series · 8 reps · RIR 2 · 2.76-135.03 lb',
+    );
+  });
+
   testWidgets('muestra metadata de planificación y el número de ejercicios '
       '(RF-38)', (tester) async {
     final routine = await createRoutine();
@@ -199,6 +263,43 @@ void main() {
 
     expect(find.byType(ExerciseInfoView), findsOneWidget);
     expect(find.text('Press de banca'), findsWidgets);
+
+    await unmount(tester);
+  });
+
+  testWidgets('abrir desde rutina carga el historial real y pinta progresión',
+      (tester) async {
+    final now = DateTime.now();
+    await seedFinishedBenchSession(
+      'routine-progress-w1',
+      now.subtract(const Duration(days: 12)),
+      80,
+    );
+    await seedFinishedBenchSession(
+      'routine-progress-w2',
+      now.subtract(const Duration(days: 5)),
+      90,
+    );
+    final routine = await createRoutine(
+      exercises: const [
+        RoutineExerciseDraft(
+          exerciseId: 'bench-press',
+          sets: [RoutineSetDraft(reps: 5, rir: 2, weightKg: 80)],
+        ),
+      ],
+    );
+    await pumpDetail(tester, routine: routine);
+
+    await tester.tap(find.byKey(const Key('routine-detail-exercise-bench-press')));
+    await tester.pumpAndSettle();
+
+    final info = tester.widget<ExerciseInfoView>(find.byType(ExerciseInfoView));
+    expect(info.database, same(localDb));
+    expect(info.workoutRepository, same(workoutRepository));
+    expect(find.text('2 registros'), findsOneWidget);
+    expect(find.byKey(chartPlotKey), findsOneWidget);
+    expect(find.text('Sin datos en esta ventana'), findsNothing);
+    expect(tester.takeException(), isNull);
 
     await unmount(tester);
   });

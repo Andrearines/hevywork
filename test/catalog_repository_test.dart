@@ -273,7 +273,7 @@ void main() {
         pageSize: 1000,
       );
 
-      expect(page.total, 194);
+      expect(page.total, 171);
       for (final ex in page.exercises) {
         expect(jsonDecode(ex.secondaryMuscles!), contains('biceps'));
       }

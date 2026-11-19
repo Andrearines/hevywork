@@ -48,7 +48,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150));
   }
 
-  Future<void> pumpImperialView(WidgetTester tester) async {
+  Future<void> pumpImperialView(
+    WidgetTester tester, {
+    BodyMetric? record,
+  }) async {
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -56,9 +59,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
-        home: const UnitSystemScope(
+        home: UnitSystemScope(
           unitSystem: 'imperial',
-          child: Scaffold(body: BodyMetricEditorView()),
+          child: Scaffold(body: BodyMetricEditorView(record: record)),
         ),
       ),
     );
@@ -120,6 +123,34 @@ void main() {
     expect(
       decodeMeasures(rows.single.measuresJson).values.single,
       closeTo(100.076, 0.01),
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('021/T-002 CA-16: precarga imperial sin perder decimales',
+      (tester) async {
+    final record = await bodyMetricRepository.upsert(
+      date: DateTime(2026, 10, 3),
+      weightKg: 40,
+      measures: const {'chest': 3.175},
+    );
+
+    await pumpImperialView(tester, record: record);
+
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, 'Peso (lb)'))
+          .controller!
+          .text,
+      '88.18',
+    );
+    expect(
+      tester
+          .widget<TextField>(find.widgetWithText(TextField, 'Pecho (in)'))
+          .controller!
+          .text,
+      '1.25',
     );
 
     await unmount(tester);
@@ -203,7 +234,7 @@ void main() {
           )
           .controller
           ?.text,
-      '18.5',
+      '18.50',
     );
     expect(
       tester
@@ -212,7 +243,7 @@ void main() {
           )
           .controller
           ?.text,
-      '65.2',
+      '65.20',
     );
 
     await unmount(tester);
@@ -257,21 +288,21 @@ void main() {
       (tester) async {
     final record = await bodyMetricRepository.upsert(
       date: DateTime(2026, 10, 3),
-      weightKg: 80,
-      measures: const {'chest': 100, 'arm': 38},
+      weightKg: 61.25,
+      measures: const {'chest': 101.25, 'arm': 38},
       notes: 'Antes de entrenar',
     );
     await pumpView(tester, record: record);
 
     expect(find.text('Editar registro'), findsOneWidget);
     final weightField = find.widgetWithText(TextField, 'Peso (kg)');
-    expect(tester.widget<TextField>(weightField).controller!.text, '80');
+    expect(tester.widget<TextField>(weightField).controller!.text, '61.25');
     expect(
       tester
           .widget<TextField>(find.widgetWithText(TextField, 'Pecho (cm)'))
           .controller!
           .text,
-      '100',
+      '101.25',
     );
     expect(
       tester
@@ -297,7 +328,7 @@ void main() {
     final rows = await localDb.select(localDb.bodyMetrics).get();
     expect(rows, hasLength(1));
     expect(rows.single.weightKg, 79.5);
-    expect(rows.single.measuresJson, contains('100'));
+    expect(rows.single.measuresJson, contains('101.25'));
     expect(rows.single.notes, 'Antes de entrenar');
 
     await unmount(tester);

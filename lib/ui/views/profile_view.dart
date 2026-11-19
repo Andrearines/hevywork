@@ -19,10 +19,6 @@ import '../unit_system_scope.dart';
 import '../widgets/section_header.dart';
 import 'soon_view.dart';
 
-/// Formato corto de una altura/medida para los subtítulos de ajustes.
-String _fmtMeasure(double value) =>
-    value % 1 == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1);
-
 const Map<String, String> _goalTypeLabels = {
   'bodyweight': 'Peso corporal',
   'strength': 'Fuerza',
@@ -362,7 +358,7 @@ class _ProfileViewState extends State<ProfileView> {
       builder: (_) => _HeightDialog(
         initial: profile.heightCm == null
             ? ''
-            : _fmtMeasure(displayLengthCm(profile.heightCm!, units)),
+            : formatLengthCm(profile.heightCm!, units),
         unitLabel: lengthUnitOf(units),
       ),
     );
@@ -651,8 +647,7 @@ class _MetricsHeader extends StatelessWidget {
           stream: profile,
           builder: (context, profileSnapshot) {
             final unitSystem = profileSnapshot.data?.unitSystem ?? 'metric';
-            final unit = unitSystem == 'imperial' ? 'lb' : 'kg';
-            final factor = unitSystem == 'imperial' ? 2.2046226218 : 1.0;
+            final unit = weightUnitOf(unitSystem);
             return Row(
               children: [
                 Expanded(
@@ -668,7 +663,7 @@ class _MetricsHeader extends StatelessWidget {
                   child: _MetricColumn(
                     label: 'Volumen total',
                     value:
-                        '${_formatThousands(data.totalVolumeKg * factor)} $unit',
+                        '${_formatThousands(formatWeightKg(data.totalVolumeKg, unitSystem))} $unit',
                     icon: Icons.trending_up,
                     unit: '',
                   ),
@@ -733,13 +728,14 @@ class _MetricColumn extends StatelessWidget {
   }
 }
 
-String _formatThousands(double value) {
-  final text = value.round().toString();
+String _formatThousands(String text) {
+  final parts = text.split('.');
   final buffer = StringBuffer();
-  for (var i = 0; i < text.length; i++) {
-    if (i > 0 && (text.length - i) % 3 == 0) buffer.write('.');
-    buffer.write(text[i]);
+  for (var i = 0; i < parts.first.length; i++) {
+    if (i > 0 && (parts.first.length - i) % 3 == 0) buffer.write('.');
+    buffer.write(parts.first[i]);
   }
+  if (parts.length > 1) buffer.write('.${parts[1]}');
   return buffer.toString();
 }
 
@@ -890,8 +886,7 @@ class _RecordsState extends State<_Records> {
               builder: (context, profileSnapshot) {
                 final unitSystem =
                     profileSnapshot.data?.unitSystem ?? 'metric';
-                final factor = unitSystem == 'imperial' ? 2.2046226218 : 1.0;
-                final unit = unitSystem == 'imperial' ? 'lb' : 'kg';
+                final unit = weightUnitOf(unitSystem);
                 return Column(
                   children: [
                     for (final record in records.take(5))
@@ -913,7 +908,7 @@ class _RecordsState extends State<_Records> {
                               ),
                             ),
                             Text(
-                              '${_formatThousands(record.weightKg * factor)} $unit'
+                              '${_formatThousands(formatWeightKg(record.weightKg, unitSystem))} $unit'
                               ' × ${record.reps}',
                               style: textTheme.labelMedium
                                   ?.copyWith(color: kOnSurfaceVariant),
@@ -1102,7 +1097,7 @@ class _Settings extends StatelessWidget {
         };
         final heightLabel = heightCm == null
             ? 'Sin especificar'
-            : '${_fmtMeasure(displayLengthCm(heightCm, unitSystem))} '
+            : '${formatLengthCm(heightCm, unitSystem)} '
                 '${lengthUnitOf(unitSystem)}';
         final service = authService;
         final signedIn = service?.hasSession ?? false;

@@ -113,10 +113,10 @@ void main() {
   });
 
   group('kgDeltaLabel (RF-23)', () {
-    test('fija el signo y una decimal', () {
-      expect(kgDeltaLabel(-1.2), '-1.2 kg');
-      expect(kgDeltaLabel(0.4), '+0.4 kg');
-      expect(kgDeltaLabel(0), '0.0 kg');
+    test('fija el signo y aplica el formato común', () {
+      expect(kgDeltaLabel(-1.2), '-1.20 kg');
+      expect(kgDeltaLabel(0.4), '+0.40 kg');
+      expect(kgDeltaLabel(0), '0 kg');
     });
   });
 

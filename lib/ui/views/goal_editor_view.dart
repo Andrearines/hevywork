@@ -59,7 +59,7 @@ class _GoalEditorViewState extends State<GoalEditorView> {
     _unitSystem = units;
     final goal = widget.goal;
     if (goal != null && goal.type != 'consistency') {
-      _targetCtrl.text = _fmtTarget(displayWeightKg(goal.targetValue, units));
+      _targetCtrl.text = formatWeightKg(goal.targetValue, units);
     }
   }
 
@@ -67,7 +67,9 @@ class _GoalEditorViewState extends State<GoalEditorView> {
     final goal = widget.goal;
     if (goal != null) {
       _type = goal.type;
-      _targetCtrl.text = _fmtTarget(goal.targetValue);
+      _targetCtrl.text = goal.type == 'consistency'
+          ? formatDisplay(goal.targetValue)
+          : formatWeightKg(goal.targetValue, _unitSystem);
       _deadline = goal.deadline;
       if (goal.type == 'volume') {
         _period = goal.period ?? 'weekly';
@@ -96,10 +98,6 @@ class _GoalEditorViewState extends State<GoalEditorView> {
       _initializing = false;
     });
   }
-
-  String _fmtTarget(double value) => value % 1 == 0
-      ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(1);
 
   String _fmtType(String type) => switch (type) {
         'bodyweight' => 'Peso corporal',
@@ -291,7 +289,7 @@ class _GoalEditorViewState extends State<GoalEditorView> {
             const SizedBox(height: 8),
             Text(
               'Tu peso actual: '
-              '${_fmtTarget(displayWeightKg(_currentWeight!, _unitSystem))} '
+              '${formatWeightKg(_currentWeight!, _unitSystem)} '
               '$weightUnit',
               style: const TextStyle(color: kOnSurfaceVariant, fontSize: 13),
             ),

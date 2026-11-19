@@ -169,12 +169,10 @@ class _MeasureEvolutionState extends State<MeasureEvolution> {
                       Expanded(
                         child: _StatBox(
                           label: 'RATIO CINTURA/PECHO',
-                          value: ratio == null
-                              ? '—'
-                              : ratio.toStringAsFixed(2),
+                          value: ratio == null ? '—' : formatDisplay(ratio),
                           delta: ratioDelta == null
                               ? null
-                              : _signed(ratioDelta, digits: 2),
+                              : _signed(ratioDelta),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -183,7 +181,7 @@ class _MeasureEvolutionState extends State<MeasureEvolution> {
                           label: 'CRECIMIENTO ACUMULADO',
                           value: growth == null
                               ? '—'
-                              : '${_signed(displayLengthCm(growth, unitSystem), digits: 1)} '
+                              : '${_signed(displayLengthCm(growth, unitSystem))} '
                                   '${lengthUnitOf(unitSystem)}',
                         ),
                       ),
@@ -369,9 +367,8 @@ class _WeekAxis extends StatelessWidget {
   }
 }
 
-/// «+2.5» / «-0.02» / «0.0»: siempre con signo explícito salvo cero.
-String _signed(double value, {required int digits}) {
-  final text = value.abs().toStringAsFixed(digits);
+String _signed(double value) {
+  final text = formatDisplay(value.abs());
   if (value > 0) return '+$text';
   if (value < 0) return '-$text';
   return text;

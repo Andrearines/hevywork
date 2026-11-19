@@ -184,7 +184,7 @@ class _MeasureRowItem extends StatelessWidget {
     final deltaValue = delta == null ? null : displayLengthCm(delta, unitSystem);
     final deltaText = deltaValue == null
         ? '—'
-        : '${deltaValue > 0 ? '+' : ''}${deltaValue.toStringAsFixed(1)} '
+        : '${deltaValue > 0 ? '+' : ''}${_fmtValue(deltaValue)} '
             '$lengthUnit';
 
     final textTheme = Theme.of(context).textTheme;
@@ -309,14 +309,7 @@ IconData _measureIcon(String id) => switch (measureIconName(id)) {
       _ => Icons.straighten,
     };
 
-/// Formato de un valor medido: sin decimales si es entero, una cifra si no
-/// y con separador de miles (mismo criterio que la tarjeta de peso).
-String _fmtValue(double value) {
-  final text = value % 1 == 0
-      ? value.toStringAsFixed(0)
-      : value.toStringAsFixed(1);
-  return _thousands(text);
-}
+String _fmtValue(double value) => _thousands(formatDisplay(value));
 
 String _thousands(String digits) {
   final parts = digits.split('.');

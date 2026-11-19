@@ -63,6 +63,32 @@ void main() {
     });
   });
 
+  group('precisión numérica (021/T-002, CA-13/CA-14)', () {
+    test('40 exacto y ruido binario se presentan sin 39.99', () {
+      expect(formatWeightKg(40, 'metric'), '40');
+      expect(formatDisplay(39.99999999999999), '40');
+      expect(formatDisplay(80.50000000000001), '80.50');
+      expect(formatDisplay(12000.0), '12000');
+      expect(formatDisplay(1.25), '1.25');
+      expect(formatDisplay(61.25), '61.25');
+      expect(
+        toKg(displayWeightKg(40, 'imperial'), 'imperial'),
+        closeTo(40, 1e-9),
+      );
+    });
+
+    test('40 kg equivalen a 88.18 lb', () {
+      expect(formatWeightKg(40, 'imperial'), '88.18');
+    });
+
+    test('100 lb persisten como 45.359 kg y vuelven a 100 lb sin deriva', () {
+      final kg = toKg(100, 'imperial');
+      expect(kg, closeTo(45.359237, 1e-6));
+      expect(displayWeightKg(kg, 'imperial'), closeTo(100, 1e-9));
+      expect(formatWeightKg(kg, 'imperial'), '100');
+    });
+  });
+
   group('pasos de edición', () {
     test('1,25 kg en métrico y 2,5 lb en imperial', () {
       expect(weightStepOf('metric'), 1.25);
@@ -77,13 +103,14 @@ void main() {
 
   group('kgDeltaLabel con unidad (RF-4)', () {
     test('por defecto sigue en kg', () {
-      expect(kgDeltaLabel(-1.2), '-1.2 kg');
-      expect(kgDeltaLabel(0.4), '+0.4 kg');
+      expect(kgDeltaLabel(-1.2), '-1.20 kg');
+      expect(kgDeltaLabel(0.4), '+0.40 kg');
+      expect(kgDeltaLabel(1.25), '+1.25 kg');
     });
 
     test('en imperial presenta lb equivalente', () {
-      expect(kgDeltaLabel(-1, unitSystem: 'imperial'), '-2.2 lb');
-      expect(kgDeltaLabel(1, unitSystem: 'imperial'), '+2.2 lb');
+      expect(kgDeltaLabel(-1, unitSystem: 'imperial'), '-2.20 lb');
+      expect(kgDeltaLabel(1, unitSystem: 'imperial'), '+2.20 lb');
     });
   });
 }

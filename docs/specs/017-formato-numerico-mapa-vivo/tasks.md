@@ -194,3 +194,15 @@ y mensajes/docs en español (RNF-4).
 | 1 · Demasiados decimales en vistas | `live_fatigue_section.dart:212-216` y `zone_volume_chart.dart:158-160` pintan dobles en crudo; resto sin focos confirmados | T-001, T-002, T-004 |
 | 2 · Mapa en vivo sin parte trasera | `live_fatigue_section.dart:108-120` solo pinta el toggle `if (!isExpanded)` y la sección arranca expandida | T-003 |
 | 3 · Decimales en el mapa muscular | `MuscleMap` no pinta texto; los valores salen de los dos focos del problema 1 | T-002 |
+
+---
+
+## Reparación posterior acotada — 2026-11-17
+
+El nuevo caso 40 kg → 39.99 en `LiveWorkoutView` y la consolidación global de
+formato se delimitan en **spec 021 T-002**:
+`docs/specs/021-correccion-grafico-precision-numerica/`. No se vuelven a ejecutar
+T-001/T-004 de esta spec. La D-030/Q-014 queda como decisión histórica: el
+código vigente ya tiene `formatDisplay`/`formatWeightKg`/`formatLengthCm` a dos
+decimales y no tiene `formatNumber`; para la nueva reparación manda D-087 de la
+021, que consolida esas funciones existentes.

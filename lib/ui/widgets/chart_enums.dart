@@ -26,10 +26,10 @@ List<({DateTime date, double value})> filterByProgressWindow(
   DateTime? now,
 }) {
   final windowDays = progressWindowDays(window);
+  if (windowDays == 0) return points;
   final nowDate = now ?? DateTime.now();
+  final start = nowDate.subtract(Duration(days: windowDays));
   return points.where((point) {
-    if (windowDays == 0) return true;
-    final pointDate = point.date;
-    return pointDate.difference(nowDate).inDays <= windowDays;
+    return !point.date.isBefore(start) && !point.date.isAfter(nowDate);
   }).toList();
 }

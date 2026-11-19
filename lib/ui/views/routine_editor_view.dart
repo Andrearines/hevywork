@@ -62,9 +62,7 @@ class _DraftSet {
     int rir = 2,
     int? restSeconds,
   })  : kgCtrl = TextEditingController(
-          text: weightKg == 0
-              ? ''
-              : _fmtNumber(displayWeightKg(weightKg, unitSystem)),
+          text: weightKg == 0 ? '' : formatWeightKg(weightKg, unitSystem),
         ),
         repsCtrl = TextEditingController(text: '$reps'),
         rirCtrl = TextEditingController(text: '$rir'),
@@ -91,11 +89,6 @@ class _DraftSet {
         restSeconds: int.tryParse(restCtrl.text.trim()),
       );
 
-  static String _fmtNumber(double value) {
-    final rounded = (value * 1000).roundToDouble() / 1000;
-    final text = rounded.toString();
-    return text.contains('.') ? text : '$text.0';
-  }
 }
 
 class _DraftExercise {
@@ -182,9 +175,7 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
         if (text.isEmpty) continue;
         final value = double.tryParse(text.replaceAll(',', '.'));
         if (value == null) continue;
-        set.kgCtrl.text = _DraftSet._fmtNumber(
-          displayWeightKg(toKg(value, previous), units),
-        );
+        set.kgCtrl.text = formatWeightKg(toKg(value, previous), units);
       }
     }
   }

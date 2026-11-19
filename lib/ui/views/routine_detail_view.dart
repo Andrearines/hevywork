@@ -343,7 +343,11 @@ class _ExerciseCard extends StatelessWidget {
     if (exercise == null) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => ExerciseInfoView(exercise: exercise),
+        builder: (_) => ExerciseInfoView(
+          exercise: exercise,
+          database: localDb,
+          workoutRepository: workoutRepository,
+        ),
       ),
     );
   }
@@ -376,18 +380,18 @@ String setsSummary(List<RoutineSet> sets, String unitSystem) {
     'RIR ${range([for (final set in sets) set.rir])}',
   ];
 
-  final weights = <int>{
+  final weights = <double>{
     for (final set in sets)
-      if (set.weightKg > 0) (set.weightKg * 10).round(),
+      if (set.weightKg > 0) set.weightKg,
   };
   if (weights.isNotEmpty) {
     final values = weights.toList();
     final min = formatWeightKg(
-      values.reduce((a, b) => a < b ? a : b) / 10,
+      values.reduce((a, b) => a < b ? a : b),
       unitSystem,
     );
     final max = formatWeightKg(
-      values.reduce((a, b) => a > b ? a : b) / 10,
+      values.reduce((a, b) => a > b ? a : b),
       unitSystem,
     );
     parts.add(

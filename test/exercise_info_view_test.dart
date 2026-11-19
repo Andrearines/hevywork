@@ -9,6 +9,7 @@ import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/unit_system_scope.dart';
 import 'package:hevywork/ui/views/exercise_info_view.dart';
+import 'package:hevywork/ui/widgets/exercise_progress_chart.dart';
 
 typedef SeedSet = ({
   String setType,
@@ -129,7 +130,8 @@ void main() {
   Future<void> seedFinishedSession({
     required String workoutId,
     required String exerciseId,
-    required DateTime endedAt,
+    required DateTime? endedAt,
+    String status = 'finished',
     String? name,
     List<SeedSet> sets = const [],
   }) async {
@@ -139,9 +141,10 @@ void main() {
             id: workoutId,
             localUserId: profile.localUserId,
             name: Value(name),
-            startedAt: endedAt.subtract(const Duration(hours: 1)),
+            startedAt: (endedAt ?? DateTime.now())
+                .subtract(const Duration(hours: 1)),
             endedAt: Value(endedAt),
-            status: const Value('finished'),
+            status: Value(status),
           ),
         );
     final itemId = '$workoutId-item';
@@ -304,6 +307,34 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('021/T-002 CA-16: RPE medio conserva el formato común',
+        (tester) async {
+      await (db.update(db.localProfiles)..where((row) => row.id.equals(1)))
+          .write(const LocalProfilesCompanion(preferRpe: Value(true)));
+      addTearDown(() async {
+        await (db.update(db.localProfiles)..where((row) => row.id.equals(1)))
+            .write(const LocalProfilesCompanion(preferRpe: Value(false)));
+      });
+      final target = await insertExercise('hist-rpe', 'Press con RPE');
+      await seedFinishedSession(
+        workoutId: 'hist-rpe-w1',
+        exerciseId: target.id,
+        name: 'Sesión RPE',
+        endedAt: DateTime.now().subtract(const Duration(days: 1)),
+        sets: [
+          loggedSet(kg: 61.25, reps: 5, rir: 1),
+          loggedSet(kg: 61.25, reps: 5, rir: 2),
+        ],
+      );
+
+      await pumpView(tester, target: target);
+      await tester.scrollUntilVisible(find.text('Sesión RPE'), 300);
+      await tester.pumpAndSettle();
+
+      expect(find.text('RPE Promedio: 8.50'), findsOneWidget);
+      await unmount(tester);
+    });
+
     testWidgets('con nombre null muestra «Sesión» y la fecha', (tester) async {
       final target = await insertExercise('hist-noname', 'Fondos en paralelas');
       await seedFinishedSession(
@@ -367,6 +398,67 @@ void main() {
       await unmount(tester);
     });
 
+    testWidgets('la fuente analítica excluye estado, fecha y otro ejercicio',
+        (tester) async {
+      addTearDown(() async {
+        await db.delete(db.workoutSets).go();
+        await db.delete(db.workoutExercises).go();
+        await db.delete(db.workouts).go();
+      });
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final target = await insertExercise('analytics-a', 'Ejercicio A');
+      final other = await insertExercise('analytics-b', 'Ejercicio B');
+      final now = DateTime.now();
+      await seedFinishedSession(
+        workoutId: 'analytics-valid-old',
+        exerciseId: target.id,
+        endedAt: now.subtract(const Duration(days: 20)),
+        sets: [loggedSet(kg: 80)],
+      );
+      await seedFinishedSession(
+        workoutId: 'analytics-valid-new',
+        exerciseId: target.id,
+        endedAt: now.subtract(const Duration(days: 5)),
+        sets: [loggedSet(kg: 100)],
+      );
+      for (final invalid in [
+        (id: 'analytics-active', status: 'active', endedAt: now),
+        (
+          id: 'analytics-abandoned',
+          status: 'abandoned',
+          endedAt: now.subtract(const Duration(days: 1))
+        ),
+        (id: 'analytics-no-date', status: 'finished', endedAt: null),
+      ]) {
+        await seedFinishedSession(
+          workoutId: invalid.id,
+          exerciseId: target.id,
+          endedAt: invalid.endedAt,
+          status: invalid.status,
+          sets: [loggedSet(kg: 200)],
+        );
+      }
+      await seedFinishedSession(
+        workoutId: 'analytics-other',
+        exerciseId: other.id,
+        endedAt: now.subtract(const Duration(days: 2)),
+        sets: [loggedSet(kg: 300)],
+      );
+
+      await pumpView(tester, target: target);
+      await tester.tap(find.text('Carga Máx (kg)'));
+      await tester.pump();
+
+      expect(find.text('2 registros'), findsOneWidget);
+      expect(find.byKey(chartPlotKey), findsOneWidget);
+      expect(find.text('+20.0 kg'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await unmount(tester);
+    });
+
     testWidgets('pagina de 10 en 10 y desaparece al agotar', (tester) async {
       final target = await insertExercise('hist-pag', 'Sentadilla profunda');
       final now = DateTime.now();
@@ -376,11 +468,24 @@ void main() {
           exerciseId: target.id,
           name: 'Página $i',
           endedAt: now.subtract(Duration(days: i)),
-          sets: [loggedSet(kg: 100, reps: 5, rir: 2)],
+          sets: [loggedSet(kg: 100.0 - i, reps: 5, rir: 2)],
         );
       }
 
       await pumpView(tester, target: target);
+      await tester.ensureVisible(find.text('Volumen'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Volumen'));
+      await tester.pump();
+      await tester.ensureVisible(find.text('Todo'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Todo'));
+      await tester.pump();
+
+      expect(find.byKey(chartPlotKey), findsOneWidget);
+      expect(find.text('+55 kg·sesiones'), findsOneWidget);
+      expect(find.text('Página 11'), findsNothing);
+
       await tester.scrollUntilVisible(
         find.byKey(const Key('history-load-more')),
         300,
@@ -402,6 +507,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Página 11'), findsOneWidget);
       expect(find.text('Página 12'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await unmount(tester);
     });
 

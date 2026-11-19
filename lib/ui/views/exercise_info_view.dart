@@ -9,6 +9,7 @@ import '../../data/repositories/workout_repository.dart';
 import '../../domain/exercise_stats.dart';
 import '../../domain/media.dart';
 import '../../domain/units.dart';
+import '../../domain/weight_progress.dart';
 import '../../app/theme/palette.dart' as palette;
 import '../unit_system_scope.dart';
 import '../widgets/chart_enums.dart';
@@ -44,6 +45,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   static const int _historyPageSize = 10;
   final List<ExerciseSessionSummary> _history = [];
   List<ExerciseSessionSummary> _historyUpcoming = const [];
+  List<ExerciseSessionSummary> _analyticsHistory = const [];
   bool _historyLoaded = false;
   bool _historyLoading = false;
 
@@ -115,7 +117,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   @override
   Widget build(BuildContext context) {
     final exercise = widget.exercise;
-    final kpis = _historyLoaded ? exerciseKpis(_history) : ExerciseKpis.empty;
+    final kpis = _historyLoaded
+        ? exerciseKpis(_analyticsHistory)
+        : ExerciseKpis.empty;
 
     return Scaffold(
       backgroundColor: palette.kSurface,
@@ -507,7 +511,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         _buildChartWindowTabs(),
         const SizedBox(height: 12),
         ChartWidget.ExerciseProgressChart(
-          sessions: _history,
+          sessions: _analyticsHistory,
           metric: _selectedMetric,
           window: _selectedWindow,
           onMetricChanged: (metric) => setState(() => _selectedMetric = metric),
@@ -612,7 +616,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         : '--';
 
     final prDelta = kpis.secondBestE1rm != null && kpis.bestE1rm != null
-        ? '+${(kpis.bestE1rm! - kpis.secondBestE1rm!).toStringAsFixed(1)} kg PR'
+        ? '${kgDeltaLabel(kpis.bestE1rm! - kpis.secondBestE1rm!, unitSystem: units)} PR'
         : '';
 
     final bestE1rmDate = kpis.bestE1rmAt != null
@@ -993,7 +997,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           const SizedBox(height: 8),
           Text(
             rirMean != null
-                ? 'RPE Promedio: ${(10 - rirMean).toStringAsFixed(1)}'
+                ? 'RPE Promedio: ${formatDisplay(10 - rirMean)}'
                 : 'RIR medio: —',
             style: const TextStyle(
               fontSize: 11,

@@ -63,19 +63,19 @@ class _BodyMetricEditorViewState extends State<BodyMetricEditorView> {
   /// dato no se tocan.
   void _fillFrom(BodyMetric record) {
     if (record.weightKg != null) {
-      _weightCtrl.text = _fmt(displayWeightKg(record.weightKg!, _unitSystem));
+      _weightCtrl.text = formatWeightKg(record.weightKg!, _unitSystem);
     }
     if (record.bodyFatPct != null) {
-      _fatCtrl.text = _fmt(record.bodyFatPct!);
+      _fatCtrl.text = formatDisplay(record.bodyFatPct!);
     }
     if (record.leanMassKg != null) {
-      _leanCtrl.text = _fmt(displayWeightKg(record.leanMassKg!, _unitSystem));
+      _leanCtrl.text = formatWeightKg(record.leanMassKg!, _unitSystem);
     }
     final measures = decodeMeasures(record.measuresJson);
     for (final id in kBodyMeasures) {
       final value = measures[id];
       if (value != null) {
-        _measureCtrls[id]!.text = _fmt(displayLengthCm(value, _unitSystem));
+        _measureCtrls[id]!.text = formatLengthCm(value, _unitSystem);
       }
     }
     if (record.notes != null) _notesCtrl.text = record.notes!;
@@ -108,9 +108,6 @@ class _BodyMetricEditorViewState extends State<BodyMetricEditorView> {
     }
     super.dispose();
   }
-
-  String _fmt(double value) =>
-      value % 1 == 0 ? value.toStringAsFixed(0) : value.toStringAsFixed(1);
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(

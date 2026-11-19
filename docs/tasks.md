@@ -521,3 +521,37 @@ Este documento rastrea la ejecución de las tareas a nivel técnico. Specs 001 a
   el AppBar del visor y «Eliminar todo» bajo la rejilla (oculto sin
   fotos), los tres con `AlertDialog` de confirmación.
 - [ ] Tests: borrado desde el menú, borrado masivo y visor con borrado.
+
+## Fase 11: Corrección de datos musculares del catálogo (2026-11-18)
+
+### Bloque de Corrección de datos
+- [x] **T39: `target` y `secondary_muscles` incorrectos en 365 ejercicios**
+  - Diagnóstico: 42 elevaciones de gemelo con `hamstrings`/`glutes`/
+    `quadriceps` de secundario (imposible anatómicamente), 27 curls de
+    muñeca con `biceps`/`triceps`/`brachialis`/`shoulders`, 131 curls de
+    bíceps con un solo secundario, 75 abdominales incompletos, 7 ejercicios
+    con el `target` equivocado (`0365`, `0366`, `0397`, `3119`, `1714`,
+    `1750`, `3662`) y `1003`, el único que rompía
+    `muscle_group = secondary_muscles[0]`.
+  - Fuente única: `lib/data/catalog_patches.dart` (`kCatalogMusclePatches`:
+    365 ids → `target` + `secondary_muscles`, con `muscle_group` derivado
+    del primero) y `applyCatalogPatches()`.
+  - `assets/exercises.json` parcheado directamente: el clon
+    `exercises-dataset/` no está en la máquina y el asset no se puede
+    regenerar.
+  - `tool/build_catalog_asset.dart` aplica el parche al generar y termina
+    con error si un id del parche no existe en el dataset, así el cambio
+    sobrevive a las regeneraciones.
+  - Migración: `schemaVersion` 17 → 18; en la rama `from < 18` se
+    reaplican los `UPDATE` por id (idempotentes) y se borra
+    `muscle_fatigue` (caché derivado: lo reconstruye `ensureFresh` o el
+    cierre de sesión).
+  - `kMuscleAliases` (+11): el dataset ya usaba 11 valores que el mapa
+    descartaba sin alias (252 entradas hoy): `feet`, `brachialis`,
+    `rear deltoids`, `back`, `upper chest`, `grip muscles`, `lower abs`,
+    `groin`, `inner thighs`, `sternocleidomastoid`, `shins`.
+  - Vocabulario intacto: 1.324 registros y recuentos 19 `target` /
+    29 `muscle_group` / 40 `secondary_muscles`.
+  - Tests: `test/catalog_patches_test.dart` (nuevo, 5),
+    `test/migration_test.dart` (+1 y `user_version` 17→18 en 16 puntos) y
+    `test/catalog_repository_test.dart` (biceps secundario 194 → 171).

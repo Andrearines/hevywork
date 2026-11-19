@@ -24,7 +24,10 @@ void main() {
     await localDb.delete(localDb.bodyMetrics).go();
   });
 
-  Future<void> pumpView(WidgetTester tester) async {
+  Future<void> pumpView(
+    WidgetTester tester, {
+    String unitSystem = 'metric',
+  }) async {
     tester.view.physicalSize = const Size(1000, 1800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -32,9 +35,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: buildAppTheme(),
-        home: const UnitSystemScope(
-          unitSystem: 'metric',
-          child: Scaffold(body: MeasuresView()),
+        home: UnitSystemScope(
+          unitSystem: unitSystem,
+          child: const Scaffold(body: MeasuresView()),
         ),
       ),
     );
@@ -61,7 +64,7 @@ void main() {
     await bodyMetricRepository.upsert(
       date: today.subtract(const Duration(days: 1)),
       weightKg: 84.5,
-      measures: const {'chest': 103, 'arm': 37.5, 'waist': 82},
+      measures: const {'chest': 103.25, 'arm': 37.5, 'waist': 82},
     );
     await pumpView(tester);
 
@@ -79,9 +82,29 @@ void main() {
     expect(find.text('Pecho / Torso'), findsOneWidget);
     expect(find.text('Contorno axilar'), findsOneWidget);
     expect(find.text('Cintura'), findsWidgets);
-    expect(find.text('+1.0 cm'), findsOneWidget);
-    expect(find.text('-0.5 cm'), findsOneWidget);
-    expect(find.text('-2.0 cm'), findsOneWidget);
+    expect(find.text('+1.25 cm'), findsOneWidget);
+    expect(find.text('-0.50 cm'), findsOneWidget);
+    expect(find.text('-2 cm'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('021/T-002 CA-16: medidas imperiales conservan decimales',
+      (tester) async {
+    final today = BodyMetricRepository.dayOf(DateTime.now());
+    await bodyMetricRepository.upsert(
+      date: today.subtract(const Duration(days: 2)),
+      measures: const {'chest': 2.54},
+    );
+    await bodyMetricRepository.upsert(
+      date: today.subtract(const Duration(days: 1)),
+      measures: const {'chest': 6.35},
+    );
+
+    await pumpView(tester, unitSystem: 'imperial');
+
+    expect(find.text('2.50'), findsOneWidget);
+    expect(find.text('+1.50 in'), findsWidgets);
 
     await unmount(tester);
   });
@@ -112,7 +135,7 @@ void main() {
     // Stat boxes del último chequeo: ratio 83/102 y crecimiento 0 cm.
     expect(find.text('0.81'), findsOneWidget);
     expect(find.text('-0.04'), findsOneWidget);
-    expect(find.text('0.0 cm'), findsOneWidget);
+    expect(find.text('0 cm'), findsOneWidget);
 
     // Cambiar de serie repinta sin excepciones.
     final pill = find.text('Cintura').first;

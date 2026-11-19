@@ -530,17 +530,17 @@ void main() {
     );
     await bodyMetricRepository.upsert(
       date: today.subtract(const Duration(days: 1)),
-      weightKg: 84.5,
+      weightKg: 85.25,
       measures: const {'chest': 102.5, 'arm': 37.5},
     );
     await pumpView(tester);
 
     expect(find.text('84 kg'), findsOneWidget);
-    expect(find.text('84.5 kg'), findsOneWidget);
-    expect(find.text('Pecho 102.5'), findsOneWidget);
-    expect(find.text('+0.5 kg'), findsOneWidget);
-    expect(find.text('+0.5'), findsOneWidget);
-    expect(find.text('-0.5'), findsOneWidget);
+    expect(find.text('85.25 kg'), findsOneWidget);
+    expect(find.text('Pecho 102.50'), findsOneWidget);
+    expect(find.text('+1.25 kg'), findsOneWidget);
+    expect(find.text('+0.50'), findsOneWidget);
+    expect(find.text('-0.50'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -678,11 +678,11 @@ void main() {
     await pumpView(tester);
 
     expect(find.text('PESO CORPORAL'), findsOneWidget);
-    expect(find.text('78.4'), findsOneWidget);
-    expect(find.text('-1.2 kg este mes'), findsOneWidget);
+    expect(find.text('78.40'), findsOneWidget);
+    expect(find.text('-1.20 kg este mes'), findsOneWidget);
     expect(find.textContaining('Meta:', findRichText: true), findsOneWidget);
-    expect(find.text('Hoy (78.4)'), findsOneWidget);
-    expect(find.textContaining('79.6)'), findsOneWidget);
+    expect(find.text('Hoy (78.40)'), findsOneWidget);
+    expect(find.textContaining('79.60)'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -703,15 +703,15 @@ void main() {
     await pumpImperialView(tester);
 
     expect(find.text('PESO CORPORAL'), findsOneWidget);
-    expect(find.text('172.8'), findsOneWidget);
+    expect(find.text('172.84'), findsOneWidget);
     expect(find.text('lb'), findsWidgets);
-    expect(find.text('-1.3 lb este mes'), findsOneWidget);
+    expect(find.text('-1.32 lb este mes'), findsOneWidget);
     expect(find.textContaining('Meta:', findRichText: true), findsOneWidget);
     expect(
-      find.textContaining('Meta: 167.6', findRichText: true),
+      find.textContaining('Meta: 167.55', findRichText: true),
       findsOneWidget,
     );
-    expect(find.text('Hoy (172.8)'), findsOneWidget);
+    expect(find.text('Hoy (172.84)'), findsOneWidget);
 
     await unmount(tester);
   });
@@ -810,6 +810,40 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('021/T-002 CA-16: dispositivos convierten el peso, no la grasa',
+      (tester) async {
+    Future<void> pumpDevices(String unitSystem) async {
+      await tester.pumpWidget(
+        UnitSystemScope(
+          unitSystem: unitSystem,
+          child: MaterialApp(
+            theme: buildAppTheme(),
+            home: const Scaffold(body: DevicesCallout()),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    await bodyMetricRepository.upsert(
+      date: BodyMetricRepository.dayOf(DateTime.now()),
+      weightKg: 40,
+      bodyFatPct: 20,
+    );
+    await pumpDevices('metric');
+    expect(find.text('40 kg'), findsOneWidget);
+    expect(find.text('20 %'), findsOneWidget);
+    expect(find.text('40 lb'), findsNothing);
+
+    await pumpDevices('imperial');
+    expect(find.text('88.18 lb'), findsOneWidget);
+    expect(find.text('20 %'), findsOneWidget);
+    expect(find.text('40 lb'), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('composición: grasa, masa magra y Δ (spec 009, RF-3)',
       (tester) async {
     final now = BodyMetricRepository.dayOf(DateTime.now());
@@ -832,11 +866,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('18.0'), findsOneWidget);
-    expect(find.text('66.0'), findsOneWidget);
+    expect(find.text('18'), findsOneWidget);
+    expect(find.text('66'), findsOneWidget);
     expect(find.textContaining('Registro manual'), findsNWidgets(2));
-    expect(find.textContaining('-2.0 %'), findsOneWidget);
-    expect(find.textContaining('+2.0 kg'), findsOneWidget);
+    expect(find.textContaining('-2 %'), findsOneWidget);
+    expect(find.textContaining('+2 kg'), findsOneWidget);
 
     await unmount(tester);
   });

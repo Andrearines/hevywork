@@ -3,6 +3,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:hevywork/data/catalog_patches.dart';
+
 const _sourceFields = [
   'id',
   'name',
@@ -41,11 +43,12 @@ void main() {
   }
 
   final records = jsonDecode(source.readAsStringSync()) as List<dynamic>;
+  final items = records.cast<Map<String, dynamic>>();
+  applyCatalogPatches(items);
   final trimmed = <Map<String, dynamic>>[];
   final seenIds = <String>{};
 
-  for (final raw in records) {
-    final item = raw as Map<String, dynamic>;
+  for (final item in items) {
     final id = item['id'] as String;
     if (!seenIds.add(id)) {
       stderr.writeln('id duplicado: $id');
@@ -68,6 +71,17 @@ void main() {
       'instruction_steps': localizedSteps,
     };
     trimmed.add(entry);
+  }
+
+  final absent = kCatalogMusclePatches.keys
+      .where((id) => !seenIds.contains(id))
+      .toList();
+  if (absent.isNotEmpty) {
+    stderr.writeln(
+      'Ids del parche muscular ausentes en el dataset: ${absent.join(', ')}',
+    );
+    exitCode = 1;
+    return;
   }
 
   target.parent.createSync(recursive: true);

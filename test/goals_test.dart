@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/domain/goals.dart';
+import 'package:hevywork/domain/units.dart';
 
 void main() {
   group('e1RM', () {
@@ -8,6 +9,22 @@ void main() {
         e1RM(weightKg: 100, reps: 5, rir: 2),
         closeTo(100 * (1 + 7 / 30), 1e-9),
       );
+    });
+
+    test('021/T-002 CA-15 conserva el double y recorta solo el texto', () {
+      final oneRm = e1RM(weightKg: 61.25, reps: 5, rir: 2)!;
+      final volume = setVolumeKg(
+        weightKg: 61.25,
+        reps: 11,
+        setType: 'normal',
+        completed: true,
+      );
+
+      expect(oneRm, closeTo(75.54166666666667, 1e-12));
+      expect(volume, 673.75);
+      expect(formatWeightKg(oneRm, 'metric'), '75.54');
+      expect(formatWeightKg(volume, 'metric'), '673.75');
+      expect(formatWeightKg(oneRm, 'imperial'), '166.54');
     });
 
     test('reps > 12 no tiene e1RM', () {

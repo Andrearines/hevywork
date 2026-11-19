@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'chart_enums.dart';
 
 import '../../domain/exercise_stats.dart';
+import '../../domain/units.dart';
+import '../unit_system_scope.dart';
 
 /// Etiquetas para las ventanas del chart
 String _windowLabel(ProgressWindow w) => w == ProgressWindow.oneMonth ? '1M' : w == ProgressWindow.threeMonths ? '3M' : w == ProgressWindow.sixMonths ? '6M' : w == ProgressWindow.oneYear ? '1A' : 'Todo';
@@ -196,22 +198,23 @@ class _ChartPlot extends StatelessWidget {
     // Insights
     final periodDelta = _periodDelta(points);
     final weeklyFrequency = _weeklyFrequency(points, progressWindowDays(window));
+    final unitSystem = UnitSystemScope.of(context);
+    final weightUnit = weightUnitOf(unitSystem);
 
     // Etiqueta del delta
     String _deltaLabel(double? absolute) {
       if (absolute == null) return '—';
-      if (metric == ProgressMetric.volume) {
-        return '+${absolute.toStringAsFixed(0)} kg·sesiones';
-      }
-      return '+${absolute.toStringAsFixed(1)} kg';
+      final displayValue = displayWeightKg(absolute, unitSystem);
+      final sign = displayValue > 0 ? '+' : '';
+      final suffix = metric == ProgressMetric.volume ? '·sesiones' : '';
+      return '$sign${formatDisplay(displayValue)} $weightUnit$suffix';
     }
 
-    final double deltaAbs = periodDelta?.absolute ?? 0;
-    final String deltaText = _deltaLabel(deltaAbs);
+    final String deltaText = _deltaLabel(periodDelta?.absolute);
 
     // Frecuencia media formateada
     String _frequencyLabel(double freq) {
-      return '${freq.toStringAsFixed(1)}x / semana';
+      return '${formatDisplay(freq)}x / semana';
     }
 
     final String freqText = _frequencyLabel(weeklyFrequency);
@@ -227,7 +230,7 @@ class _ChartPlot extends StatelessWidget {
             children: [
               // Etiqueta métrica/ventana
               Text(
-                _metricLabel(metric) + ' · ${_windowLabel(window)}',
+                '${_metricLabel(metric, weightUnit)} · ${_windowLabel(window)}',
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -375,7 +378,12 @@ class _ChartPlot extends StatelessWidget {
     ].map((pos) => pos.toDouble()).toList();
   }
 
-  String _metricLabel(ProgressMetric m) => m == ProgressMetric.e1rm ? '1RM Estimado' : m == ProgressMetric.load ? 'Carga Máx (kg)' : 'Volumen';
+  String _metricLabel(ProgressMetric m, String weightUnit) =>
+      m == ProgressMetric.e1rm
+          ? '1RM Estimado'
+          : m == ProgressMetric.load
+              ? 'Carga Máx ($weightUnit)'
+              : 'Volumen';
 
   String _windowLabel(ProgressWindow w) => w == ProgressWindow.oneMonth ? '1M' : w == ProgressWindow.threeMonths ? '3M' : w == ProgressWindow.sixMonths ? '6M' : w == ProgressWindow.oneYear ? '1A' : 'Todo';
 }

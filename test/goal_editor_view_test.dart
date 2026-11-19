@@ -10,6 +10,7 @@ import 'package:hevywork/data/repositories/routine_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/main.dart';
+import 'package:hevywork/ui/unit_system_scope.dart';
 import 'package:hevywork/ui/views/goal_editor_view.dart';
 
 void main() {
@@ -148,7 +149,7 @@ void main() {
   testWidgets('editar una meta cargada trae sus valores (RF-2)', (tester) async {
     final goal = await goalRepository.createGoal(
       type: 'strength',
-      targetValue: 80,
+      targetValue: 61.25,
       metricRef: 'bench-press',
       deadline: DateTime(2026, 12, 31),
     );
@@ -165,7 +166,60 @@ void main() {
 
     expect(find.text('Editar meta'), findsOneWidget);
     expect(find.text('Press de banca'), findsOneWidget);
-    expect(find.text('80'), findsOneWidget);
+    expect(find.text('61.25'), findsOneWidget);
     expect(find.text('Plazo: 31/12/2026'), findsOneWidget);
+  });
+
+  testWidgets('021/T-002 CA-16: peso actual y objetivo conservan 61.25',
+      (tester) async {
+    await bodyMetricRepository.upsert(
+      date: DateTime(2026, 10, 3),
+      weightKg: 61.25,
+    );
+    final goal = await goalRepository.createGoal(
+      type: 'bodyweight',
+      targetValue: 61.25,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: Scaffold(body: GoalEditorView(goal: goal)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(find.text('61.25'), findsOneWidget);
+    expect(find.text('Tu peso actual: 61.25 kg'), findsOneWidget);
+  });
+
+  testWidgets('021/T-002 CA-16: una meta imperial presenta 88.18 lb',
+      (tester) async {
+    await bodyMetricRepository.upsert(
+      date: DateTime(2026, 10, 3),
+      weightKg: 40,
+    );
+    final goal = await goalRepository.createGoal(
+      type: 'bodyweight',
+      targetValue: 40,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: UnitSystemScope(
+          unitSystem: 'imperial',
+          child: Scaffold(body: GoalEditorView(goal: goal)),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(find.text('88.18'), findsOneWidget);
+    expect(find.text('Tu peso actual: 88.18 lb'), findsOneWidget);
   });
 }
