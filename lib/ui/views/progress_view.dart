@@ -17,15 +17,13 @@ import '../../main.dart';
 import '../theme/colors.dart';
 import '../unit_system_scope.dart';
 import '../widgets/capped_scroll.dart';
-import '../widgets/fatigue_trend_chart.dart' as FTC;
 import '../widgets/muscle_map.dart';
 import '../widgets/measure_evolution.dart';
-import '../widgets/zone_volume_chart.dart' as ZVC;
+import '../widgets/zone_volume_chart.dart' as zvc;
 import '../widgets/weight_trend.dart';
 import 'body_metric_editor_view.dart';
 import 'goal_editor_view.dart';
 import 'measures_view.dart';
-import 'soon_view.dart';
 
 const int _visibleGoalCards = 3;
 const double _goalCardHeight = 132;
@@ -145,6 +143,7 @@ class _ProgressViewState extends State<ProgressView> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        _headerRow(),
         Expanded(
           child: StreamBuilder<List<Goal>>(
             stream: _goals,
@@ -190,6 +189,8 @@ class _ProgressViewState extends State<ProgressView> {
                             ),
                           ),
                           _FatigueSection(fatigue: fatigueSnap.data),
+                          if (goals != null) ..._goalSection(goals),
+                          const _MeasuresEntry(),
                           _MeasuresInline(
                             records: records,
                             range: _range,
@@ -208,7 +209,43 @@ class _ProgressViewState extends State<ProgressView> {
             },
           ),
         ),
+        _newGoalBar(),
       ],
+    );
+  }
+
+  Widget _headerRow() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        children: [
+          Text(
+            'Mis metas',
+            style:
+                theme.textTheme.labelLarge?.copyWith(color: kOnSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _newGoalBar() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      decoration: const BoxDecoration(
+        color: kSurface,
+        border: Border(top: BorderSide(color: kSurfaceContainerHighest)),
+      ),
+      child: SizedBox(
+        height: 48,
+        child: ElevatedButton.icon(
+          onPressed: () => _openEditor(),
+          icon: const Icon(Icons.add, size: 20),
+          label: const Text('Nueva meta'),
+        ),
+      ),
     );
   }
 
@@ -264,22 +301,6 @@ class _ProgressViewState extends State<ProgressView> {
     final ref = goal.metricRef;
     if (ref == null) return null;
     return _exerciseNames[ref] ?? ref;
-  }
-
-  Widget _headerRow() {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-      child: Row(
-        children: [
-          Text(
-            'Mis metas',
-            style:
-                theme.textTheme.labelLarge?.copyWith(color: kOnSurfaceVariant),
-          ),
-        ],
-      ),
-    );
   }
 
   /// Cabecera del mockup (spec 008, RF-22): chip de rango que alimenta la
@@ -366,24 +387,6 @@ class _ProgressViewState extends State<ProgressView> {
     );
   }
 
-  Widget _newGoalBar() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      decoration: const BoxDecoration(
-        color: kSurface,
-        border: Border(top: BorderSide(color: kSurfaceContainerHighest)),
-      ),
-      child: SizedBox(
-        height: 48,
-        child: ElevatedButton.icon(
-          onPressed: () => _openEditor(),
-          icon: const Icon(Icons.add, size: 20),
-          label: const Text('Nueva meta'),
-        ),
-      ),
-    );
-  }
 }
 /// Sección «Distribución Muscular» (spec 007 + spec 008, RF-24): mapa
 /// vectorial frente/espalda coloreado con la fatiga normalizada 0–1 por
@@ -645,12 +648,12 @@ class _ZoneLegend extends StatelessWidget {
           spacing: 8,
           runSpacing: 4,
           children: [
-            _ZoneChip(label: 'Alto', range: '(16-20)', color: ZVC.kFatigueHot),
-            _ZoneChip(label: 'Óptimo', range: '(12-15)', color: ZVC.kFatigueWarm),
+            _ZoneChip(label: 'Alto', range: '(16-20)', color: zvc.kFatigueHot),
+            _ZoneChip(label: 'Óptimo', range: '(12-15)', color: zvc.kFatigueWarm),
             _ZoneChip(
               label: 'Recuperado',
               range: '(≤10)',
-              color: ZVC.kFatigueCold,
+              color: zvc.kFatigueCold,
             ),
           ],
         ),
@@ -829,9 +832,9 @@ class _ZoneRow extends StatelessWidget {
     final theme = Theme.of(context);
     final unitSystem = UnitSystemScope.of(context);
     final color = switch (status) {
-      MuscleZoneStatus.high => ZVC.kFatigueHot,
-      MuscleZoneStatus.optimal => ZVC.kFatigueWarm,
-      MuscleZoneStatus.recovering => ZVC.kFatigueCold,
+      MuscleZoneStatus.high => zvc.kFatigueHot,
+      MuscleZoneStatus.optimal => zvc.kFatigueWarm,
+      MuscleZoneStatus.recovering => zvc.kFatigueCold,
     };
     return GestureDetector(
       onTap: onTap,
@@ -1189,82 +1192,6 @@ class _MetricsSectionState extends State<_MetricsSection> {
 
 /// Entrada a la pantalla de medidas (amenda 2026-10-18): tarjeta compacta en
 /// Progreso que abre el histórico de medidas corporales y su evolución.
-class _MeasuresEntry extends StatelessWidget {
-  const _MeasuresEntry();
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: Semantics(
-        button: true,
-        label: 'Abrir medidas corporales y evolución',
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const MeasuresView()),
-          ),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: kSurfaceContainerHigh,
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: const BoxDecoration(
-                    color: kSurfaceContainerHighest,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.straighten,
-                    size: 18,
-                    color: kOnSurface,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Medidas',
-                        style: textTheme.titleMedium?.copyWith(
-                          color: kOnSurface,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text(
-                        'Medidas corporales y evolución',
-                        style: TextStyle(
-                          color: kOnSurfaceVariant,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: kOnSurfaceVariant,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Inline widget that combines MeasuresSection, MeasureEvolution and
 /// DevicesCallout within ProgressView, showing real data (D-061) without
 /// placeholder "próximamente". Displays measures and evolution directly in
@@ -1278,7 +1205,6 @@ class _MeasuresInline extends StatelessWidget {
     required this.records,
     required this.range,
     required this.weightGoal,
-    super.key,
   });
 
   @override
@@ -1484,6 +1410,87 @@ class _MonthlyDeltaChip extends StatelessWidget {
 
 /// Etiquetas del eje temporal del mockup: primera y última con su valor,
 /// intermedias solo con la fecha (RF-23).
+/// Entrada a la pantalla de medidas (amenda 2026-10-18): tarjeta compacta en
+/// Progreso que abre el histórico de medidas corporales y su evolución.
+class _MeasuresEntry extends StatelessWidget {
+  const _MeasuresEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: Semantics(
+        button: true,
+        label: 'Abrir medidas corporales y evolución',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const MeasuresView()),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: const BoxDecoration(
+              color: kSurfaceContainerHigh,
+              borderRadius: BorderRadius.all(Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    color: kSurfaceContainerHighest,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.straighten,
+                    size: 18,
+                    color: kOnSurface,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Medidas',
+                        style: textTheme.titleMedium?.copyWith(
+                          color: kOnSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Medidas corporales y evolución',
+                        style: TextStyle(
+                          color: kOnSurfaceVariant,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: kOnSurfaceVariant,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pill del ritmo del mes (mockup: «-1.2 kg este mes») con icono de
+/// tendencia (RF-23).
+
 class _TimelineLabels extends StatelessWidget {
   final List<({DateTime date, double weightKg})> points;
 
@@ -2040,18 +2047,6 @@ class _GoalCard extends StatelessWidget {
 
 
 /// Abre la vista de reserva (spec sin implementar) con el mensaje dado.
-Future<void> _openSoon(
-  BuildContext context, {
-  required String title,
-  required String message,
-}) {
-  return Navigator.of(context).push(
-    MaterialPageRoute<void>(
-      builder: (_) => SoonView(title: title, message: message),
-    ),
-  );
-}
-
 /// Grid de composición corporal (spec 009, RF-3): % grasa y masa magra con
 /// el aspecto del mockup. Las columnas aún no existen en `body_metrics`,
 /// así que muestra su estado vacío y enlaza a la spec.
@@ -3190,7 +3185,6 @@ class _DeviceIcon extends StatelessWidget {
     required this.label,
     required this.value,
     required this.unit,
-    super.key,
   });
 
   @override

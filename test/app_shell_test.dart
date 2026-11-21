@@ -34,10 +34,21 @@ void main() {
     profileRepository = ProfileRepository(localDb);
   });
 
+  setUp(() async {
+    await localDb.delete(localDb.workoutSets).go();
+    await localDb.delete(localDb.workoutExercises).go();
+    await localDb.delete(localDb.workouts).go();
+    await (localDb.update(localDb.localProfiles)
+          ..where((t) => t.id.equals(1)))
+        .write(const LocalProfilesCompanion(lastActiveWorkoutId: Value(null)));
+  });
+
   tearDownAll(() => localDb.close());
 
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 10));
+    await tester.pump(const Duration(milliseconds: 10));
     await tester.pump(const Duration(milliseconds: 10));
   }
 
@@ -166,7 +177,7 @@ void main() {
         find.text('Próximamente podrás editar tu perfil y tus medidas.'),
         findsNothing,
       );
-      expect(find.text('Tus métricas'), findsOneWidget);
+      expect(find.text('Configuración de Atleta'), findsOneWidget);
       expect(find.text('Perfil'), findsWidgets);
 
       await unmount(tester);
@@ -174,76 +185,92 @@ void main() {
   });
 
   group('Reanudar sesión al arrancar (RF-10/RF-11 de la 002)', () {
-    Future<void> backdateSession(String workoutId, Duration age) async {
-      await (localDb.update(localDb.workouts)
-            ..where((t) => t.id.equals(workoutId)))
-          .write(WorkoutsCompanion(
-        startedAt: Value(DateTime.now().subtract(age)),
-      ));
+    late String workoutId;
+
+    Future<void> seedSession(Duration age) async {
+      final workout = await workoutRepository.startWorkout();
+      workoutId = workout.id;
+      if (age > Duration.zero) {
+        await (localDb.update(localDb.workouts)
+              ..where((t) => t.id.equals(workout.id)))
+            .write(WorkoutsCompanion(
+          startedAt: Value(DateTime.now().subtract(age)),
+        ));
+      }
     }
 
-    testWidgets('una sesión activa reciente se reabre sola', (tester) async {
-      await workoutRepository.startWorkout();
-
-      await tester.pumpWidget(const HevyWorkApp());
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(find.byType(LiveWorkoutView), findsOneWidget);
-
-      await unmount(tester);
+    setUp(() async {
+      await localDb.delete(localDb.workoutSets).go();
+      await localDb.delete(localDb.workoutExercises).go();
+      await localDb.delete(localDb.workouts).go();
     });
 
-    testWidgets('una sesión de más de 7 días pregunta y Abandonar la cierra '
-        '(RF-11/RF-19)', (tester) async {
-      final workout = await workoutRepository.startWorkout();
-      await backdateSession(workout.id, const Duration(days: 8));
+    group('reciente', () {
+      setUp(() => seedSession(Duration.zero));
 
-      await tester.pumpWidget(const HevyWorkApp());
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 100));
+      testWidgets('una sesión activa reciente se reabre sola', (tester) async {
+        await tester.pumpWidget(const HevyWorkApp());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('Sesión sin terminar'), findsOneWidget);
-      expect(find.byType(LiveWorkoutView), findsNothing);
+        expect(find.byType(LiveWorkoutView), findsOneWidget);
 
-      await tester.tap(find.text('Abandonar'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      final stored = await (localDb.select(localDb.workouts)
-            ..where((t) => t.id.equals(workout.id)))
-          .getSingle();
-      expect(stored.status, 'abandoned');
-      expect(find.byType(LiveWorkoutView), findsNothing);
-
-      await unmount(tester);
+        await unmount(tester);
+      });
     });
 
-    testWidgets('una sesión antigua se reanuda desde el aviso', (tester) async {
-      final workout = await workoutRepository.startWorkout();
-      await backdateSession(workout.id, const Duration(days: 9));
+    group('antigua', () {
+      setUp(() => seedSession(const Duration(days: 8)));
 
-      await tester.pumpWidget(const HevyWorkApp());
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 100));
+      testWidgets('una sesión de más de 7 días pregunta y Abandonar la cierra '
+          '(RF-11/RF-19)', (tester) async {
+        await tester.pumpWidget(const HevyWorkApp());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 100));
 
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.text('Reanudar'),
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.pump(const Duration(milliseconds: 300));
+        expect(find.text('Sesión sin terminar'), findsOneWidget);
+        expect(find.byType(LiveWorkoutView), findsNothing);
 
-      expect(find.byType(LiveWorkoutView), findsOneWidget);
+        await tester.tap(find.text('Abandonar'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
 
-      await unmount(tester);
+        final stored = await tester.runAsync(() => (localDb.select(localDb.workouts)
+              ..where((t) => t.id.equals(workoutId)))
+            .getSingle());
+        expect(stored?.status, 'abandoned');
+        expect(find.byType(LiveWorkoutView), findsNothing);
+
+        await unmount(tester);
+      });
+    });
+
+    group('antigua reanudada', () {
+      setUp(() => seedSession(const Duration(days: 9)));
+
+      testWidgets('una sesión antigua se reanuda desde el aviso', (tester) async {
+        await tester.pumpWidget(const HevyWorkApp());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 100));
+
+        await tester.tap(
+          find.descendant(
+            of: find.byType(AlertDialog),
+            matching: find.text('Reanudar'),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.byType(LiveWorkoutView), findsOneWidget);
+
+        await unmount(tester);
+      });
     });
   });
 }

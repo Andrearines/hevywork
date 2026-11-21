@@ -465,6 +465,6 @@ void main() {
       );
 
       await unmount(tester);
-    });
+    }, tags: ['golden']);
   });
 }

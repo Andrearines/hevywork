@@ -8,11 +8,15 @@ import '../../domain/exercise_stats.dart';
 import '../../domain/units.dart';
 import '../unit_system_scope.dart';
 
-/// Etiquetas para las ventanas del chart
-String _windowLabel(ProgressWindow w) => w == ProgressWindow.oneMonth ? '1M' : w == ProgressWindow.threeMonths ? '3M' : w == ProgressWindow.sixMonths ? '6M' : w == ProgressWindow.oneYear ? '1A' : 'Todo';
-
-/// Etiquetas para las métricas del chart
-String _metricLabel(ProgressMetric m) => m == ProgressMetric.e1rm ? '1RM Estimado' : m == ProgressMetric.load ? 'Carga Máx (kg)' : 'Volumen';
+String _windowLabel(ProgressWindow w) => w == ProgressWindow.oneMonth
+    ? '1M'
+    : w == ProgressWindow.threeMonths
+    ? '3M'
+    : w == ProgressWindow.sixMonths
+    ? '6M'
+    : w == ProgressWindow.oneYear
+    ? '1A'
+    : 'Todo';
 
 const Color kOnSurface = Color(0xFF18181B);
 const Color kOnSurfaceVariant = Color(0xFF86868B);
@@ -21,14 +25,12 @@ const Color kSurface = Color(0xFFE4E6EB);
 const Color kSurfaceContainerHighest = Color(0xFFD1D3D8);
 const Color kSurfaceContainerLow = Color(0xFFF0F2F5);
 
-// Palette tokens (colores semánticos, sin locales claros)
 const Color kChartLine = Color(0xFF86868B);
 const Color kChartNode = Color(0xFF18181B);
 const Color kChartNodeStroke = Color(0xFFFFFFFF);
 const Color kChartGuide = Color(0xFFC0C0C0);
 const Color kChartArea = Color(0x330061A8);
 
-// Keys de test
 const Key chartTabVolumeKey = Key('chart-tab-volume');
 const Key chartTabLoadKey = Key('chart-tab-load');
 const Key chartTabE1rmKey = Key('chart-tab-e1rm');
@@ -43,10 +45,30 @@ const Key insightFrequencyKey = Key('insight-frequency');
 
 typedef ExerciseSessionPoint = ({DateTime date, double value});
 
+List<ExerciseSessionPoint> progressChartPoints(
+  Iterable<ExerciseSessionSummary> sessions, {
+  required ProgressMetric metric,
+  required ProgressWindow window,
+  DateTime? now,
+}) {
+  final domainMetric = switch (metric) {
+    ProgressMetric.e1rm => ExerciseProgressMetric.e1rm,
+    ProgressMetric.load => ExerciseProgressMetric.load,
+    ProgressMetric.volume => ExerciseProgressMetric.volume,
+  };
+  final nowDate = now ?? DateTime.now();
+  return filterByProgressWindow(
+    exerciseProgressPoints(sessions, metric: domainMetric),
+    window,
+    now: nowDate,
+  );
+}
+
 class ExerciseProgressChart extends StatelessWidget {
   final List<ExerciseSessionSummary> sessions;
   final ProgressMetric metric;
   final ProgressWindow window;
+  final DateTime Function()? now;
   final Function(ProgressMetric) onMetricChanged;
   final Function(ProgressWindow) onWindowChanged;
 
@@ -55,72 +77,28 @@ class ExerciseProgressChart extends StatelessWidget {
     required this.sessions,
     required this.metric,
     this.window = ProgressWindow.threeMonths,
+    this.now,
     required this.onMetricChanged,
     required this.onWindowChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
-    final points = _computePoints(sessions, metric, window);
-    // Filtrar por ventana usando la función pura de chart_enums
-    final filtered = filterByProgressWindow(points, window, now: now);
-    return _buildBody(context, filtered, window, now);
-  }
-
-  /// Computa puntos a partir de sesiones usando la métrica y ventana dados.
-  List<ExerciseSessionPoint> _computePoints(
-    List<ExerciseSessionSummary> sessions,
-    ProgressMetric metric,
-    ProgressWindow window,
-  ) {
-    final windowDays = progressWindowDays(window);
-    final filtered = <ExerciseSessionSummary>[];
-    for (final s in sessions) {
-      if (windowDays == 0 || s.endedAt.difference(DateTime.now()).inDays <= windowDays) {
-        filtered.add(s);
-      }
-    }
-    final points = <ExerciseSessionPoint>[];
-    for (final s in filtered) {
-      double? v;
-      if (metric == ProgressMetric.e1rm) {
-        // Max e1RM from sets
-        double? best;
-        for (final set in s.sets) {
-          if (!set.countsForStats) continue;
-          final value = set.e1rm;
-          if (value == null) continue;
-          if (best == null || value > best) best = value;
-        }
-        v = best;
-      }
-      if (metric == ProgressMetric.load) {
-        // Max weight from sets
-        double? best;
-        for (final set in s.sets) {
-          if (!set.countsForStats) continue;
-          if (set.weightKg <= 0 || set.reps <= 0) continue;
-          if (best == null || set.weightKg > best) best = set.weightKg;
-        }
-        v = best;
-      }
-      if (metric == ProgressMetric.volume) {
-        v = s.volumeKg;
-      }
-      if (v != null) points.add((date: s.endedAt, value: v));
-    }
-    points.sort((a, b) => a.date.compareTo(b.date));
-    return points;
+    final nowDate = (now ?? DateTime.now)();
+    final points = progressChartPoints(
+      sessions,
+      metric: metric,
+      window: window,
+      now: nowDate,
+    );
+    return _buildBody(context, points, window);
   }
 
   Widget _buildBody(
     BuildContext context,
     List<ExerciseSessionPoint> points,
     ProgressWindow window,
-    DateTime now,
   ) {
-    // Estado: sin datos en esta ventana (<2 puntos)
     if (points.length < 2) {
       return _buildNoDataState(context, points, window);
     }
@@ -134,7 +112,11 @@ class ExerciseProgressChart extends StatelessWidget {
     );
   }
 
-  Widget _buildNoDataState(BuildContext context, List<ExerciseSessionPoint> points, ProgressWindow window) {
+  Widget _buildNoDataState(
+    BuildContext context,
+    List<ExerciseSessionPoint> points,
+    ProgressWindow window,
+  ) {
     final windowLabel = _windowLabel(window);
     if (points.isEmpty) {
       return Center(
@@ -144,7 +126,6 @@ class ExerciseProgressChart extends StatelessWidget {
         ),
       );
     }
-    // Un solo punto: no hay delta ni frecuencia
     return Center(
       child: Text(
         'Sin datos en esta ventana ($windowLabel)',
@@ -161,7 +142,7 @@ class _ChartPlot extends StatelessWidget {
   final Function(ProgressMetric) onMetricChanged;
   final Function(ProgressWindow) onWindowChanged;
 
-  _ChartPlot({
+  const _ChartPlot({
     required this.points,
     required this.metric,
     required this.window,
@@ -172,111 +153,117 @@ class _ChartPlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
+    final unitSystem = UnitSystemScope.of(context);
+    final weightUnit = weightUnitOf(unitSystem);
     final plotHeight = 120.0;
     final paddingLeft = 40.0;
     final paddingRight = 40.0;
     final paddingTop = 20.0;
-    final paddingBottom = 20.0;
     final availableWidth = size.width - paddingLeft - paddingRight;
     final availableHeight = plotHeight;
 
-    // Determinar rango de valores para escalado Y
     final values = points.map((p) => p.value).toList();
     final maxVal = values.reduce(math.max);
     final minVal = values.reduce(math.min);
     final span = (math.max(0.01, maxVal - minVal)).clamp(0.01, double.infinity);
 
-    // Escala Y
     double yOf(double value) {
       final normalized = (value - minVal) / span;
       return paddingTop + availableHeight - (normalized * availableHeight);
     }
 
-    // Posiciones X: 4 etiquetas fijas según la ventana
     final List<double> xPositions = _computeXPositions(availableWidth);
 
-    // Insights
-    final periodDelta = _periodDelta(points);
-    final weeklyFrequency = _weeklyFrequency(points, progressWindowDays(window));
-    final unitSystem = UnitSystemScope.of(context);
-    final weightUnit = weightUnitOf(unitSystem);
+    final periodDeltaValue = periodDelta(points);
+    final frequency = weeklyFrequency(
+      sessionCount: points.length,
+      windowDays: progressWindowDays(window),
+    );
 
-    // Etiqueta del delta
-    String _deltaLabel(double? absolute) {
-      if (absolute == null) return '—';
-      final displayValue = displayWeightKg(absolute, unitSystem);
-      final sign = displayValue > 0 ? '+' : '';
-      final suffix = metric == ProgressMetric.volume ? '·sesiones' : '';
-      return '$sign${formatDisplay(displayValue)} $weightUnit$suffix';
-    }
-
-    final String deltaText = _deltaLabel(periodDelta?.absolute);
-
-    // Frecuencia media formateada
-    String _frequencyLabel(double freq) {
-      return '${formatDisplay(freq)}x / semana';
-    }
-
-    final String freqText = _frequencyLabel(weeklyFrequency);
+    final domainMetric = switch (metric) {
+      ProgressMetric.e1rm => ExerciseProgressMetric.e1rm,
+      ProgressMetric.load => ExerciseProgressMetric.load,
+      ProgressMetric.volume => ExerciseProgressMetric.volume,
+    };
+    final String deltaText = formatChartDeltaKg(
+      periodDeltaValue?.absolute ?? 0,
+      domainMetric,
+      unitSystem,
+    );
+    final String freqText = '${formatDisplay(frequency)}x / semana';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header: métrica + ventana + insights
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Etiqueta métrica/ventana
-              Text(
-                '${_metricLabel(metric, weightUnit)} · ${_windowLabel(window)}',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: kOnSurface,
+              Expanded(
+                child: Text(
+                  '${_metricLabel(metric, weightUnit)} · ${_windowLabel(window)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: kOnSurface,
+                  ),
                 ),
               ),
-              // Insights en chips
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Chip delta
-                  Tooltip(
-                    message: 'Delta período',
-                    child: Container(
-                      key: insightDeltaKey,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: kSurfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        deltaText,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: kPrimary,
+                  Flexible(
+                    child: Tooltip(
+                      message: 'Delta período',
+                      child: Container(
+                        key: insightDeltaKey,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: kSurfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          deltaText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: kPrimary,
+                          ),
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  // Chip frecuencia
-                  Tooltip(
-                    message: 'Frecuencia media semanal',
-                    child: Container(
-                      key: insightFrequencyKey,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: kSurfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        freqText,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: kPrimary,
+                  Flexible(
+                    child: Tooltip(
+                      message: 'Frecuencia media semanal',
+                      child: Container(
+                        key: insightFrequencyKey,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: kSurfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          freqText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: kPrimary,
+                          ),
                         ),
                       ),
                     ),
@@ -287,8 +274,9 @@ class _ChartPlot extends StatelessWidget {
           ),
         ),
 
-        // CustomPainter del sparkline
-        Expanded(
+        SizedBox(
+          width: availableWidth,
+          height: availableHeight,
           child: CustomPaint(
             key: chartPlotKey,
             painter: _SparklinePainter(
@@ -306,54 +294,37 @@ class _ChartPlot extends StatelessWidget {
           ),
         ),
 
-        // Etiquetas eje X (4 labels): 1M/3M/6M/1A o Todo
         Padding(
           padding: const EdgeInsets.only(top: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Label inicio
               Transform.translate(
                 offset: Offset(paddingLeft - 20, 0),
                 child: Text(
                   '1M',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: kOnSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
                 ),
               ),
-              // Label medio-izq
               Transform.translate(
                 offset: Offset(paddingLeft + availableWidth / 3 - 20, 0),
                 child: Text(
                   '3M',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: kOnSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
                 ),
               ),
-              // Label medio-der
               Transform.translate(
                 offset: Offset(paddingLeft + availableWidth * 2 / 3 - 20, 0),
                 child: Text(
                   '6M',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: kOnSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
                 ),
               ),
-              // Label fin / "Todo"
               Transform.translate(
                 offset: Offset(paddingLeft + availableWidth - 40, 0),
                 child: Text(
                   _windowLabel(window),
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: kOnSurfaceVariant,
-                  ),
+                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
                 ),
               ),
             ],
@@ -365,16 +336,14 @@ class _ChartPlot extends StatelessWidget {
 
   List<double> _computeXPositions(double availableWidth) {
     if (points.length <= 1) {
-      // Si un solo punto, centrar todas las etiquetas
       final center = availableWidth / 2;
       return [center, center, center, center];
     }
-    // Las 4 etiquetas fijas: inicio, 1/3, 2/3, fin
     return [
-      0, // inicio
-      availableWidth / 3, // 1/3
-      availableWidth * 2 / 3, // 2/3
-      availableWidth, // fin
+      0,
+      availableWidth / 3,
+      availableWidth * 2 / 3,
+      availableWidth,
     ].map((pos) => pos.toDouble()).toList();
   }
 
@@ -385,10 +354,17 @@ class _ChartPlot extends StatelessWidget {
               ? 'Carga Máx ($weightUnit)'
               : 'Volumen';
 
-  String _windowLabel(ProgressWindow w) => w == ProgressWindow.oneMonth ? '1M' : w == ProgressWindow.threeMonths ? '3M' : w == ProgressWindow.sixMonths ? '6M' : w == ProgressWindow.oneYear ? '1A' : 'Todo';
+  String _windowLabel(ProgressWindow w) => w == ProgressWindow.oneMonth
+      ? '1M'
+      : w == ProgressWindow.threeMonths
+          ? '3M'
+          : w == ProgressWindow.sixMonths
+              ? '6M'
+              : w == ProgressWindow.oneYear
+                  ? '1A'
+                  : 'Todo';
 }
 
-/// Painter propio para el sparkline del chart de progresión.
 class _SparklinePainter extends CustomPainter {
   final List<ExerciseSessionPoint> points;
   final double minVal;
@@ -415,19 +391,18 @@ class _SparklinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) {
-      // Fondo neutro sin datos
       final paint = Paint()..color = kSurfaceContainerLow;
       canvas.drawRect(Offset.zero & size, paint);
       return;
     }
 
-    // Grosor de línea: 2 dp
     const strokeWidth = 2.0;
 
-    // Área gradiente: 22%→0% (de arriba hacia abajo con transparencia)
     final areaPath = Path();
     for (var i = 0; i < points.length; i++) {
-      final x = xPositions.isNotEmpty && i < xPositions.length ? xPositions[i] : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
+      final x = xPositions.isNotEmpty && i < xPositions.length
+          ? xPositions[i]
+          : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
       final y = yOf(points[i].value);
       if (i == 0) {
         areaPath.moveTo(x, y);
@@ -435,23 +410,21 @@ class _SparklinePainter extends CustomPainter {
         areaPath.lineTo(x, y);
       }
     }
-    // Cerrar el área: bajar al final y regresar al inicio (margen inferior)
     final lastY = yOf(points.last.value);
     areaPath.lineTo(xPositions.last, size.height);
     areaPath.lineTo(0, size.height);
     areaPath.close();
 
-    // Gradiente del área: de 22% opaco a 0% transparente
     final areaGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [Color(0x220061A8), Color(0x000061A8)],
       stops: [0.0, 1.0],
     );
-    final areaPaint = Paint()..shader = areaGradient.createShader(Offset.zero & size);
+    final areaPaint = Paint()
+      ..shader = areaGradient.createShader(Offset.zero & size);
     canvas.drawPath(areaPath, areaPaint);
 
-    // Línea de conexión de puntos (2 dp)
     final strokePaint = Paint()
       ..color = kChartLine
       ..strokeWidth = strokeWidth
@@ -459,7 +432,9 @@ class _SparklinePainter extends CustomPainter {
 
     final linePath = Path();
     for (var i = 0; i < points.length; i++) {
-      final x = xPositions.isNotEmpty && i < xPositions.length ? xPositions[i] : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
+      final x = xPositions.isNotEmpty && i < xPositions.length
+          ? xPositions[i]
+          : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
       final y = yOf(points[i].value);
       if (i == 0) {
         linePath.moveTo(x, y);
@@ -469,22 +444,33 @@ class _SparklinePainter extends CustomPainter {
     }
     canvas.drawPath(linePath, strokePaint);
 
-    // Nodos (puntos) en la línea
     for (var i = 0; i < points.length; i++) {
-      final x = xPositions.isNotEmpty && i < xPositions.length ? xPositions[i] : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
+      final x = xPositions.isNotEmpty && i < xPositions.length
+          ? xPositions[i]
+          : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
       final y = yOf(points[i].value);
-      // Nodo lleno
       canvas.drawCircle(Offset(x, y), 3, Paint()..color = kChartNode);
-      // Contorno del nodo
-      canvas.drawCircle(Offset(x, y), 3, Paint()..color = kChartNodeStroke..strokeWidth = 1.5);
+      canvas.drawCircle(
+        Offset(x, y),
+        3,
+        Paint()
+          ..color = kChartNodeStroke
+          ..strokeWidth = 1.5,
+      );
     }
 
-    // Nodo final destacado
-    canvas.drawCircle(Offset(xPositions.last, lastY), 5, Paint()..color = kPrimary);
     canvas.drawCircle(
       Offset(xPositions.last, lastY),
       5,
-      Paint()..color = kSurface..style = PaintingStyle.stroke..strokeWidth = 2,
+      Paint()..color = kPrimary,
+    );
+    canvas.drawCircle(
+      Offset(xPositions.last, lastY),
+      5,
+      Paint()
+        ..color = kSurface
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
     );
   }
 
@@ -496,24 +482,4 @@ class _SparklinePainter extends CustomPainter {
         oldDelegate.window != window ||
         oldDelegate.metric != metric;
   }
-}
-
-/// Calcula el delta período (diferencia entre primer y último valor).
-PeriodDelta? _periodDelta(List<ExerciseSessionPoint> points) {
-  final sorted = points.toList()..sort((a, b) => a.date.compareTo(b.date));
-  if (sorted.length < 2) return null;
-  final first = sorted.first;
-  final last = sorted.last;
-  final absolute = last.value - first.value;
-  return PeriodDelta(
-    absolute: absolute,
-    percent: first.value == 0 ? null : absolute / first.value * 100,
-  );
-}
-
-/// Calcula la frecuencia media semanal.
-double _weeklyFrequency(List<ExerciseSessionPoint> points, int windowDays) {
-  if (points.length <= 0 || windowDays <= 0) return 0;
-  final sessionCount = points.length;
-  return sessionCount / (windowDays / 7);
 }

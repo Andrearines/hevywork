@@ -1,7 +1,8 @@
 # Hoja de ruta de specs — hevywork
 
-Orden de implementación. Cada spec debe cumplir la constitución y cerrar con
-`flutter test` + `flutter analyze` en verde antes de pasar a la siguiente.
+Orden de implementación. Cada spec debe cumplir la constitución y cerrar según
+la puerta definida en su spec activa (`flutter test` y `flutter analyze`; en la
+021 solo se excluyen los casos golden etiquetados, nunca tests funcionales).
 
 | Spec | Título | Estado | Decisiones clave |
 |---|---|---|---|
@@ -24,4 +25,4 @@ Orden de implementación. Cada spec debe cumplir la constitución y cerrar con
 | 018 | Sección de fatiga invisible en la sesión en vivo | **en curso** | causa raíz: `Row` de la cabecera entrega ancho infinito a `ViewToggle` (`Expanded`/`FlexFit.tight`) → excepción «RenderFlex … unbounded» → `SliverToBoxAdapter` con `geometry.visible=false`; regresión del commit `e2e8c1f` (017). Fix en el punto de uso (`Flexible`+`FittedBox`, patrón de Progreso) + título con `Expanded`/ellipsis, sección siempre presente, `dispose()` completo y test de regresión. Sin dependencias ni migraciones |
 | 019 | Ficha de ejercicio fidelidad GIF | ✅ | Decisiones: D-034 a D-049; cierres Q-012/Q-016; aperturas Q-017/Q-018/Q-019; golden generado; suite de tests en verde; analyze sin errores; GIF real con fallback miniatura; KPIs y CTA con unidades kg/lb. | |
 | 020 | Fidelidad mockups `docs/pantallas` | **pendiente** | Decisiones: D-050 a D-064; cierres Q-020/Q-021/Q-022/Q-023 (D-063/D-062/D-061/D-064). 6 pantallas en una spec, pixel-perfect razonable, tokens en `theme`, fuentes actuales sin cambios (D-062), secciones de Progreso con funcionalidad real (D-061) y báscula/caliper con estado real sin BLE nuevo (D-064, BLE → spec 011), 6 goldens con baseline local + aprobación visual; **miniaturas y GIFs se conservan** (D-052); mandan los mockups sobre la 008 (D-053); `docs/constitucion.md` y `docs/DESIGN.md` creados. | |
-| 021 | Corrección del gráfico de ejercicio y precisión numérica | **activa · planificada** | Solo T-001 (fuente real, ventanas y paging del gráfico) y T-002 (diagnóstico 40→39.99 y formato global kg/lb). D-085…D-089: sin reabrir 015/017/020, sin rediseño, sin migraciones ni dependencias; los goldens nunca son el fix. |
+| 021 | Corrección del gráfico de ejercicio y precisión numérica | **cerrada (2026-11-20)** | T-001, T-002 y T-003 aprobadas (T-003 en segunda revisión; la primera fue rechazada por Q-005, corregida en `hevy_app_bar.dart` con regresión determinista). 5 corridas `flutter test --exclude-tags golden` salida 0 (normal + semillas 12345/1/42/999), **725 tests reales en verde** cada una; `flutter analyze` 0. 8 goldens excluidos por tag y no ejecutados, sin PNG modificado; sin commits, dependencias ni migraciones. Sin gate relativo. |

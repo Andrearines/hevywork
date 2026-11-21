@@ -76,7 +76,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       const <String, List<PreviousSet>>{};
   bool _previousLoaded = false;
   bool _disposed = false;
-  bool _showBack = false;
+  final bool _showBack = false;
   final Set<String> _expandedExerciseIds = {};
   FatigueNotifier? _fatigueNotifier;
   bool _restDismissed = false;
@@ -94,7 +94,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     // cuando cambian las series durante el entrenamiento en vivo.
     _fatigueNotifier = FatigueNotifier(
       sources: [
-        _sets.map((_) => null),
+        _sets.map((_) {}),
       ],
       recalculate: fatigueRepository.recalculate,
     );
@@ -203,7 +203,6 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       ];
     });
   }
-  @override
   void _checkRestDone() {
     if (_currentWorkout == null) return;
     final rest = _restOf(_currentWorkout!);
@@ -423,7 +422,17 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                                         final confirmed =
                                             await _confirmDeleteSet();
                                         if (!confirmed) return;
-                                        await workoutRepository.deleteSet(setId);
+                                        try {
+                                          await workoutRepository.deleteSet(setId);
+                                        } on SessionNotEditableException catch (error) {
+                                          if (!context.mounted) return;
+                                          ScaffoldMessenger.of(context)
+                                            ..clearSnackBars()
+                                            ..showSnackBar(
+                                              SnackBar(content: Text(error.message)),
+                                            );
+                                          return;
+                                        }
                                         await _refreshSuggestions();
                                       },
                                       onReplaceExercise: () =>
@@ -1262,6 +1271,10 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   void dispose() {
     _disposed = true;
     _clockTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _fatigueNotifier?.cancel();
+    _fatigueNotifier = null;
+    _now.dispose();
     super.dispose();
   }
 }
@@ -1691,21 +1704,9 @@ class _CollapsedExerciseCardContent extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => ExerciseInfoView(
-                        exercise: exercise,
-                        database: localDb,
-                        workoutRepository: workoutRepository,
-                      ),
-                    ),
-                  ),
-                  child: ExerciseThumb(
-                    exercise: exercise,
-                    size: 44,
-                  ),
+                ExerciseThumb(
+                  exercise: exercise,
+                  size: 44,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

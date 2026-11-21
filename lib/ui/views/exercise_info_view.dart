@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../data/local/database.dart';
-import '../../data/repositories/gif_cache.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../domain/exercise_stats.dart';
 import '../../domain/media.dart';
@@ -15,7 +14,7 @@ import '../unit_system_scope.dart';
 import '../widgets/chart_enums.dart';
 import '../widgets/exercise_thumb.dart';
 import '../widgets/muscle_map.dart';
-import '../widgets/exercise_progress_chart.dart' as ChartWidget;
+import '../widgets/exercise_progress_chart.dart' as chart_widget;
 
 class ExerciseInfoView extends StatefulWidget {
   final Exercise exercise;
@@ -61,13 +60,6 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     _gifFile = null;
     _activeWorkout = null;
     _listenActiveWorkout();
-  }
-
-  File?_loadGifFile(String gifPath) {
-    // Intentar servir el GIF directamente; si falla, retorna null para fallback local.
-    // Esta función podría usar el patrón de download de GifCache si estuviera disponible,
-    // o simplemente retornar null para usar la miniatura local (más seguro sin nuevas deps).
-    return null; // Fallback a miniatura local
   }
 
   void _loadSteps() async {
@@ -222,11 +214,6 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                     padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
                     child: _buildRestSetting(),
                   ),
-                  if (_steps.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                      child: _buildLanguageSwitch(),
-                    ),
                   if (exercise.attribution != null)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -286,13 +273,17 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
 
   Widget _buildIdentityBadgesWithTitle(Exercise exercise) {
     final muscleLabelText = muscleLabel(exercise.target);
-    final exerciseName = Text(
-      exercise.name,
-      style: const TextStyle(
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-        color: palette.kOnSurface,
-        height: 1.2,
+    final exerciseName = Flexible(
+      child: Text(
+        exercise.name,
+        style: const TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w700,
+          color: palette.kOnSurface,
+          height: 1.2,
+        ),
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
       ),
     );
 
@@ -510,7 +501,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         // Timeframe filters (1M / 3M / 6M / 1A / Todo)
         _buildChartWindowTabs(),
         const SizedBox(height: 12),
-        ChartWidget.ExerciseProgressChart(
+        chart_widget.ExerciseProgressChart(
           sessions: _analyticsHistory,
           metric: _selectedMetric,
           window: _selectedWindow,
@@ -782,15 +773,19 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
       childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
       title: Row(
-        children: const [
-          Icon(Icons.tune_rounded, size: 18, color: palette.kOnSurfaceVariant),
-          SizedBox(width: 10),
-          Text(
-            'Biomecánica & Cues Técnicos',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: palette.kOnSurface,
+        children: [
+          const Icon(Icons.tune_rounded, size: 18, color: palette.kOnSurfaceVariant),
+          const SizedBox(width: 10),
+          const Flexible(
+            child: Text(
+              'Biomecánica & Cues Técnicos',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: palette.kOnSurface,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -894,8 +889,8 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       final decoded = jsonDecode(secondaryMuscles);
       if (decoded is! List) return [];
       return decoded
-          .where((item) => item is String)
-          .map((item) => (item ?? '').toString().trim())
+          .whereType<String>()
+          .map((item) => item.trim())
           .where((s) => s.isNotEmpty)
           .toList();
     } catch (_) {
@@ -933,18 +928,26 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       children: [
         Row(
           children: [
-            const Text(
-              'Historial de Sesiones',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: palette.kOnSurface,
+            Flexible(
+              child: Text(
+                'Historial de Sesiones',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: palette.kOnSurface,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '${_history.length + _historyUpcoming.length} registros',
-              style: const TextStyle(fontSize: 12, color: palette.kOnSurfaceVariant),
+            Flexible(
+              child: Text(
+                '${_history.length + _historyUpcoming.length} registros',
+                style: const TextStyle(fontSize: 12, color: palette.kOnSurfaceVariant),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
@@ -1362,10 +1365,22 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         offset: first.length,
       );
     }
+    final analytics = <ExerciseSessionSummary>[...first, ...next];
+    var analyticsPage = next;
+    while (analyticsPage.length == _historyPageSize) {
+      final page = await repo.exerciseHistory(
+        exerciseId: widget.exercise.id,
+        limit: _historyPageSize,
+        offset: analytics.length,
+      );
+      analytics.addAll(page);
+      analyticsPage = page;
+    }
     if (!mounted) return;
     setState(() {
       _history.addAll(first);
       _historyUpcoming = next;
+      _analyticsHistory = analytics;
       _historyLoaded = true;
     });
   }
@@ -1465,12 +1480,16 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 children: [
                   const Icon(Icons.add_circle_outline_rounded, size: 20, color: palette.kSurface),
                   const SizedBox(width: 10),
-                  const Text(
-                    'Añadir a Rutina o Iniciar Sesión',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: palette.kSurface,
+                  Flexible(
+                    child: Text(
+                      'Añadir a Rutina o Iniciar Sesión',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: palette.kSurface,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],

@@ -1,7 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hevywork/app/theme/app_theme.dart';
 import 'package:hevywork/data/local/database.dart';
 import 'package:hevywork/data/repositories/body_metric_repository.dart';
 import 'package:hevywork/data/repositories/catalog_repository.dart';
@@ -14,7 +13,6 @@ import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/layout/screen_breakpoints.dart';
-import 'package:hevywork/ui/widgets/hevy_bottom_nav.dart';
 
 // Test breakpoints helper and MainNavigator shell layout.
 
@@ -87,8 +85,7 @@ void main() {
     final testWidths = [320, 360, 375, 412, 768, 1024, 1366];
 
     for (final widthDp in testWidths) {
-      testWidgets('width=$widthDp dp — no render exceptions',
-          (tester) async {
+      testWidgets('width=$widthDp dp — no render exceptions', (tester) async {
         tester.view.physicalSize = Size(widthDp * 2, widthDp * 2);
         tester.view.devicePixelRatio = 2.0;
         addTearDown(tester.view.resetPhysicalSize);
@@ -96,14 +93,41 @@ void main() {
 
         // Pump HevyWorkApp which has the textScaler clamp in its builder.
         // The clamp ensures layout is independent of system text scaling.
-        await tester.pumpWidget(
-          const HevyWorkApp(),
-        );
+        await tester.pumpWidget(const HevyWorkApp());
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
         await tester.pump(const Duration(milliseconds: 100));
 
         expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 10));
+        await tester.pump(const Duration(milliseconds: 10));
+      });
+
+      testWidgets('width=320 sin overflow con la imagen en caché (Q-005)', (
+        tester,
+      ) async {
+        // Calienta la caché del logo en un ancho amplio para que `Image.asset`
+        // tenga su tamaño intrínseco (32 px) al bombear a 320 dp. Sin el fix
+        // del Flexible en el app bar, el Row desbordaba 18 px solo en este
+        // estado (el orden por defecto lo enmascaraba con el logo a 0 px).
+        tester.view.physicalSize = const Size(824, 824);
+        tester.view.devicePixelRatio = 2.0;
+        await tester.pumpWidget(const HevyWorkApp());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        tester.view.physicalSize = const Size(640, 640);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(tester.takeException(), isNull);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(milliseconds: 10));
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
       });
     }
   });

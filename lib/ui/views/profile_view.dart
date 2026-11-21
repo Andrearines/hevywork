@@ -16,8 +16,12 @@ import '../../domain/units.dart';
 import '../../main.dart';
 import '../theme/colors.dart';
 import '../unit_system_scope.dart';
+import '../widgets/capped_scroll.dart';
 import '../widgets/section_header.dart';
 import 'soon_view.dart';
+
+const int _visibleGoalTiles = 3;
+const double _goalTileHeight = 54;
 
 const Map<String, String> _goalTypeLabels = {
   'bodyweight': 'Peso corporal',
@@ -585,7 +589,8 @@ class _AthleteBadge extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return Row(
       children: [
-        Container(
+        Flexible(
+          child: Container(
           padding: const EdgeInsets.symmetric(
             horizontal: 8,
             vertical: 4,
@@ -613,14 +618,19 @@ class _AthleteBadge extends StatelessWidget {
               ),
             ],
           ),
+          ),
         ),
         const SizedBox(width: 6),
-        const Text(
-          'Atleta Pro',
-          style: TextStyle(
-            color: kPrimary,
-            fontWeight: FontWeight.w500,
-            fontSize: 13,
+        Flexible(
+          child: Text(
+            'Atleta Pro',
+            style: const TextStyle(
+              color: kPrimary,
+              fontWeight: FontWeight.w500,
+              fontSize: 13,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -756,10 +766,16 @@ class _Goals extends StatelessWidget {
         if (active.isEmpty) {
           return const _EmptyHint('Aún no tienes objetivos activos.');
         }
-        return Column(
-          children: [
-            for (final goal in active) _GoalTile(goal: goal, textTheme: textTheme),
-          ],
+        return CappedScroll(
+          itemCount: active.length,
+          visibleItems: _visibleGoalTiles,
+          itemHeight: _goalTileHeight,
+          child: Column(
+            children: [
+              for (final goal in active)
+                _GoalTile(goal: goal, textTheme: textTheme),
+            ],
+          ),
         );
       },
     );
@@ -835,19 +851,29 @@ class _RecordsState extends State<_Records> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
-              'Récords Personales',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 18,
+            Flexible(
+              child: Text(
+                'Récords Personales',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 18,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Text(
-              '1RM Estimado',
-              style: TextStyle(
-                color: kOnSurfaceVariant,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                '1RM Estimado',
+                style: const TextStyle(
+                  color: kOnSurfaceVariant,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
               ),
             ),
           ],
@@ -1140,6 +1166,12 @@ class _Settings extends StatelessWidget {
               onTap: onExport,
             ),
             _SettingsRow(
+              icon: Icons.bluetooth,
+              title: 'Dispositivos',
+              subtitle: 'Báscula, caliper y frecuencia cardiaca',
+              onTap: onOpenDevices,
+            ),
+            _SettingsRow(
               icon: signedIn ? Icons.logout : Icons.login,
               iconColor: signedIn ? kError : kOnSurfaceVariant,
               title: signedIn
@@ -1186,7 +1218,6 @@ class _SettingsRow extends StatelessWidget {
   final Color? iconColor;
   final String title;
   final String subtitle;
-  final Widget? trailing;
   final VoidCallback? onTap;
   final bool enabled;
 
@@ -1195,7 +1226,6 @@ class _SettingsRow extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.iconColor,
-    this.trailing,
     this.onTap,
     this.enabled = true,
   });
@@ -1241,12 +1271,11 @@ class _SettingsRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            trailing ??
-                const Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: kOnSurfaceVariant,
-                ),
+            const Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: kOnSurfaceVariant,
+            ),
           ],
         ),
       ),

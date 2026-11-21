@@ -2,6 +2,8 @@
 /// Área con gradiente suave, punto final, guías punteadas, sin `BoxShadow`.
 /// Contraste con fondo neutro `#292A2D` (sin datos). El widget es inmutable:
 /// `shouldRepaint` false con mismos puntos y true con diferente lista o músculo.
+library;
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -120,7 +122,7 @@ class _FatigueTrendPainter extends CustomPainter {
       end: Alignment.centerRight,
       colors: [kFatigueCold, kFatigueWarm, kFatigueHot],
     );
-    strokePaint..shader = lineGradient.createShader(Offset.zero & size);
+    strokePaint.shader = lineGradient.createShader(Offset.zero & size);
 
     final linePath = Path();
     for (var i = 0; i < points.length; i++) {
@@ -137,10 +139,6 @@ class _FatigueTrendPainter extends CustomPainter {
     // Dibujar guías horizontales punteadas (0, 0.5, 1)
     const dash = 4.0;
     const gapLine = 4.0;
-    final guidePaint = Paint()
-      ..color = kOnSurfaceVariant.withOpacity(0.3)
-      ..strokeWidth = 1;
-
     for (final fraction in [0.0, 0.5, 1.0]) {
       final y = marginBottom + plotHeight - (fraction * plotHeight);
       _drawDashedLine(
@@ -181,7 +179,7 @@ class _FatigueTrendPainter extends CustomPainter {
     required double gap,
     required double width,
   }) {
-    final paint = Paint()..color = kOnSurfaceVariant.withOpacity(0.3)..strokeWidth = width;
+    final paint = Paint()..color = kOnSurfaceVariant.withValues(alpha: 0.3)..strokeWidth = width;
     final direction = (to - from) / (to - from).distance;
     var cursor = from;
     var remaining = (to - from).distance;

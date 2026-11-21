@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:hevywork/domain/muscle_fatigue.dart';
 import 'package:hevywork/ui/widgets/live_fatigue_section.dart';
 
 void main() {
@@ -28,9 +27,14 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      // Verify chips are rendered with the new format
-      expect(find.text('pectorals'), findsOneWidget);
-      expect(find.text('lats'), findsOneWidget);
+      expect(
+        find.text('Pecho · 8 series · 12000 kg'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Dorsales · 6 series · 9500 kg'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('render con panel vacío muestra "Sin series"',
@@ -75,9 +79,8 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      // Verify the weekly volume format appears
-      expect(find.text('series'), findsWidgets);
-      expect(find.text('8 series'), findsOneWidget);
+      expect(find.textContaining('series'), findsWidgets);
+      expect(find.textContaining('8 series'), findsOneWidget);
     });
 
     testWidgets('zoneChipLabel formatea correctamente el chip',
@@ -101,8 +104,7 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      // Chip should show "Pecho · 3 series · 80.5 kg", NOT "80.50000000000001"
-      expect(find.text('Pecho · 3 series · 80.5 kg'), findsOneWidget);
+      expect(find.text('Pecho · 3 series · 80.50 kg'), findsOneWidget);
       expect(find.text('80.50000000000001'), findsNothing);
     });
 

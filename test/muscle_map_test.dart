@@ -267,7 +267,7 @@ void main() {
         find.byKey(const Key('map-front')),
         matchesGoldenFile('goldens/muscle_map_front.png'),
       );
-    });
+    }, tags: ['golden']);
 
     testWidgets('golden: vista trasera con fatiga repartida', (tester) async {
       await pumpMap(
@@ -280,7 +280,7 @@ void main() {
         find.byKey(const Key('map-back')),
         matchesGoldenFile('goldens/muscle_map_back.png'),
       );
-    });
+    }, tags: ['golden']);
 
     testWidgets('sin datos el mapa completo se dibuja en gris neutro (RF-5)',
         (tester) async {
@@ -289,6 +289,6 @@ void main() {
         find.byKey(const Key('map-empty')),
         matchesGoldenFile('goldens/muscle_map_empty.png'),
       );
-    });
+    }, tags: ['golden']);
   });
 }

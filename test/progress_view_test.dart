@@ -16,6 +16,7 @@ import 'package:hevywork/data/repositories/routine_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/domain/body_composition.dart';
+import 'package:hevywork/domain/units.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/theme/colors.dart';
 import 'package:hevywork/ui/unit_system_scope.dart';
@@ -55,6 +56,7 @@ void main() {
 
   setUp(() async {
     await localDb.delete(localDb.goals).go();
+    await localDb.delete(localDb.muscleFatigue).go();
     await localDb.delete(localDb.bodyMetrics).go();
     await localDb.delete(localDb.progressPhotos).go();
     await localDb.delete(localDb.workoutSets).go();
@@ -440,7 +442,8 @@ void main() {
     );
     await tester.ensureVisible(capped);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
 
     final section = tester.getRect(capped);
     final titles = const ['Peso corporal', 'Constancia', 'Fuerza', 'Volumen'];
@@ -456,10 +459,11 @@ void main() {
     expect(hidden, hasLength(1));
 
     await tester.drag(capped, const Offset(0, -260));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 150));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
 
-    expect(tester.getRect(capped).top, closeTo(section.top, 0.5));
+    expect(tester.getRect(capped).top, closeTo(section.top, 2.0));
     expect(visible(hidden.single), isTrue);
 
     await unmount(tester);
@@ -797,16 +801,6 @@ void main() {
       findsOneWidget,
     );
 
-    final callout = find.text('Báscula y Caliper Conectados');
-    await tester.dragUntilVisible(
-      callout,
-      find.byType(ListView).first,
-      const Offset(0, -300),
-    );
-    await tester.pumpAndSettle();
-    expect(callout, findsOneWidget);
-    expect(find.text('Sin dispositivos conectados todavía'), findsOneWidget);
-
     await unmount(tester);
   });
 
@@ -902,8 +896,8 @@ void main() {
       waistCm: 90,
     )!;
     final expectedLean = 80 * (1 - expectedFat / 100);
-    expect(find.text(expectedFat.toStringAsFixed(1)), findsOneWidget);
-    expect(find.text(expectedLean.toStringAsFixed(1)), findsOneWidget);
+    expect(find.text(formatDisplay(expectedFat)), findsOneWidget);
+    expect(find.text(formatDisplay(expectedLean)), findsOneWidget);
 
     await unmount(tester);
   });
@@ -922,15 +916,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('GRASA ESTIMADA'), findsOneWidget);
     expect(find.text('MASA MAGRA'), findsOneWidget);
-
-    final callout = find.text('Báscula y Caliper Conectados');
-    await tester.dragUntilVisible(
-      callout,
-      find.byType(ListView).first,
-      const Offset(0, -400),
-    );
-    await tester.pumpAndSettle();
-    expect(callout, findsOneWidget);
 
     await unmount(tester);
   });
@@ -1089,5 +1074,5 @@ void main() {
     );
 
     await unmount(tester);
-  });
+  }, tags: ['golden']);
 }

@@ -10,6 +10,7 @@ import 'package:hevywork/data/repositories/goal_repository.dart';
 import 'package:hevywork/data/repositories/routine_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
+import 'package:hevywork/domain/units.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/views/live_workout_view.dart';
 
@@ -37,15 +38,21 @@ void main() {
         );
   });
 
+  setUp(() async {
+    await localDb.delete(localDb.workoutSets).go();
+    await localDb.delete(localDb.workoutExercises).go();
+    await localDb.delete(localDb.workouts).go();
+  });
+
   tearDownAll(() => localDb.close());
 
-  Future<void> pumpView(WidgetTester tester, String workoutId) async {
+  Future<void> pumpView(WidgetTester tester, String workoutId, {Size viewport = const Size(800, 1200)}) async {
     // Viewport de móvil alto (800×1200): la tarjeta de sesión con acciones
     // ocupa más de la mitad de un viewport de 600 y empuja las filas al
     // borde superior del listado, donde el hit-test de los slivers falla.
     // Con CustomScrollView necesitamos más altura para que la lista perezosa
     // construya al menos la primera tarjeta.
-    tester.view.physicalSize = const Size(800, 1200);
+    tester.view.physicalSize = viewport;
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
@@ -124,7 +131,7 @@ void main() {
     expect(sets.single.weightKg, 80);
 
     expect(find.text('640'), findsOneWidget);
-    expect(find.text('106.7'), findsWidgets);
+    expect(find.text(formatDisplay(80 * (1 + 10 / 30))), findsWidgets);
     expect(find.text('80'), findsWidgets);
 
     await unmount(tester);
@@ -202,6 +209,7 @@ void main() {
 
     await pumpView(tester, workout.id);
 
+    await tester.ensureVisible(find.text('Terminar'));
     await tester.tap(find.text('Terminar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
@@ -265,6 +273,7 @@ void main() {
 
     expect(find.byTooltip('Nada que deshacer'), findsNothing);
 
+    await tester.ensureVisible(find.text('Deshacer'));
     await tester.tap(find.text('Deshacer'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
@@ -312,7 +321,7 @@ void main() {
     final set = await (localDb.select(localDb.workoutSets)
           ..where((t) => t.workoutExerciseId.equals(item.id)))
         .getSingle();
-    expect(find.text('106.7'), findsWidgets);
+    expect(find.text(formatDisplay(80 * (1 + 10 / 30))), findsWidgets);
 
     // Desmarcar deja la serie pendiente y editable en la fila.
     await tester.ensureVisible(find.byKey(Key('set-check-${set.id}')));
@@ -356,8 +365,8 @@ void main() {
     expect(updated.rir, 2);
     expect(updated.completed, isTrue);
 
-    expect(find.text('101.3'), findsWidgets);
-    expect(find.text('106.7'), findsNothing);
+    expect(find.text(formatDisplay(80 * (1 + 8 / 30))), findsWidgets);
+    expect(find.text(formatDisplay(80 * (1 + 10 / 30))), findsNothing);
 
     await unmount(tester);
   });
@@ -483,6 +492,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
 
+    await tester.ensureVisible(find.text('Terminar'));
     await tester.tap(find.text('Terminar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
@@ -521,7 +531,7 @@ void main() {
         .get();
     final item = items.single;
 
-    await pumpView(tester, started.workout.id);
+    await pumpView(tester, started.workout.id, viewport: const Size(1000, 3000));
 
     for (var i = 0; i < 3; i++) {
       await tester.enterText(
@@ -615,6 +625,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
 
+    await tester.ensureVisible(find.text('Terminar'));
     await tester.tap(find.text('Terminar'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
@@ -654,6 +665,7 @@ void main() {
     await tester.enterText(weightField, '60');
 
     Future<void> step(String label, String expected) async {
+      await tester.ensureVisible(find.text(label));
       await tester.tap(find.text(label));
       await tester.pump();
       expect(
@@ -752,7 +764,7 @@ void main() {
         .get();
     final squat = items.singleWhere((item) => item.exerciseId == 'squat');
 
-    await pumpView(tester, started.workout.id);
+    await pumpView(tester, started.workout.id, viewport: const Size(1000, 3000));
 
     expect(find.text('3 series programadas'), findsOneWidget);
     expect(find.text('OBJETIVO'), findsOneWidget);
@@ -760,17 +772,14 @@ void main() {
     expect(find.text('SET'), findsOneWidget);
 
     final expandKey = find.byKey(Key('expand-${squat.id}'));
-    await tester.ensureVisible(expandKey);
-    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(expandKey);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('SET'), findsNWidgets(2));
     expect(find.byKey(Key('collapse-${squat.id}')), findsOneWidget);
 
     final collapseKey = find.byKey(Key('collapse-${squat.id}'));
-    await tester.ensureVisible(collapseKey);
-    await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(collapseKey);
     await tester.pump();
 
@@ -934,7 +943,7 @@ void main() {
 
   testWidgets('golden: LiveWorkoutView con datos (T-009 / SCR-03)', (tester) async {
     final workout = await workoutRepository.startWorkout();
-    final item = await workoutRepository.addExercise(
+    await workoutRepository.addExercise(
       workoutId: workout.id,
       exerciseId: 'bench-press',
     );
@@ -947,5 +956,5 @@ void main() {
     );
 
     await dismissSnackBars(tester);
-  });
+  }, tags: ['golden']);
 }

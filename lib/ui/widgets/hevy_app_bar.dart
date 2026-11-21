@@ -32,36 +32,40 @@ PreferredSize hevyAppBar(
             padding: EdgeInsets.only(top: topInset, left: 16, right: 8),
             child: Row(
               children: [
-                Semantics(
-                  header: true,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset(
-                        'assets/images/logo.png',
-                        height: 32,
-                        fit: BoxFit.contain,
-                        semanticLabel: 'HevyWork',
-                        key: Key('app-bar-logo'),
-                      ),
-                      SizedBox(width: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Container(
-                          width: 1,
-                          height: 16,
-                          color: kOutlineVariant,
+                Flexible(
+                  child: Semantics(
+                    header: true,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(
+                          'assets/images/logo.png',
+                          height: 32,
+                          width: 32,
+                          fit: BoxFit.contain,
+                          semanticLabel: 'HevyWork',
+                          key: Key('app-bar-logo'),
                         ),
-                      ),
-                      Flexible(
-                        child: Text(
-                          title,
-                          overflow: TextOverflow.ellipsis,
-                          style: textTheme.headlineSmall
-                              ?.copyWith(color: kPrimary),
+                        SizedBox(width: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Container(
+                            width: 1,
+                            height: 16,
+                            color: kOutlineVariant,
+                          ),
                         ),
-                      ),
-                    ],
+                        Flexible(
+                          child: Text(
+                            title,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.headlineSmall?.copyWith(
+                              color: kPrimary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const Spacer(),

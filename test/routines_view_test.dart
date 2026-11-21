@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/app/theme/app_theme.dart';
 import 'package:hevywork/data/local/database.dart';
+import 'package:hevywork/data/repositories/catalog_repository.dart';
 import 'package:hevywork/data/repositories/fatigue_repository.dart';
 import 'package:hevywork/data/repositories/routine_repository.dart';
 import 'package:hevywork/data/repositories/template_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/main.dart';
+import 'package:hevywork/ui/views/live_workout_view.dart';
 import 'package:hevywork/ui/views/routine_detail_view.dart';
 import 'package:hevywork/ui/views/routine_editor_view.dart';
 import 'package:hevywork/ui/views/routines_view.dart';
@@ -22,6 +24,7 @@ void main() {
   setUpAll(() {
     localDb = AppDatabase(NativeDatabase.memory());
     fatigueRepository = FatigueRepository(localDb);
+    catalogRepository = CatalogRepository(localDb);
     syncEngine = SyncEngine(localDb, null);
     workoutRepository = WorkoutRepository(localDb);
     routineRepository = RoutineRepository(localDb, workoutRepository);
@@ -92,7 +95,9 @@ void main() {
 
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(milliseconds: 10));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
   }
 
   Future<Routine> createRoutine({
@@ -279,6 +284,8 @@ void main() {
       expect(started, hasLength(1));
       expect(started.single.name, 'Tren superior');
 
+      Navigator.of(tester.element(find.byType(LiveWorkoutView))).pop();
+      await tester.pumpAndSettle();
       await unmount(tester);
     },
   );
@@ -606,16 +613,19 @@ void main() {
   testWidgets('el editor guarda la metadata de planificación (RF-18)', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     final routine = await createRoutine(name: 'Con metadata');
     await pumpView(tester);
 
     await tester.tap(find.byTooltip('Editar rutina'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
-    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
     expect(find.byType(RoutineEditorView), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('planning-toggle')));
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
     await tester.tap(find.byKey(const Key('meta-PPL')));
     await tester.pump(const Duration(milliseconds: 100));
@@ -655,5 +665,5 @@ void main() {
     );
 
     await unmount(tester);
-  });
+  }, tags: ['golden']);
 }

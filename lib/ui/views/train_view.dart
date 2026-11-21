@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import '../../data/local/database.dart';
 import '../../data/repositories/workout_repository.dart';
-import '../../data/repositories/routine_repository.dart';
 import '../../domain/profile_stats.dart';
 import '../../domain/training_calendar.dart';
 import '../../domain/units.dart';

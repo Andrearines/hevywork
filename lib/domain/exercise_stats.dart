@@ -1,4 +1,5 @@
 import 'goals.dart';
+import 'units.dart';
 
 enum ExerciseProgressMetric { e1rm, load, volume }
 
@@ -247,6 +248,26 @@ PeriodDelta? periodDelta(Iterable<ExerciseSessionPoint> points) {
 double weeklyFrequency({required int sessionCount, required int windowDays}) {
   if (sessionCount <= 0 || windowDays <= 0) return 0;
   return sessionCount / (windowDays / 7);
+}
+
+String formatChartDeltaKg(
+  double absoluteKg,
+  ExerciseProgressMetric metric,
+  String unitSystem,
+) {
+  final value = displayWeightKg(absoluteKg, unitSystem);
+  final sign = value < 0 ? '-' : '+';
+  final magnitude = value.abs();
+  final unit = weightUnitOf(unitSystem);
+  switch (metric) {
+    case ExerciseProgressMetric.volume:
+      return '$sign${magnitude.round()} $unit·sesiones';
+    case ExerciseProgressMetric.e1rm:
+      return '$sign${magnitude.toStringAsFixed(1)} $unit';
+    case ExerciseProgressMetric.load:
+      final rounded = (magnitude * 100).roundToDouble() / 100;
+      return '$sign${rounded == rounded.roundToDouble() ? rounded.toStringAsFixed(1) : rounded.toStringAsFixed(2)} $unit';
+  }
 }
 
 double? sessionRirMean(Iterable<ExerciseSetRow> sets) {

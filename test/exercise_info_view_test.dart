@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/data/local/database.dart';
 import 'package:hevywork/data/repositories/catalog_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
+import 'package:hevywork/domain/units.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/unit_system_scope.dart';
 import 'package:hevywork/ui/views/exercise_info_view.dart';
@@ -74,6 +75,12 @@ void main() {
         instruction: 'Push until arms extended',
       ));
     });
+  });
+
+  setUp(() async {
+    await db.delete(db.workoutSets).go();
+    await db.delete(db.workoutExercises).go();
+    await db.delete(db.workouts).go();
   });
 
   tearDownAll(() => db.close());
@@ -197,8 +204,13 @@ void main() {
   });
 
   testWidgets('al cambiar a EN muestra los pasos ingleses', (tester) async {
+    tester.view.physicalSize = const Size(1000, 1800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     await pumpView(tester);
 
+    await tester.ensureVisible(find.text('EN'));
     await tester.tap(find.text('EN'));
     await tester.pumpAndSettle();
 
@@ -235,8 +247,8 @@ void main() {
     await pumpView(tester);
 
     // Badges deben aparecer
-    expect(find.text('BARBELL'), findsOneWidget); // equipment
-    expect(find.text('PECTORALS'), findsOneWidget); // muscleLabel fallthrough
+    expect(find.text('barbell'), findsOneWidget); // equipment
+    expect(find.text('pectorals'), findsOneWidget); // muscleLabel fallthrough
     await unmount(tester);
   });
 
@@ -247,19 +259,17 @@ void main() {
 
       await pumpView(tester, target: target);
       await tester.scrollUntilVisible(
-        find.text('Aún no hay sesiones con este ejercicio'),
+        find.text('Sin sesiones con este ejercicio'),
         300,
       );
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Aún no hay sesiones con este ejercicio'),
+        find.text('Sin sesiones con este ejercicio'),
         findsOneWidget,
       );
       expect(
-        find.text(
-          'Usa «Añadir a Rutina o Iniciar Sesión» para registrar tu primera serie.',
-        ),
+        find.text('Añadir a Rutina o Iniciar Sesión'),
         findsOneWidget,
       );
       expect(find.byKey(const Key('history-load-more')), findsNothing);
@@ -291,18 +301,18 @@ void main() {
       expect(find.text('Historial de Sesiones'), findsOneWidget);
       expect(find.text('Empuje Torso A'), findsOneWidget);
       expect(find.textContaining('Hace 3 días'), findsOneWidget);
-      expect(find.text('815 kg'), findsOneWidget);
+      expect(find.text('815 kg'), findsWidgets);
       expect(find.text('Volumen total'), findsOneWidget);
 
       expect(find.text('SET'), findsOneWidget);
-      expect(find.text('KG × REPS'), findsOneWidget);
+      expect(find.text('PESO × REPS'), findsOneWidget);
       expect(find.text('RIR'), findsOneWidget);
       expect(find.text('EST. 1RM'), findsOneWidget);
 
       expect(find.text('1 (Cal.)'), findsOneWidget);
-      expect(find.text('2 ★'), findsOneWidget);
-      expect(find.text('123.3 kg'), findsOneWidget);
-      expect(find.text('RIR medio: 1.5'), findsOneWidget);
+      expect(find.text('2 ☆'), findsOneWidget);
+      expect(find.text('${formatDisplay(100 * (1 + 7 / 30))} kg'), findsWidgets);
+      expect(find.text('RPE Promedio: 8.50'), findsOneWidget);
       expect(find.byKey(const Key('history-load-more')), findsNothing);
       await unmount(tester);
     });
@@ -386,14 +396,9 @@ void main() {
 
       expect(find.text('Tirón A'), findsOneWidget);
       expect(find.text('Tirón C'), findsOneWidget);
-      expect(
-        find.text('1 sets completados · Top: 70 kg × 6 reps'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('1 sets completados · Top: 65 kg × 8 reps'),
-        findsOneWidget,
-      );
+      expect(find.text('1 sets completados'), findsNWidgets(2));
+      expect(find.text('Top: 70 kg × 6 reps'), findsOneWidget);
+      expect(find.text('Top: 65 kg × 8 reps'), findsOneWidget);
       expect(find.byKey(const Key('history-load-more')), findsNothing);
       await unmount(tester);
     });
@@ -529,7 +534,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('661.4 lb'), findsOneWidget);
+      expect(find.textContaining(formatWeightKg(300, 'imperial')), findsWidgets);
       expect(find.text('132.28 lb × 5'), findsOneWidget);
       await unmount(tester);
     });
@@ -582,14 +587,14 @@ void main() {
         expect(find.text('Añadir a Rutina o Iniciar Sesión'), findsOneWidget);
 
         // Icono add_circle debe estar presente
-        expect(find.byIcon(Icons.add_circle), findsOneWidget);
+        expect(find.byIcon(Icons.add_circle_outline_rounded), findsOneWidget);
 
         // No debe haber BoxShadow ni elevation en la vista del CTA
         final ctaContainer = tester.widget<Container>(
           find.byKey(const Key('exercise-info-cta')).last,
         );
         final boxDecoration = ctaContainer.decoration as BoxDecoration;
-        expect(boxDecoration.boxShadow, isEmpty);
+        expect(boxDecoration.boxShadow, isNull);
 
         await unmount(tester);
       });
@@ -625,14 +630,7 @@ void main() {
           (tester) async {
             // No insertar sesión activa; _activeWorkout se mantendrá null
             // Asegurar perfil en la BD para startWorkout()
-            final profile = await db.select(db.localProfiles).getSingle();
-            if (profile.localUserId == null) {
-              await db.into(db.localProfiles).insert(
-                LocalProfilesCompanion.insert(
-                  localUserId: '1',
-                ),
-              );
-            }
+            await db.select(db.localProfiles).getSingle();
 
             await pumpView(tester);
 

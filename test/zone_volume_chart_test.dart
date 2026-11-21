@@ -5,8 +5,6 @@ import 'package:hevywork/domain/muscle_fatigue.dart';
 import 'package:hevywork/ui/widgets/zone_volume_chart.dart';
 
 void main() {
-  final day = DateTime(2026, 10, 27);
-
   // Datos de prueba: MuscleZoneStats con volumen y fatiga variados
   // Usando valores double para compatibilidad con el typedef
   final List<MuscleZoneStats> stats = [

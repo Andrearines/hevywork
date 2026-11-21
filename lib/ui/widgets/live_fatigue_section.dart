@@ -166,7 +166,10 @@ class _LiveFatigueSectionState extends State<LiveFatigueSection>
 String zoneChipLabel(MuscleZoneStats zone, String unitSystem) {
   if (zone.sets == 0) return 'Sin series';
 
-  final muscleName = mm.muscleLabel(zone.muscle);
+  final canonical = kTargetMuscleAliases[zone.muscle] ??
+      kMuscleAliases[zone.muscle] ??
+      zone.muscle;
+  final muscleName = mm.muscleLabel(canonical);
   final setsText = '${zone.sets} series';
   final volumeKg = formatWeightKg(zone.weeklyVolume, unitSystem);
   final weightUnit = weightUnitOf(unitSystem);
@@ -226,7 +229,6 @@ class _ExpandedBody extends StatelessWidget {
             final zone = zones[i];
             final fatigueVal = zone.fatigue;
             final status = zoneStatusOf(fatigueVal);
-            final muscleName = mm.muscleLabel(zone.muscle);
             final isSelected = selectedMuscle == zone.muscle;
             final color = switch (status) {
               MuscleZoneStatus.high => mm.kFatigueHot,

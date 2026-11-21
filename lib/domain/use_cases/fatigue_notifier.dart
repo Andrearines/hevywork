@@ -73,15 +73,11 @@ class FatigueNotifier {
     }
   }
 
-  /// Cancela el temporizador y las suscripciones: tras llamar, ningún evento
-  /// futuro dispara recálculos (sin fugas en los tests).
-  Future<void> dispose() async {
+  /// Cancela de forma síncrona el temporizador y las suscripciones: tras
+  /// llamar, ningún evento futuro dispara recálculos (sin fugas en los tests).
+  void cancel() {
     if (_disposed) return;
     _disposed = true;
-    // Espera breve a que termine el recálculo en vuelo antes de cancelar todo.
-    if (_inFlight != null) {
-      await _inFlight!.timeout(const Duration(seconds: 1));
-    }
     _timer?.cancel();
     _timer = null;
     for (final subscription in _subscriptions) {
@@ -89,6 +85,16 @@ class FatigueNotifier {
     }
     _subscriptions.clear();
     _dirty = false;
+  }
+
+  /// Cancela el temporizador y las suscripciones: tras llamar, ningún evento
+  /// futuro dispara recálculos (sin fugas en los tests).
+  Future<void> dispose() async {
+    if (_disposed) return;
+    cancel();
+    if (_inFlight != null) {
+      await _inFlight!.timeout(const Duration(seconds: 1));
+    }
   }
 
   void _onTimer() {

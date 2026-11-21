@@ -1,6 +1,8 @@
 /// Esta vista ha sido sustituida por ExerciseInfoView (spec 015).
 /// No elimino el archivo para preservar historial, pero su contenido
 /// está en reposo. Usa ExerciseInfoView en su lugar.
+library;
+
 import 'package:flutter/material.dart';
 
 class ExerciseDetailView extends StatefulWidget {

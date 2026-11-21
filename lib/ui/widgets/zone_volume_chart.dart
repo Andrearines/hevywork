@@ -3,6 +3,8 @@
 /// gradiente frío→calor y punto final. Sin `BoxShadow`, contraste AA.
 /// El widget es inmutable: `shouldRepaint` false con mismos datos, true con
 /// distinta lista o músculo resaltado.
+library;
+
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -102,10 +104,6 @@ class _ZoneVolumePainter extends CustomPainter {
     // Dibujar guías punteadas horizontales (spec 7.9 del designer)
     const dash = 3.0;
     const gapLine = 3.0;
-    final paintDash = Paint()
-      ..color = kOnSurfaceVariant.withOpacity(0.3)
-      ..strokeWidth = 1;
-
     for (int i = 0; i < top.length; i++) {
       final y = i * (barHeight + gap) + gap;
       // Línea punteada desde el inicio de la barra
@@ -138,7 +136,7 @@ class _ZoneVolumePainter extends CustomPainter {
 
       // Contorno de la barra
       final borderPaint = Paint()
-        ..color = kOnSurfaceVariant.withOpacity(0.2)
+        ..color = kOnSurfaceVariant.withValues(alpha: 0.2)
         ..strokeWidth = 1
         ..style = PaintingStyle.stroke;
       canvas.drawRect(barRect, borderPaint);
@@ -188,13 +186,12 @@ class _ZoneVolumePainter extends CustomPainter {
         orElse: () => _missingMuscleZoneStat(muscle),
       );
       if (targetZone.muscle.isNotEmpty) {
-        final volNorm = (targetZone.weeklyVolume - minVol) / span;
         final barX = 20.0;
         final barW = (targetZone.weeklyVolume - minVol) / span * barWidth;
 
         // Dibujar rectángulo resaltado detrás de toda la área
         final highlightPaint = Paint()
-          ..color = kPrimary.withOpacity(0.15)
+          ..color = kPrimary.withValues(alpha: 0.15)
           ..style = PaintingStyle.fill;
         canvas.drawRect(
           Rect.fromLTRB(barX, 0, barW > 0 ? barW : 1, size.height),
@@ -256,7 +253,7 @@ class _ZoneVolumePainter extends CustomPainter {
     var remaining = (to - from).distance;
     while (remaining > 0) {
       final segment = math.min(dash, remaining);
-      canvas.drawLine(cursor, cursor + direction * segment, paint..color = kOnSurfaceVariant.withOpacity(0.3));
+      canvas.drawLine(cursor, cursor + direction * segment, paint..color = kOnSurfaceVariant.withValues(alpha: 0.3));
       cursor += direction * (segment + gap);
       remaining -= segment + gap;
     }

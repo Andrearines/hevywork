@@ -68,9 +68,9 @@ Stream<R> _combineLatest<R>(
         );
       }
     },
-    onCancel: () async {
+    onCancel: () {
       for (final subscription in subscriptions) {
-        await subscription.cancel();
+        subscription.cancel();
       }
     },
   );

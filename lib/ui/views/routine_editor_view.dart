@@ -223,7 +223,6 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
           ? _legacySets(item)
           : stored;
       final exercise = exerciseMap[item.id];
-      final exerciseName = exercise?.name ?? row.exercise?.name ?? 'Ejercicio no disponible';
       drafts.add(
         _DraftExercise(
           key: item.id,

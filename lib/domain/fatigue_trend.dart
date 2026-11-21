@@ -75,8 +75,6 @@ List<FatigueTrendPoint> fatigueTrend({
   final points = <FatigueTrendPoint>[];
   for (var offset = days - 1; offset >= 0; offset--) {
     final day = today.subtract(Duration(days: offset));
-    final nextDay = day.add(const Duration(days: 1));
-
     // Como ExerciseSetRow no tiene endedAt, incluimos todos los sets para
     // cada día y aplicamos decaimiento sobre clock. El caller debe asegurar
     // que la fecha de los sets sea coherente.

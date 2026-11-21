@@ -12,7 +12,6 @@ import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/unit_system_scope.dart';
 import 'package:hevywork/ui/widgets/exercise_progress_chart.dart';
 import 'package:hevywork/ui/views/exercise_info_view.dart';
-import 'package:hevywork/ui/views/exercise_detail_view.dart';
 import 'package:hevywork/ui/views/routine_detail_view.dart';
 
 void main() {
@@ -383,5 +382,5 @@ void main() {
     );
 
     await unmount(tester);
-  });
+  }, tags: ['golden']);
 }
