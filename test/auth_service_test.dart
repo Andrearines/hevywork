@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/data/local/database.dart';
@@ -34,9 +35,22 @@ void main() {
 
   group('signInWithEmail', () {
     test(
-      'ejecuta claim_local_data con el local_user_id y abre sesión',
+      'ejecuta claim_local_data, abre sesión y conserva la cola local',
       () async {
         final localProfile = await db.select(db.localProfiles).getSingle();
+        await db
+            .into(db.syncQueue)
+            .insert(
+              SyncQueueCompanion.insert(
+                id: 'q-claim-success',
+                operation: 'upsert',
+                targetTable: 'workouts',
+                payload: '{"id":"w-claim-success"}',
+                attempts: const Value(2),
+                nextAttemptAt: DateTime.utc(2026, 11, 23, 12),
+              ),
+            );
+        final pendingBefore = await db.select(db.syncQueue).getSingle();
 
         final response = await service.signInWithEmail(
           email: '  atleta@hevywork.app  ',
@@ -55,6 +69,14 @@ void main() {
         final claimedProfile = await db.select(db.localProfiles).getSingle();
         expect(claimedProfile.localUserId, localProfile.localUserId);
         expect(claimedProfile.authUserId, 'user-test');
+
+        final pendingAfter = await db.select(db.syncQueue).getSingle();
+        expect(pendingAfter.id, pendingBefore.id);
+        expect(pendingAfter.payload, pendingBefore.payload);
+        expect(pendingAfter.status, 'pending');
+        expect(pendingAfter.attempts, 2);
+        expect(pendingAfter.attempts, pendingBefore.attempts);
+        expect(pendingAfter.nextAttemptAt, pendingBefore.nextAttemptAt);
       },
     );
 

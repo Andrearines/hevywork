@@ -1,12 +1,22 @@
 # Memory Log — Spec 022
 
-## Estado actual — 022/T-001 implementada, pendiente de revisión (2026-11-23)
+## Estado actual — 022/T-001 implementada, pendiente de revisión final (2026-11-23)
 
 - **Slug:** `022-grafico-descansos-y-ejercicios-personalizados`.
-- **Estado: APROBADO (D-117); Q-006 cerrada.** `tarea_actual: revisión de T-001`.
-  El agente implementador terminó T-001 con CA-01…CA-04 cumplidos y la puerta en
-  verde; falta la revisión independiente obligatoria. T-002…T-006 siguen listas
-  según dependencias y ninguna está implementada ni revisada.
+- **Estado: APROBADO (D-117); Q-006 y Q-007 cerradas.** `tarea_actual: revisión
+  final de T-001`. El revisor considera resueltos todos los hallazgos técnicos,
+  incluida CA-02 con cola sembrada y conservada tras claim exitoso. El cierre del
+  implementador repitió la puerta completa en verde bajo D-119 y conservó todo el
+  trabajo existente. D-119 registra la excepción autorizada, pero **no declara
+  T-001 aprobada**; falta la revisión final obligatoria. T-002…T-006 siguen sin
+  implementar ni revisar.
+- **Estado Git actual:** HEAD es `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`
+  (`sicronizacion`), y la referencia local `origin/2.2.0` apunta al mismo commit.
+  Su reflog registra `update by push` a las 12:55:03 -0600. El commit posterior a
+  `9730e8e` incluye fix, pruebas, documentación y el `pubspec.lock` preexistente.
+  La autoría material del commit/push no es atribuible con la evidencia disponible.
+  D-119 autoriza conservarlo como válido, sin atribuir autoría ni reescribir
+  historial; no autoriza commits/push futuros sin permiso expreso.
 - El usuario respondió «aprovado» a la pregunta que pedía «Apruebo el diseño 022
   completo» o indicar cambios: se registra como aprobación explícita del DESIGN
   completo, sin cambios, el 2026-11-23. La afirmación anterior de aprobación el
@@ -34,6 +44,13 @@
 - **D-118:** la avería demostrada en T-001 es la pérdida de `profiles.avatar_url`
   al filtrar el payload; se corrige solo la whitelist existente. No se infiere un
   fallo general de claim/RLS/red/descarga ni se añade SQL, pull o alcance de T-006.
+- **D-119:** el usuario respondió **«autorizado»** a «¿Autorizas conservar ese
+  commit como válido y actualizar la spec para registrar esta excepción,
+  manteniendo prohibido hacer commits nuevos sin tu permiso?». Cierra Q-007 y
+  autoriza únicamente conservar como válido el commit ya existente/publicado
+  `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` (`sicronizacion`) para T-001. No
+  atribuye autoría ni autoriza commits/push futuros sin permiso, reset, revert,
+  rebase u otra reescritura. La regla de AGENTS sigue vigente en T-001…T-006.
 
 ### Evidencia estática y contratos de planificación
 
@@ -56,6 +73,11 @@
 
 - **Q-006: CERRADA por D-117 el 2026-11-23.** No quedan preguntas de producto
   abiertas ni bloqueos de diseño/datos.
+- **Q-007 (proceso): CERRADA por D-119.** El usuario autorizó conservar como válido
+  únicamente `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` y documentar la excepción.
+  No se revierte ni oculta el estado; siguen prohibidos commits/push nuevos sin
+  permiso y cualquier reescritura. El cierre de T-001 está implementado y requiere
+  la revisión final obligatoria.
 - No hay Q adicional para síntomas de sync en esta fase. Si T-001 no reproduce un
   rojo ni obtiene evidencia remota, devolverá el bloqueo concreto sin declarar el
   arreglo.
@@ -67,9 +89,11 @@
 - Actualizados: `DESIGN.md`, `spec.md`, `plan.md` y `tasks.md` de la 022;
   `docs/DESIGN.md` (solo sección 022), `docs/db.md`, `docs/specs/README.md` y este
   `memory.md`.
-- Preexistentes y preservados: `pubspec.lock` modificado, trabajo no committed y
-  resto del árbol. En planificación no se tocó producción ni se ejecutaron tests;
-  la implementación y puerta posteriores de T-001 quedan en la bitácora siguiente.
+- En planificación, `pubspec.lock` ya estaba modificado y el trabajo estaba sin
+  commitear; ambos se preservaron entonces. No se tocó producción ni se ejecutaron
+  tests en esa fase. El estado Git cambió posteriormente mediante el commit no
+  atribuible documentado arriba y en la iteración correctora; se conserva este
+  histórico sin presentarlo como estado actual.
 
 ## Bitácora de implementación — 022/T-001 (2026-11-23)
 
@@ -109,8 +133,9 @@
 
 - `FakeSupabase` ahora permite una RPC exitosa y `rpcError` inyectable, en vez de
   lanzar siempre antes de devolver el builder.
-- Éxito: `claim_local_data` recibe el `localUserId` original; este no cambia y
-  `authUserId` queda en `user-test`.
+- Primera entrega, éxito: `claim_local_data` recibe el `localUserId` original;
+  este no cambia y `authUserId` queda en `user-test`. Esa prueba no sembraba cola,
+  cobertura que el revisor rechazó y que se completó en la iteración correctora 1.
 - Fallo: el login mantiene su sesión, `localUserId` no cambia, `authUserId` sigue
   nulo y el mismo item conserva payload, `status = pending`, `attempts = 0` y
   `nextAttemptAt`; no se consume su intención de sincronización.
@@ -122,8 +147,9 @@
   `test/fake_supabase.dart`.
 - Coordinación: esta memoria y `docs/specs/022-grafico-descansos-y-ejercicios-
   personalizados/tasks.md`.
-- No se tocaron `sync_engine.dart`, `auth_service.dart`, `main.dart`, esquema,
-  migraciones, `pubspec.lock` ni la spec 021.
+- Los comandos de aquella implementación no tocaron `sync_engine.dart`,
+  `auth_service.dart`, `main.dart`, esquema, migraciones, `pubspec.lock` ni la
+  spec 021. El commit no atribuible posterior sí incluyó el lock ya modificado.
 
 ### Tests y puerta
 
@@ -145,25 +171,116 @@
   ocultos del runner y **727 pruebas reales verdes**, 0 fallos, 0 skips y 0
   goldens iniciados. JSON: `/tmp/opencode/hevywork-t001/full-test-2.json`.
 - `flutter analyze` → **No issues found**, salida 0. `git diff --check` → salida 0.
-- Los **33 PNG** conservan hashes idénticos al inicio. El diff preexistente de
-  `pubspec.lock` es byte a byte el mismo antes/después. Sin commits, skips nuevos,
-  expectativas relajadas, goldens, SQL ni `build_runner`.
+- Los **33 PNG** conservaron hashes idénticos al inicio. El diff preexistente de
+  `pubspec.lock` fue byte a byte el mismo antes/después. En aquella fase el agente
+  no ejecutó commits ni añadió skips, expectativas relajadas, goldens, SQL o
+  `build_runner`; el cambio posterior de HEAD se documenta en la iteración 1.
 - Tras `dart format` de los cuatro archivos de código/pruebas (tres con cambios
   exclusivamente de formato), sync/auth volvió a **33/33**. Se repitió la puerta
   completa: `flutter test --exclude-tags golden --reporter json` → **salida 0**,
   `done.success=true`, **65/65 suites**, **727 pruebas reales verdes**, 0 fallos,
   0 skips y 0 goldens. JSON: `/tmp/opencode/hevywork-t001/full-test-after-format.json`.
   `flutter analyze` repitió **0 incidencias**; format check y `git diff --check`
-  quedaron limpios, y los 33 PNG, el diff de `pubspec.lock` y HEAD siguen intactos.
+  quedaron limpios, y los 33 PNG y el diff de `pubspec.lock` siguen intactos. HEAD
+  era entonces `9730e8e`; su transición posterior se documenta en la iteración 1.
 
-### Resultado y límites
+### Resultado y límites de la primera entrega
 
-- CA-01…CA-04 implementados; T-001 queda **pendiente de revisión independiente**.
+- La primera entrega declaró CA-01…CA-04 implementados y quedó pendiente de
+  revisión; esta fue **RECHAZADA** por la cobertura incompleta de CA-02 y el estado
+  Git posterior. La corrección y sus límites constan en la iteración siguiente.
 - El defecto reproducido está corregido. No se declara probada la sincronización
   contra Supabase real/RLS/Storage/otra réplica: esas capas no fueron necesarias
   para explicar este rojo y su contrato ampliado pertenece a T-006.
-- No hay bloqueos ni preguntas abiertas para el coordinador; no necesita
-  replanificación.
+- En aquella entrega no había bloqueos técnicos conocidos ni necesidad de
+  replanificación. La revisión posterior abrió Q-007, cerrada después por D-119.
+
+## Iteración correctora 1 — 022/T-001 (2026-11-23)
+
+### Rechazo y corrección de CA-02
+
+- El revisor rechazó la primera entrega: el claim exitoso comprobaba RPC e
+  identificadores, pero no sembraba una mutación ni verificaba su conservación.
+- `test/auth_service_test.dart` amplía la prueba existente sin relajarla: siembra
+  `q-claim-success` con payload conocido, `status = pending`, `attempts = 2` y
+  `nextAttemptAt` fijo; tras el claim exitoso comprueba identidad de la fila,
+  payload, estado, ambos intentos y fecha sin cambios. La comprobación de RPC,
+  `localUserId` y `authUserId = user-test` se conserva.
+- No hubo cambio de producción en esta iteración: el código vigente ya conservaba
+  la cola y la nueva regresión pasó. Tampoco se modificó el claim fallido.
+
+### Investigación Git en solo lectura
+
+- Al comenzar la iteración, el árbol estaba limpio en `9d62bac`, no en `9730e8e`.
+  El reflog de HEAD registra `commit: sicronizacion` el 2026-11-23 12:54:42 -0600;
+  `origin/2.2.0` apunta al mismo hash y su reflog registra `update by push` a las
+  12:55:03 -0600. Son evidencias locales; no se hizo fetch ni otra operación remota.
+- El commit contiene los cuatro archivos de fix/pruebas, la documentación 022 y el
+  `pubspec.lock` preexistente. El diff de esos cuatro archivos y el diff del lock
+  coinciden byte a byte con las evidencias guardadas de la primera entrega.
+- Los metadatos Git no establecen qué persona o agente ejecutó commit/push. La
+  bitácora de comandos de este agente no contiene esas operaciones; con la evidencia
+  disponible la transición se registra como **cambio no atribuible**, sin asignar
+  autoría. Se conservaron commit, publicación registrada y lock.
+- No se ejecutaron `reset`, `revert`, `rebase`, `push`, `clean`, commits nuevos ni
+  reescritura de historial. Evidencias: `/tmp/opencode/hevywork-t001-iter1/git-*`.
+
+### Pruebas y puerta de la iteración
+
+- Regresión dirigida de claim exitoso: **1/1 verde**. Sync/auth: **33/33 verdes**;
+  suites adyacentes: **114/114 verdes**, sin relajar ni excluir casos adicionales.
+- `flutter test --exclude-tags golden --reporter json` → **salida 0** en 408304 ms,
+  `done.success=true`, **65/65 suites**, `testStart=testDone=836`; 109 eventos
+  ocultos del runner y **727 pruebas reales verdes**, 0 fallos, 0 skips y 0 goldens.
+  JSON y resumen: `/tmp/opencode/hevywork-t001-iter1/full-test.json` y
+  `full-test-summary.txt`.
+- `flutter analyze` → **0 incidencias**. Format check y `git diff --check` limpios;
+  los **33 PNG** conservan hashes y `pubspec.lock` sigue byte a byte igual al HEAD.
+- Archivos de esta iteración: `test/auth_service_test.dart`, esta memoria y
+  `docs/specs/022-grafico-descansos-y-ejercicios-personalizados/tasks.md`.
+- CA-02 quedó corregida por el implementador. La puerta técnica estaba verde, pero
+  CA-04/NFR-06 no podía describirse como «sin commits»: se abrió Q-007 sin ocultar
+  el incumplimiento. La revisión y autorización posteriores constan a continuación.
+
+## Revisión técnica y refinamiento Q-007/D-119 — 022/T-001 (2026-11-23)
+
+- El revisor considera resueltos todos los hallazgos técnicos, incluida CA-02 con
+  cola sembrada y conservada tras claim exitoso. Rechazó únicamente por
+  CA-04/NFR-06/puerta común «sin commits» y no recomendó reset ni reescritura.
+- El usuario respondió **«autorizado»** a la pregunta exacta registrada en D-119.
+  Q-007 queda cerrada y se exceptúa solo conservar como válido el commit ya
+  existente/publicado `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`
+  (`sicronizacion`), con HEAD y `origin/2.2.0` en ese hash según evidencia local.
+- No se atribuye autoría ni se autorizan commits/push futuros sin permiso, reset,
+  revert, rebase u otra reescritura. No cambia ningún CA técnico ni la regla de
+  AGENTS para T-001…T-006.
+- **Estado para coordinación:** devolver T-001 al mismo implementador para cierre
+  y luego al mismo revisor para nueva revisión obligatoria. El planner no la declara
+  aprobada. Este refinamiento solo editó documentación y no ejecutó suites.
+
+## Cierre de implementación — 022/T-001 tras D-119 (2026-11-23)
+
+- Se comprobó la coherencia de D-119/Q-007 en `spec.md`, `plan.md`, `tasks.md`,
+  `docs/db.md`, `docs/specs/README.md` y esta memoria: la excepción se limita a
+  conservar `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`, sin autorización de
+  commits/push futuros ni reescritura y sin cambiar los CA técnicos.
+- Estado inicial verificado: HEAD y la referencia local `origin/2.2.0` en
+  `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`; árbol con los cambios del planner y
+  `test/auth_service_test.dart`, sin archivos staged. La regresión de claim exitoso
+  conserva la cola y sus comprobaciones de payload, `pending`, dos intentos y fecha.
+- No se modificó producción ni ningún test. Los hashes de `test/auth_service_test.dart`,
+  `spec.md`, `plan.md`, `docs/db.md` y `docs/specs/README.md` se conservaron durante
+  el cierre. Esta iteración solo actualiza `memory.md` y `tasks.md`.
+- `flutter test --exclude-tags golden --reporter json` → **salida 0** en 403030 ms,
+  `done.success=true`, **65/65 suites**, `testStart=testDone=836`; 109 eventos
+  ocultos del runner y **727 pruebas reales verdes**, 0 fallos, 0 skips y 0 goldens.
+  Evidencias: `/tmp/opencode/hevywork-t001-cierre/full-test.json` y
+  `full-test-summary.txt`.
+- `flutter analyze` → **0 incidencias**. Format check y `git diff --check` limpios;
+  los **33 PNG** conservan hashes y `pubspec.lock` sigue byte a byte igual al HEAD.
+- No se ejecutaron commit, push, reset, rebase, revert, clean ni reescritura. HEAD
+  permanece en el hash autorizado por D-119. T-001 queda **IMPLEMENTADA —
+  PENDIENTE DE REVISIÓN FINAL**, sin aprobación unilateral.
 
 ## Histórico — Spec 021
 

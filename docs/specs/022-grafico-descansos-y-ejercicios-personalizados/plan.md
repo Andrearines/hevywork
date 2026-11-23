@@ -1,8 +1,10 @@
 # Plan técnico — Spec 022
 
 **Estado: APROBADO (D-117, 2026-11-23); T-001…T-006 listas según dependencias.**
-**Tarea inicial:** T-001. No hay implementación ni migraciones aplicadas en esta
-planificación.
+**Estado actual de T-001:** lista para cierre por el mismo implementador y nueva
+revisión obligatoria; no aprobada por el planner. Q-007 está cerrada por D-119.
+La planificación inicial no aplicó implementación ni migraciones; la ejecución y
+sus evidencias posteriores se conservan en `tasks.md` y `memory.md`.
 
 ## 1. Preflight y límites
 
@@ -185,6 +187,24 @@ generado. En planificación no se ejecuta.
 
 ## 8. Entrega al implementador
 
-Empezar por **T-001**. Después seguir T-002 → T-003 → T-004 → T-005 → T-006.
-Ninguna tarea está terminada por esta planificación. Cada una exige sus CA,
-regresiones, puerta completa no golden + analyze y revisión independiente.
+Devolver **T-001 al mismo implementador para cierre** y después al mismo revisor
+para nueva revisión obligatoria; el planner no la marca aprobada. Tras su
+aprobación, seguir T-002 → T-003 → T-004 → T-005 → T-006. Cada tarea exige sus
+CA, regresiones, puerta completa no golden + analyze y revisión independiente.
+
+## 9. Refinamiento de proceso T-001 — Q-007/D-119
+
+El revisor considera resueltos todos los hallazgos técnicos, incluida CA-02 con
+cola sembrada y conservada tras claim exitoso; su rechazo restante fue únicamente
+la exigencia literal «sin commits». No recomendó reset ni reescritura.
+
+El usuario respondió **«autorizado»** a conservar el commit como válido y registrar
+la excepción, manteniendo prohibidos commits nuevos sin permiso. D-119 cierra
+Q-007 y se limita al commit ya existente/publicado
+`9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` (`sicronizacion`), con HEAD y
+`origin/2.2.0` en ese hash según evidencia local. No atribuye autoría ni autoriza
+commits/push futuros, reset, revert, rebase u otra reescritura.
+
+La puerta común queda: sin PNG ni dependencias nuevas y sin commits/push nuevos
+sin permiso en T-001…T-006. La excepción no altera CA-01…CA-03 ni ningún otro CA
+técnico y no sustituye la nueva revisión.

@@ -267,4 +267,7 @@ Cada tarea que toque drift ejecuta el comando aprobado de `build_runner` y tests
 upgrade. T-006 revisa SQL/RLS/Storage antes de aplicar su única migración. Al
 terminar cada tarea: `flutter test --exclude-tags golden` completa en verde y
 `flutter analyze` sin incidencias, sin modificar PNG, añadir dependencias ni hacer
-commits.
+commits/push nuevos sin permiso. La única excepción es D-119 para conservar en
+T-001 el commit ya existente/publicado
+`9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`; no se extiende a T-002…T-006 ni
+autoriza reescritura de historial.

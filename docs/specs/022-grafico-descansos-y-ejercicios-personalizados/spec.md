@@ -1,12 +1,14 @@
 # Spec 022 — Gráfico, descansos y ejercicios personalizados
 
 **Estado: APROBADA — DESIGN y alcance confirmados por el usuario el 2026-11-23.**
-**Tarea inicial lista:** T-001. Las demás tareas están listas y ordenadas por
-dependencias en `tasks.md`; ninguna está implementada ni aprobada todavía.
+**Tarea actual:** T-001 está lista para cierre por el mismo implementador y nueva
+revisión obligatoria; no se declara aprobada desde planificación. El revisor ya
+considera resueltos todos los hallazgos técnicos, incluida CA-02 con cola sembrada
+y conservada tras claim exitoso. T-002…T-006 siguen sin implementar.
 
 La spec 021 está cerrada y aprobada; esta petición nueva no la reabre ni cambia sus
-criterios. Q-006 quedó cerrada por D-117. El diseño vinculante está en `DESIGN.md`
-y los contratos de datos en `docs/db.md`.
+criterios. Q-006 quedó cerrada por D-117 y Q-007 por D-119. El diseño vinculante
+está en `DESIGN.md` y los contratos de datos en `docs/db.md`.
 
 ## 1. Contexto y objetivo
 
@@ -39,6 +41,13 @@ catálogo y pueden usar una cuenta en más de un dispositivo.
 - **D-117:** el usuario respondió «aprovado» a la pregunta que pedía «Apruebo el
   diseño 022 completo» o cambios. Se registra como aprobación explícita del DESIGN
   completo, sin cambios, el 2026-11-23.
+- **D-119:** ante Q-007, el usuario respondió **«autorizado»** a «¿Autorizas
+  conservar ese commit como válido y actualizar la spec para registrar esta
+  excepción, manteniendo prohibido hacer commits nuevos sin tu permiso?». Autoriza
+  exclusivamente conservar como válido el commit ya existente/publicado
+  `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` (`sicronizacion`) para la excepción
+  documental de T-001. No atribuye autoría, no autoriza commits/push futuros sin
+  permiso expreso ni permite reset, revert, rebase u otra reescritura de historial.
 
 D-117 confirma expresamente los siete puntos que estaban pendientes:
 
@@ -180,7 +189,7 @@ spec.
 | NFR-03 | Cada cambio drift incrementa `schemaVersion` y pasa por `build_runner`; cada cambio remoto usa una migración por tarea, RLS y `user_id`. | Tests de migración local y revisión SQL/políticas antes de aplicar. |
 | NFR-04 | Las pantallas mantienen AA, targets ≥44 dp y comportamiento usable a 320/375/640/1024 dp con `textScaler` hasta 1.3. | Tests widget/unitarios, semántica y comprobaciones de overflow sin goldens. |
 | NFR-05 | La puerta es `flutter test --exclude-tags golden` completa en verde y `flutter analyze` sin incidencias; ningún PNG se modifica. | Salida completa de ambos comandos y comprobación de hashes/diff de PNG. |
-| NFR-06 | Se preservan la 021, el trabajo ajeno y los archivos no relacionados; no se hacen commits. | Revisión de estado/diff al inicio y cierre de cada tarea. |
+| NFR-06 | Se preservan la 021, el trabajo ajeno y los archivos no relacionados; no se hacen commits/push nuevos sin permiso expreso. La única excepción es conservar el hash ya existente/publicado de D-119, sin reescribir historial. | Revisión de estado/diff al inicio y cierre de cada tarea; la excepción de T-001 nombra exactamente `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` y cualquier commit/push nuevo exige permiso independiente. |
 | NFR-07 | Los contadores se calculan contra `DateTime`, no contra ticks, y la UI no se bloquea por sincronización. | Tests con reloj fijo, pausa/reanudación y latencia/fallo de red. |
 | NFR-08 | Una réplica nunca sobrescribe una mutación local pendiente; el servidor resuelve el orden final con `updated_at`. | Tests de dos réplicas, cola pendiente y conflictos de subida/descarga. |
 
@@ -189,7 +198,9 @@ spec.
 - Reabrir o rehacer la spec 021 y ejecutar el rediseño general pendiente de la 020.
 - Sustituir el catálogo maestro ni editar sus datos originales para personalizar
   músculos: se usa una personalización reversible.
-- Añadir dependencias, generar goldens, modificar PNG o hacer commits.
+- Añadir dependencias, generar goldens, modificar PNG o hacer commits/push nuevos
+  sin permiso expreso. D-119 solo exceptúa conservar el hash histórico indicado;
+  no autoriza reescritura ni operaciones Git futuras.
 - Reescribir toda la sincronización sin un caso rojo que lo justifique.
 - Aplicar migraciones o cambiar `database.g.dart` durante la planificación.
 - Temporizadores de fases, ejercicios compartidos públicamente, borrado de
@@ -217,3 +228,21 @@ recomendada es serial. T-006 depende de T-001 y T-005, transitivamente de todas.
 
 La spec no se cierra hasta que todos los FR tengan regresión, todas las tareas
 estén aprobadas por revisión y se cumpla NFR-05 sin excepciones.
+
+## 11. Q-007 — Cerrada por D-119; cierre pendiente de T-001
+
+El revisor considera resueltos todos sus hallazgos técnicos, incluida CA-02 con una
+mutación sembrada cuyo payload, estado, intentos y fecha se conservan tras claim
+exitoso.
+Rechazó únicamente por la redacción literal «sin commits» de CA-04/NFR-06/puerta
+común; no recomendó reset ni reescritura.
+
+La respuesta **«autorizado»** cierra Q-007 y permite conservar como válido solo
+`9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` (`sicronizacion`), ya existente y
+publicado, con HEAD y `origin/2.2.0` en ese hash según la evidencia local. La
+autoría material sigue sin atribuirse. Se mantiene la regla de AGENTS: ningún
+commit nuevo sin permiso; tampoco se autoriza push futuro ni reescritura.
+
+D-119 no modifica CA-01…CA-03 ni ningún otro CA técnico. T-001 vuelve al mismo
+implementador para cierre y después al mismo revisor para una nueva revisión
+obligatoria. El planner no la declara aprobada.

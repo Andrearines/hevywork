@@ -1,18 +1,22 @@
 # Tareas — Spec 022
 
-**Estado global: APROBADAS Y LISTAS (D-117, 2026-11-23).**
-**Tarea actual:** revisión de T-001, ya implementada; ninguna tarea está revisada
-y T-002…T-006 no están implementadas.
+**Estado global: APROBADAS Y LISTAS (D-117 y refinamiento D-119, 2026-11-23).**
+**Tarea actual:** revisión final de T-001 tras completar su cierre de implementación
+y repetir la puerta en verde. El revisor considera resueltos todos los hallazgos
+técnicos, incluida CA-02; Q-007 está cerrada por D-119, pero esto **no marca T-001
+aprobada**. Falta la revisión final obligatoria. T-002…T-006 no están implementadas.
 
 Orden recomendado: T-001 → T-002 → T-003 → T-004 → T-005 → T-006.
 T-002 es técnicamente independiente de T-001; las demás dependencias son
 obligatorias. Los contratos congelados están en `docs/db.md`. Cada tarea exige sus
 CA, revisión independiente y la puerta completa `flutter test --exclude-tags
-golden` + `flutter analyze`, sin PNG, dependencias ni commits.
+golden` + `flutter analyze`, sin PNG, dependencias ni commits/push nuevos sin
+permiso. La única excepción es conservar el hash ya existente/publicado de D-119.
 
 ## T-001 — Diagnosticar y corregir la sincronización actual con evidencia
 
-- **Estado:** IMPLEMENTADA — PENDIENTE DE REVISIÓN INDEPENDIENTE.
+- **Estado:** IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL OBLIGATORIA. Cierre
+  completado bajo D-119; Q-007 cerrada y T-001 todavía no aprobada.
 - **Trazabilidad:** US-05, FR-10, SCR-05; NFR-01/NFR-03/NFR-05/NFR-06/NFR-08.
 - **Dependencias:** ninguna técnica previa. T-006 depende de su diagnóstico.
 - **Alcance:** reproducir el fallo actual antes de extender sync a nuevas entidades.
@@ -44,25 +48,88 @@ golden` + `flutter analyze`, sin PNG, dependencias ni commits.
   esa corrección, **Then** se devuelve al planner para delimitar una única
   migración antes de aplicarla, sin improvisarla ni mezclarla con T-006; **Given**
   el cierre, **When** se ejecuta la puerta, **Then** toda la selección no golden y
-  analyze están en verde sin PNG ni commits.
+  analyze están en verde sin PNG ni commits/push nuevos sin permiso. La excepción
+  documental D-119 se limita a conservar
+  `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`, sin reescritura de historial.
 
-### Resultado de implementación — 2026-11-23
+### Resultado de la primera implementación — 2026-11-23
 
-- **CA-01…CA-04 cumplidos por el implementador; revisión pendiente.** La escritura
-  real de perfil demostró que `avatar_url` existía en el payload local y en
-  Postgres, pero desaparecía en `buildRemoteRow` por faltar en la whitelist.
-- Regresión integrada roja (`Expected` la URL, `Actual: null`) → verde tras añadir
+- La primera entrega declaró CA-01…CA-04 cumplidos, pero la revisión la
+  **RECHAZÓ** por cobertura insuficiente de CA-02 y por la transición de HEAD.
+- La escritura real de perfil demostró que `avatar_url` existía en el payload
+  local y en Postgres, pero desaparecía en `buildRemoteRow` por faltar en la
+  whitelist. Regresión roja (`Expected` la URL, `Actual: null`) → verde tras añadir
   solo esa columna a `remoteColumns['profiles']`. No necesitó SQL ni replanificar.
-- Claim exitoso: conserva `localUserId` y fija `authUserId`. Claim fallido:
-  conserva identidad, payload, `pending`, `attempts = 0` y `nextAttemptAt`.
+- El claim exitoso comprobaba `localUserId`/`authUserId`, pero no sembraba cola.
+  El fallido sí conservaba identidad, payload, `pending`, `attempts = 0` y
+  `nextAttemptAt`. La cobertura de éxito se completó en la iteración correctora.
 - Sync/auth: 33/33; suites adyacentes: 114/114. Puerta completa repetida tras un
   primer aborto del runner y nuevamente tras formatear: salida 0, 65/65 suites y
   727 pruebas reales verdes, 0 skips/goldens. `flutter analyze`: 0 incidencias;
   `git diff --check`: limpio.
 - Modificados: `lib/data/sync/sync_payload.dart`, `test/sync_engine_test.dart`,
-  `test/auth_service_test.dart` y `test/fake_supabase.dart`. Sin migraciones,
-  dependencias, commits ni cambios de PNG/lock. Detalle y evidencias en
-  `memory.md`, sección «Bitácora de implementación — 022/T-001».
+  `test/auth_service_test.dart` y `test/fake_supabase.dart`. Aquella implementación
+  no añadió migraciones/dependencias ni cambió PNG/lock; el agente no ejecutó
+  commits en esa fase. El estado Git posterior se describe en la iteración siguiente.
+
+### Iteración correctora 1 — 2026-11-23
+
+- **CA-02 corregida, pendiente de revisión:** la prueba de claim exitoso ahora
+  siembra `q-claim-success` con `attempts = 2` y `nextAttemptAt` fijo, y verifica
+  que la misma mutación conserva payload, `pending`, intentos y fecha tras el claim.
+  Mantiene las comprobaciones anteriores de RPC e identidad; no relaja tests ni
+  cambia producción. La regresión dirigida pasa 1/1.
+- Sync/auth: **33/33**; adyacentes: **114/114**. Puerta completa: salida 0,
+  `done.success=true`, **65/65 suites**, **727 pruebas reales verdes**, 0 fallos,
+  0 skips/goldens. `flutter analyze`: 0 incidencias; format/diff-check limpios;
+  33 PNG y lock sin cambios.
+- **Estado Git comprobado en solo lectura:** HEAD actual es
+  `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` (`sicronizacion`), posterior a
+  `9730e8e`; la referencia local `origin/2.2.0` apunta al mismo hash y su reflog
+  registra `update by push`. El commit incluye fix, pruebas, documentación y el
+  `pubspec.lock` preexistente. Los diffs de código/pruebas y lock coinciden con las
+  evidencias de la primera entrega.
+- La autoría material del commit/push **no puede establecerse** con los metadatos
+  disponibles; se registra como cambio no atribuible. Se conservan commit y lock,
+  sin reset/revert/rebase/push/clean ni commits nuevos en esta iteración.
+- **Q-007 en aquella iteración:** CA-04/NFR-06 exigía «sin commits», requisito
+  incumplido en el estado actual aunque la puerta técnica estuviera verde. No se
+  falseó la documentación ni se reescribió el historial para obtener aprobación.
+- Archivos de esta iteración: `test/auth_service_test.dart`, `memory.md` y este
+  `tasks.md`. Sin dependencias, migraciones ni cambios de producción/PNG/lock.
+
+### Revisión técnica y refinamiento Q-007/D-119 — 2026-11-23
+
+- El revisor considera resueltos todos los hallazgos técnicos, incluida CA-02 con
+  cola sembrada y conservada tras claim exitoso. Rechazó únicamente por la regla
+  literal «sin commits» y no recomendó reset ni reescritura.
+- El usuario respondió **«autorizado»** a conservar ese commit como válido y
+  documentar la excepción, manteniendo prohibidos commits nuevos sin permiso.
+  Q-007 queda cerrada por **D-119**, exclusivamente para el commit ya
+  existente/publicado `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`
+  (`sicronizacion`), con HEAD y `origin/2.2.0` en ese hash según evidencia local.
+- No se atribuye autoría ni se autorizan commits/push futuros, reset, revert,
+  rebase u otra reescritura. La regla general de AGENTS sigue vigente para
+  T-001…T-006. No cambia ningún CA técnico.
+- **Estado resultante:** devolver T-001 al mismo implementador para cierre y luego
+  al mismo revisor para nueva revisión obligatoria. D-119 no equivale a APROBADO.
+
+### Cierre de implementación tras D-119 — 2026-11-23
+
+- Se verificó que spec/plan/tasks/db/README/memory limitan D-119 a conservar el
+  commit `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`, sin ampliar la excepción ni
+  cambiar los CA técnicos. HEAD y `origin/2.2.0` estaban en ese hash; no había
+  archivos staged y se conservaron los cambios del planner y la prueba de claim.
+- No se modificó producción ni tests. La regresión de claim exitoso que siembra y
+  conserva la cola quedó intacta, igual que spec/plan/db/README, comprobado por hash.
+- Puerta repetida: `flutter test --exclude-tags golden --reporter json` → salida 0,
+  `done.success=true`, **65/65 suites**, **727 pruebas reales verdes**, 0 fallos,
+  0 skips/goldens. `flutter analyze`: **0 incidencias**; format/diff-check limpios;
+  33 PNG sin cambios y `pubspec.lock` idéntico al HEAD. Evidencias en
+  `/tmp/opencode/hevywork-t001-cierre/`.
+- Sin commit, push, reset, rebase, revert, clean ni reescritura. Solo se actualizaron
+  `memory.md` y este `tasks.md`. **Resultado: T-001 IMPLEMENTADA — PENDIENTE DE
+  REVISIÓN FINAL**, sin declarar aprobación unilateral.
 
 ## T-002 — Reproducir y corregir datos/geometría del gráfico
 
@@ -255,7 +322,7 @@ golden` + `flutter analyze`, sin PNG, dependencias ni commits.
 | NFR-03 | T-001/CA-04, T-003/migración v19, T-004/CA-16, T-006/CA-23; T-005 sin migración |
 | NFR-04 | T-002/CA-06/08, T-003/CA-12, T-004/CA-13…15, T-005/CA-17…19, T-006/CA-23 |
 | NFR-05 | Puerta obligatoria al cierre de cada tarea; hashes/diff de PNG |
-| NFR-06 | Revisión inicial/final de cada tarea; 021 y trabajo ajeno intactos |
+| NFR-06 | Revisión inicial/final de cada tarea; 021 y trabajo ajeno intactos; sin commits/push nuevos sin permiso. D-119 exceptúa solo conservar `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` en T-001 |
 | NFR-07 | T-003/CA-10…12 y T-006/CA-20…22 con reloj/latencia controlados |
 | NFR-08 | T-001/CA-01…03 y T-006/CA-21…22 con dos réplicas/cola pendiente |
 
@@ -268,5 +335,6 @@ golden` + `flutter analyze`, sin PNG, dependencias ni commits.
 - Todos los criterios usan Given/When/Then; no quedan condicionados a Q-006.
 - No hay placeholders pendientes, SQL aplicado ni cambios drift. T-001 modificó
   la whitelist de perfiles y sus pruebas; T-002…T-006 no tienen implementación.
-- Q-006 está cerrada por D-117. **Tarea actual: revisión independiente de T-001.**
-  Las demás se entregan al satisfacer sus dependencias.
+- Q-006 está cerrada por D-117 y Q-007 por D-119. **Tarea actual: revisión final de
+  T-001**, ya implementada y con la puerta de cierre en verde, sin declararla
+  aprobada unilateralmente. Las demás se entregan al satisfacer dependencias.
