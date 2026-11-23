@@ -1,6 +1,173 @@
-# Memory Log — Spec 021
+# Memory Log — Spec 022
 
-## Estado actual
+## Estado actual — 022/T-001 implementada, pendiente de revisión (2026-11-23)
+
+- **Slug:** `022-grafico-descansos-y-ejercicios-personalizados`.
+- **Estado: APROBADO (D-117); Q-006 cerrada.** `tarea_actual: revisión de T-001`.
+  El agente implementador terminó T-001 con CA-01…CA-04 cumplidos y la puerta en
+  verde; falta la revisión independiente obligatoria. T-002…T-006 siguen listas
+  según dependencias y ninguna está implementada ni revisada.
+- El usuario respondió «aprovado» a la pregunta que pedía «Apruebo el diseño 022
+  completo» o indicar cambios: se registra como aprobación explícita del DESIGN
+  completo, sin cambios, el 2026-11-23. La afirmación anterior de aprobación el
+  2026-11-21 era incorrecta y no se conserva como histórico.
+- La spec 021 sigue **cerrada/aprobada** y no se reabre. Todo su histórico queda
+  conservado debajo.
+- **D-111:** opción C confirmada: editar desde tarjeta live cambia predeterminado
+  y countdown activo inmediatamente.
+- **D-112:** objetivo/secundarios editables en cualquier ejercicio, incluido
+  catálogo, con restauración reversible.
+- **D-113:** imagen de galería/cámara o placeholder, con datos e imagen de
+  personalizados sincronizados.
+- **D-114 (histórica, superada por D-117):** recogió el estado previo en que los
+  puntos 1–7 todavía no estaban confirmados; ya no representa el alcance vigente.
+- **D-115:** el fallo genérico de sync se investiga primero mediante reproducción
+  rojo→verde; no se atribuye a claim, RLS, descarga ni red sin evidencia y no se
+  preguntan síntomas antes de agotar ese diagnóstico acotado.
+- **D-116 (histórica, superada por D-117):** la antigua puerta de Q-006 quedó
+  levantada al aprobarse el DESIGN; las puertas técnicas de cada tarea siguen
+  vigentes.
+- **D-117:** aprueba timers independientes/simultáneos; sync del predeterminado y
+  countdown; `ThumbFallback`; campos obligatorios y 90 s (15–300); fechas reales,
+  máximo cuatro etiquetas y frecuencia sin cero artificial; estados/reintento en
+  Perfil; derivación de `muscle_group` y paginación de 50.
+- **D-118:** la avería demostrada en T-001 es la pérdida de `profiles.avatar_url`
+  al filtrar el payload; se corrige solo la whitelist existente. No se infiere un
+  fallo general de claim/RLS/red/descarga ni se añade SQL, pull o alcance de T-006.
+
+### Evidencia estática y contratos de planificación
+
+- El chart mezcla cuatro x fijas con otra fórmula desde el quinto punto y destaca
+  `xPositions.last`: T-002 debe obtener un rojo geométrico >4 puntos antes de
+  corregir. El test actual de 12 puntos no inspecciona coordenadas.
+- `_changeRest()` de la ficha solo hace `setState`; el ajuste live solo guarda el
+  timer. Antes de la 022 el countdown era uno por workout, local y no encolado;
+  T-003 lo hace independiente y T-006 implementa la réplica aprobada.
+- Los tests de sync cubren cola de subida con `pusher`, backoff y `dead_letter`.
+  No prueban por sí solos Supabase real/RLS/Storage/otra réplica. No se ejecutó
+  ninguna suite en esta planificación y no se afirma una avería concreta.
+- Contratos congelados en `docs/db.md`: preferencias de catálogo separadas,
+  personalizados `custom_<uuid>`, timers por `workout_exercise`, bucket privado,
+  claim/RLS, descarga con protección de cambios locales y restauración desde el
+  asset con patches. Drift v19 (T-003), v20 (T-004), v21 (T-006); T-005 sin nueva
+  versión; una única migración Supabase en T-006. Nada aplicado en planificación.
+
+### Preguntas
+
+- **Q-006: CERRADA por D-117 el 2026-11-23.** No quedan preguntas de producto
+  abiertas ni bloqueos de diseño/datos.
+- No hay Q adicional para síntomas de sync en esta fase. Si T-001 no reproduce un
+  rojo ni obtiene evidencia remota, devolverá el bloqueo concreto sin declarar el
+  arreglo.
+
+### Orden y archivos de la sesión
+
+- Orden: T-001 → T-002 → T-003 → T-004 → T-005 → T-006. T-002 es técnicamente
+  independiente de T-001; T-006 depende de T-001 y T-005, transitivamente de todas.
+- Actualizados: `DESIGN.md`, `spec.md`, `plan.md` y `tasks.md` de la 022;
+  `docs/DESIGN.md` (solo sección 022), `docs/db.md`, `docs/specs/README.md` y este
+  `memory.md`.
+- Preexistentes y preservados: `pubspec.lock` modificado, trabajo no committed y
+  resto del árbol. En planificación no se tocó producción ni se ejecutaron tests;
+  la implementación y puerta posteriores de T-001 quedan en la bitácora siguiente.
+
+## Bitácora de implementación — 022/T-001 (2026-11-23)
+
+### Diagnóstico y causa demostrada — CA-01
+
+- Baseline `flutter test test/sync_engine_test.dart test/auth_service_test.dart
+  --exclude-tags golden --reporter expanded`: **31/31 verdes**. El fake hacía
+  fallar siempre la RPC y `_claimLocalData` conservaba el login; ese ruido no se
+  tomó como evidencia de una avería real de claim.
+- Se recorrió una escritura real con `ProfileRepository.setAvatarUrl()` →
+  `SyncEngine.enqueueMutation()` → `sync_queue` → `buildRemoteRow()` → `pusher`.
+  La escritura local conservaba la URL, la mutación se encolaba y el upsert
+  exitoso borraba solamente el item confirmado, pero la fila enviada perdía
+  `avatar_url` (`null`). El repositorio sí incluye esa clave y la migración
+  `20261026000000_profile_photos_bucket.sql` ya crea la columna remota; la causa
+  es su ausencia en `remoteColumns['profiles']`.
+- Invariantes verificados y conservados: mapeo/identity de `user_id`, éxito con
+  borrado tras ack, ausencia de Supabase sin consumo de intentos, backoff con
+  techo, `dead_letter` sin borrado, callbacks de ciclo y mapping adyacente.
+- No se borraron datos ni la cola para producir o arreglar el rojo. No fue
+  necesario atribuir el síntoma a Supabase real, RLS, Storage, red o descarga.
+
+### Regresión roja→verde y fix mínimo — CA-03/CA-04
+
+- Rojo: `flutter test test/sync_engine_test.dart --plain-name 'una escritura de
+  perfil conserva avatar_url hasta el upsert' --reporter expanded` → salida 1;
+  `Expected: 'https://cdn.hevywork.app/avatar.jpg'`, `Actual: <null>`. Evidencia:
+  `/tmp/opencode/hevywork-t001/red-avatar-url.txt`.
+- Fix: añadir únicamente `'avatar_url'` a la whitelist de perfiles en
+  `lib/data/sync/sync_payload.dart`. No hay migración SQL, drift, dependencias ni
+  replanificación necesaria.
+- El mismo comando pasó a **1/1 verde**, conservando el perfil local, una sola
+  subida con la URL y cola vacía tras confirmación. Evidencia:
+  `/tmp/opencode/hevywork-t001/green-avatar-url.txt`.
+
+### Claim éxito/fallo inyectado — CA-02
+
+- `FakeSupabase` ahora permite una RPC exitosa y `rpcError` inyectable, en vez de
+  lanzar siempre antes de devolver el builder.
+- Éxito: `claim_local_data` recibe el `localUserId` original; este no cambia y
+  `authUserId` queda en `user-test`.
+- Fallo: el login mantiene su sesión, `localUserId` no cambia, `authUserId` sigue
+  nulo y el mismo item conserva payload, `status = pending`, `attempts = 0` y
+  `nextAttemptAt`; no se consume su intención de sincronización.
+
+### Archivos modificados
+
+- Producción: `lib/data/sync/sync_payload.dart`.
+- Pruebas: `test/sync_engine_test.dart`, `test/auth_service_test.dart` y
+  `test/fake_supabase.dart`.
+- Coordinación: esta memoria y `docs/specs/022-grafico-descansos-y-ejercicios-
+  personalizados/tasks.md`.
+- No se tocaron `sync_engine.dart`, `auth_service.dart`, `main.dart`, esquema,
+  migraciones, `pubspec.lock` ni la spec 021.
+
+### Tests y puerta
+
+- Dirigido rojo→verde: **1 fallo → 1/1 verde**.
+- `flutter test test/sync_engine_test.dart test/auth_service_test.dart
+  --exclude-tags golden --reporter expanded`: **33/33 verdes**; incluye éxito,
+  backoff, `dead_letter`, mapping y ambos caminos de claim.
+- Suites adyacentes (`profile_repository`, `profile_view`, `workout_repository`,
+  `routine_repository`, `body_metric_repository`, `photo_repository`) con
+  `--exclude-tags golden`: **114/114 verdes**.
+- Primer intento de `flutter test --exclude-tags golden --reporter expanded`: el
+  límite externo de 300 s impidió completar la puerta. El log llegó a 472 verdes y
+  abortó al cargar `t002_precision_test.dart` con `Bad state: Cannot close sink
+  while adding stream` a las 04:45; no se contó como verde ni se aumentó timeout.
+  Ese archivo pasó aislado **1/1 en 9 s**.
+- Segunda ejecución de la misma selección y concurrencia, con reporter JSON:
+  `flutter test --exclude-tags golden --reporter json` → **salida 0** en 225675 ms;
+  `done.success=true`, **65/65 suites**, `testStart=testDone=836`; 109 eventos
+  ocultos del runner y **727 pruebas reales verdes**, 0 fallos, 0 skips y 0
+  goldens iniciados. JSON: `/tmp/opencode/hevywork-t001/full-test-2.json`.
+- `flutter analyze` → **No issues found**, salida 0. `git diff --check` → salida 0.
+- Los **33 PNG** conservan hashes idénticos al inicio. El diff preexistente de
+  `pubspec.lock` es byte a byte el mismo antes/después. Sin commits, skips nuevos,
+  expectativas relajadas, goldens, SQL ni `build_runner`.
+- Tras `dart format` de los cuatro archivos de código/pruebas (tres con cambios
+  exclusivamente de formato), sync/auth volvió a **33/33**. Se repitió la puerta
+  completa: `flutter test --exclude-tags golden --reporter json` → **salida 0**,
+  `done.success=true`, **65/65 suites**, **727 pruebas reales verdes**, 0 fallos,
+  0 skips y 0 goldens. JSON: `/tmp/opencode/hevywork-t001/full-test-after-format.json`.
+  `flutter analyze` repitió **0 incidencias**; format check y `git diff --check`
+  quedaron limpios, y los 33 PNG, el diff de `pubspec.lock` y HEAD siguen intactos.
+
+### Resultado y límites
+
+- CA-01…CA-04 implementados; T-001 queda **pendiente de revisión independiente**.
+- El defecto reproducido está corregido. No se declara probada la sincronización
+  contra Supabase real/RLS/Storage/otra réplica: esas capas no fueron necesarias
+  para explicar este rojo y su contrato ampliado pertenece a T-006.
+- No hay bloqueos ni preguntas abiertas para el coordinador; no necesita
+  replanificación.
+
+## Histórico — Spec 021
+
+### Estado al cierre
 - Fecha: Fri Nov 20 2026. **CIERRE FORMAL: revisión 2 APROBADA.**
 - Sin agente pendiente: T-003 aprobada, Q-005 cerrada, spec
   `021-correccion-grafico-precision-numerica` **cerrada**. No reabrir sin una

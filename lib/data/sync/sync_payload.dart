@@ -6,7 +6,7 @@ import 'dart:convert';
 /// remoto (`name`, `rest_ends_at`…): se descartan aquí para que el upsert
 /// no falle con una columna desconocida.
 const Map<String, Set<String>> remoteColumns = {
-  'profiles': {'display_name', 'unit_system', 'sex', 'height_cm'},
+  'profiles': {'display_name', 'unit_system', 'sex', 'height_cm', 'avatar_url'},
   'workouts': {
     'id',
     'user_id',

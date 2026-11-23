@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/data/local/database.dart';
+import 'package:hevywork/data/repositories/profile_repository.dart';
 import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/data/sync/sync_payload.dart';
 
@@ -333,6 +335,37 @@ void main() {
       expect(pushed.single['user_id'], 'user-1');
       expect(await db.select(db.syncQueue).get(), isEmpty);
     });
+
+    test(
+      'una escritura de perfil conserva avatar_url hasta el upsert',
+      () async {
+        const avatarUrl = 'https://cdn.hevywork.app/avatar.jpg';
+        final pushed = <Map<String, dynamic>>[];
+        final synced = Completer<void>();
+        final engine = SyncEngine(
+          db,
+          null,
+          pusher: (table, operation, row) async => pushed.add(row),
+          userIdProvider: () => 'user-1',
+          onSyncCompleted: () async {
+            if (!synced.isCompleted) synced.complete();
+          },
+        );
+        final repository = ProfileRepository(
+          db,
+          enqueue: engine.enqueueMutation,
+        );
+
+        await repository.setAvatarUrl(avatarUrl);
+        await synced.future;
+
+        final profile = await db.select(db.localProfiles).getSingle();
+        expect(profile.avatarUrl, avatarUrl);
+        expect(pushed, hasLength(1));
+        expect(pushed.single['avatar_url'], avatarUrl);
+        expect(await db.select(db.syncQueue).get(), isEmpty);
+      },
+    );
 
     test('una operación delete llega como delete, no como upsert', () async {
       late String pushedOperation;

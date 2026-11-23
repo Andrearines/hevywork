@@ -1,11 +1,10 @@
+import 'dart:async';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class FakeGoTrue extends GoTrueClient {
   FakeGoTrue()
-      : super(
-          url: 'http://localhost:54321/auth/v1',
-          autoRefreshToken: false,
-        );
+    : super(url: 'http://localhost:54321/auth/v1', autoRefreshToken: false);
 
   Session? session;
   Object? signInError;
@@ -61,30 +60,28 @@ class FakeGoTrue extends GoTrueClient {
   }
 
   User _user() => const User(
-        id: 'user-test',
-        appMetadata: {},
-        userMetadata: {},
-        aud: 'authenticated',
-        createdAt: '2026-01-01T00:00:00Z',
-      );
+    id: 'user-test',
+    appMetadata: {},
+    userMetadata: {},
+    aud: 'authenticated',
+    createdAt: '2026-01-01T00:00:00Z',
+  );
 
-  Session _sessionOf(User user) => Session(
-        accessToken: 'access-token',
-        tokenType: 'bearer',
-        user: user,
-      );
+  Session _sessionOf(User user) =>
+      Session(accessToken: 'access-token', tokenType: 'bearer', user: user);
 }
 
 class FakeSupabase extends SupabaseClient {
   FakeSupabase(this.goTrue)
-      : super(
-          'http://localhost:54321',
-          'anon-key',
-          authOptions: const AuthClientOptions(autoRefreshToken: false),
-        );
+    : super(
+        'http://localhost:54321',
+        'anon-key',
+        authOptions: const AuthClientOptions(autoRefreshToken: false),
+      );
 
   final FakeGoTrue goTrue;
   final List<({String fn, Map<String, dynamic>? params})> rpcCalls = [];
+  Object? rpcError;
 
   @override
   GoTrueClient get auth => goTrue;
@@ -96,6 +93,23 @@ class FakeSupabase extends SupabaseClient {
     get = false,
   }) {
     rpcCalls.add((fn: fn, params: params));
-    throw StateError('rpc no disponible en tests: $fn');
+    final error = rpcError;
+    if (error != null) throw error;
+    return _FakePostgrestFilterBuilder<T>();
+  }
+}
+
+class _FakePostgrestFilterBuilder<T> extends PostgrestFilterBuilder<T> {
+  _FakePostgrestFilterBuilder()
+    : super(
+        PostgrestBuilder<T, T, T>(
+          url: Uri.parse('http://localhost:54321/rest/v1/rpc/test'),
+          headers: const {},
+        ),
+      );
+
+  @override
+  Future<U> then<U>(FutureOr<U> Function(T) onValue, {Function? onError}) {
+    return Future<T>.value().then(onValue, onError: onError);
   }
 }

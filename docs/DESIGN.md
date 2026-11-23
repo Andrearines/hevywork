@@ -87,8 +87,36 @@ estado «con datos»; los demás estados se alinean en estilo, no en contenido.
 - Contraste mínimo AA sobre fondos oscuros; targets táctiles ≥44px.
 - Labels de iconos con semántica; sin dependencias nuevas para lograrlo.
 
-## 8. Fuera de alcance
+## 8. Fuera de alcance de la spec 020
 - Vistas sin mockup (`RoutineEditorView`, `TemplatesView`, `CatalogView`,
   `GoalEditorView`, `BodyMetricEditorView`, `PastWorkoutEditorView`,
-  `TemplateDetailView`, `RoutineDetailView`) no se tocan salvo efectos
-  controlados del cambio de theme compartido.
+  `TemplateDetailView`, `RoutineDetailView`) no se tocan **por la 020** salvo
+  efectos controlados del cambio de theme compartido. La intervención posterior
+  de `CatalogView` pertenece exclusivamente a la spec 022.
+
+## 9. Ampliación aprobada de inventario — spec 022
+
+**Estado: APROBADO explícitamente por el usuario el 2026-11-23 (D-117).**
+La spec `022-grafico-descansos-y-ejercicios-personalizados` reutiliza los tokens
+y reglas anteriores sin ejecutar el rediseño general pendiente de la 020. Su
+fuente detallada y sus estados están en
+`docs/specs/022-grafico-descansos-y-ejercicios-personalizados/DESIGN.md`. Q-006
+está cerrada y el DESIGN completo queda aprobado sin cambios.
+
+| SCR | Vista | Ampliación |
+|---|---|---|
+| SCR-03 | `LiveWorkoutView` | Un descanso independiente por tarjeta, varios countdown simultáneos y sincronización del estado entre dispositivos. |
+| SCR-05 | `ProfileView` | Estados y reintento visible de sincronización, sin detalles técnicos ni secretos. |
+| SCR-06 | `ExerciseInfoView` | Geometría/fechas correctas del gráfico, descanso persistente, imagen personalizada y edición muscular reversible. |
+| SCR-07 | `CatalogView` y selector | Crear ejercicios personalizados e integrarlos en búsqueda, filtros y miniaturas. |
+| SCR-08 | `CustomExerciseEditorView` | Formulario completo, galería/cámara, placeholder de mancuerna aprobado y estados offline/error. |
+| SCR-09 | Editor muscular modal | Objetivo/secundarios de cualquier ejercicio y restauración de valores maestros sin borrar otros ajustes. |
+
+Restricciones visuales de la ampliación:
+- La mancuerna de `ThumbFallback` es el placeholder aprobado para personalizados
+  sin imagen (D-117); no se crea otro asset.
+- El gráfico usa fechas reales en el eje y puntos ordenados dentro del lienzo;
+  no se valida mediante goldens.
+- Las nuevas pantallas mantienen AA, targets ≥44 dp, margen 16 dp y comportamiento
+  responsive a 320/375/640/1024 dp con `textScaler` hasta 1.3.
+- No se añaden PNG, goldens, sombras, fuentes, colores ni dependencias.

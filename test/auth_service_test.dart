@@ -33,21 +33,64 @@ void main() {
   });
 
   group('signInWithEmail', () {
-    test('ejecuta claim_local_data con el local_user_id y abre sesión',
-        () async {
+    test(
+      'ejecuta claim_local_data con el local_user_id y abre sesión',
+      () async {
+        final localProfile = await db.select(db.localProfiles).getSingle();
+
+        final response = await service.signInWithEmail(
+          email: '  atleta@hevywork.app  ',
+          password: 'clave-secreta',
+        );
+
+        expect(goTrue.lastEmail, 'atleta@hevywork.app');
+        expect(goTrue.lastPassword, 'clave-secreta');
+        expect(response.user?.id, 'user-test');
+        expect(service.hasSession, isTrue);
+
+        final call = supabase.rpcCalls.single;
+        expect(call.fn, 'claim_local_data');
+        expect(call.params?['p_local_user_id'], localProfile.localUserId);
+
+        final claimedProfile = await db.select(db.localProfiles).getSingle();
+        expect(claimedProfile.localUserId, localProfile.localUserId);
+        expect(claimedProfile.authUserId, 'user-test');
+      },
+    );
+
+    test('si el claim falla conserva la identidad y la cola local', () async {
+      final localProfile = await db.select(db.localProfiles).getSingle();
+      await db
+          .into(db.syncQueue)
+          .insert(
+            SyncQueueCompanion.insert(
+              id: 'q-claim',
+              operation: 'upsert',
+              targetTable: 'workouts',
+              payload: '{"id":"w-claim"}',
+              nextAttemptAt: DateTime.now(),
+            ),
+          );
+      final pendingBefore = await db.select(db.syncQueue).getSingle();
+      supabase.rpcError = StateError('claim falló');
+
       final response = await service.signInWithEmail(
-        email: '  atleta@hevywork.app  ',
+        email: 'atleta@hevywork.app',
         password: 'clave-secreta',
       );
 
-      expect(goTrue.lastEmail, 'atleta@hevywork.app');
-      expect(goTrue.lastPassword, 'clave-secreta');
-      expect(response.user?.id, 'user-test');
+      expect(response.session, isNotNull);
       expect(service.hasSession, isTrue);
+      final profileAfter = await db.select(db.localProfiles).getSingle();
+      expect(profileAfter.localUserId, localProfile.localUserId);
+      expect(profileAfter.authUserId, isNull);
 
-      final call = supabase.rpcCalls.single;
-      expect(call.fn, 'claim_local_data');
-      expect(call.params?['p_local_user_id'], isNotEmpty);
+      final pendingAfter = await db.select(db.syncQueue).getSingle();
+      expect(pendingAfter.id, pendingBefore.id);
+      expect(pendingAfter.payload, pendingBefore.payload);
+      expect(pendingAfter.status, 'pending');
+      expect(pendingAfter.attempts, 0);
+      expect(pendingAfter.nextAttemptAt, pendingBefore.nextAttemptAt);
     });
 
     test('propaga credenciales inválidas con el error traducido', () async {
