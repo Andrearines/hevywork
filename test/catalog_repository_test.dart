@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,47 +29,60 @@ void main() {
 
   tearDown(() => db.close());
 
-  test('RF-1: carga los 1.324 ejercicios del asset en la tabla local', () async {
-    await repo.initializeCatalogIfEmpty();
+  test(
+    'RF-1: carga los 1.324 ejercicios del asset en la tabla local',
+    () async {
+      await repo.initializeCatalogIfEmpty();
 
-    final exercises = await db.select(db.exercises).get();
-    expect(exercises.length, 1324);
+      final exercises = await db.select(db.exercises).get();
+      expect(exercises.length, 1324);
 
-    int distinct(String Function(Exercise) column) =>
-        exercises.map(column).toSet().length;
+      int distinct(String Function(Exercise) column) =>
+          exercises.map(column).toSet().length;
 
-    expect(distinct((t) => t.bodyPart), 10);
-    expect(distinct((t) => t.equipment), 28);
-    expect(distinct((t) => t.target), 19);
-    expect(distinct((t) => t.muscleGroup), 29);
-  });
+      expect(distinct((t) => t.bodyPart), 10);
+      expect(distinct((t) => t.equipment), 28);
+      expect(distinct((t) => t.target), 19);
+      expect(distinct((t) => t.muscleGroup), 29);
+    },
+  );
 
-  test('constitución §9: cada fila local coincide con el dataset de origen',
-      () async {
-    await repo.initializeCatalogIfEmpty();
+  test(
+    'constitución §9: cada fila local coincide con el dataset de origen',
+    () async {
+      await repo.initializeCatalogIfEmpty();
 
-    for (final item in dataset.cast<Map<String, dynamic>>()) {
-      final row = await (db.select(db.exercises)
-            ..where((t) => t.id.equals(item['id'] as String)))
-          .getSingle();
+      for (final item in dataset.cast<Map<String, dynamic>>()) {
+        final row = await (db.select(
+          db.exercises,
+        )..where((t) => t.id.equals(item['id'] as String))).getSingle();
 
-      expect(row.name, item['name'], reason: 'id ${item['id']}');
-      expect(row.bodyPart, item['body_part'], reason: 'id ${item['id']}');
-      expect(row.equipment, item['equipment'], reason: 'id ${item['id']}');
-      expect(row.target, item['target'], reason: 'id ${item['id']}');
-      expect(row.muscleGroup, item['muscle_group'], reason: 'id ${item['id']}');
-      expect(
-        jsonDecode(row.secondaryMuscles!),
-        item['secondary_muscles'],
-        reason: 'id ${item['id']}',
-      );
-      expect(row.imagePath, item['image'], reason: 'id ${item['id']}');
-      expect(row.gifPath, item['gif_url'], reason: 'id ${item['id']}');
-      expect(row.mediaId, item['media_id'], reason: 'id ${item['id']}');
-      expect(row.attribution, item['attribution'], reason: 'id ${item['id']}');
-      expect(row.createdAt, isNotNull, reason: 'id ${item['id']}');
-    }
-  });
+        expect(row.name, item['name'], reason: 'id ${item['id']}');
+        expect(row.bodyPart, item['body_part'], reason: 'id ${item['id']}');
+        expect(row.equipment, item['equipment'], reason: 'id ${item['id']}');
+        expect(row.target, item['target'], reason: 'id ${item['id']}');
+        expect(
+          row.muscleGroup,
+          item['muscle_group'],
+          reason: 'id ${item['id']}',
+        );
+        expect(
+          jsonDecode(row.secondaryMuscles!),
+          item['secondary_muscles'],
+          reason: 'id ${item['id']}',
+        );
+        expect(row.imagePath, item['image'], reason: 'id ${item['id']}');
+        expect(row.gifPath, item['gif_url'], reason: 'id ${item['id']}');
+        expect(row.mediaId, item['media_id'], reason: 'id ${item['id']}');
+        expect(
+          row.attribution,
+          item['attribution'],
+          reason: 'id ${item['id']}',
+        );
+        expect(row.createdAt, isNotNull, reason: 'id ${item['id']}');
+      }
+    },
+  );
 
   test('los pasos de instrucción se guardan en es y en', () async {
     await repo.initializeCatalogIfEmpty();
@@ -96,8 +110,7 @@ void main() {
     }
   });
 
-  test('las miniaturas de todos los ejercicios están empaquetadas',
-      () async {
+  test('las miniaturas de todos los ejercicios están empaquetadas', () async {
     await repo.initializeCatalogIfEmpty();
     final exercises = await db.select(db.exercises).get();
 
@@ -113,42 +126,46 @@ void main() {
     }
   });
 
-  test('RF-1/RF-4: recargar no duplica, no borra y respeta lo existente',
-      () async {
-    Future<int> exerciseCount() async =>
-        (await db.select(db.exercises).get()).length;
-    Future<int> instructionCount() async =>
-        (await db.select(db.exerciseInstructions).get()).length;
+  test(
+    'RF-1/RF-4: recargar no duplica, no borra y respeta lo existente',
+    () async {
+      Future<int> exerciseCount() async =>
+          (await db.select(db.exercises).get()).length;
+      Future<int> instructionCount() async =>
+          (await db.select(db.exerciseInstructions).get()).length;
 
-    await repo.initializeCatalogIfEmpty();
-    final exercisesBefore = await exerciseCount();
-    final instructionsBefore = await instructionCount();
+      await repo.initializeCatalogIfEmpty();
+      final exercisesBefore = await exerciseCount();
+      final instructionsBefore = await instructionCount();
 
-    await repo.initializeCatalogIfEmpty();
-    await repo.initializeCatalogIfEmpty();
+      await repo.initializeCatalogIfEmpty();
+      await repo.initializeCatalogIfEmpty();
 
-    expect(await exerciseCount(), exercisesBefore);
-    expect(await instructionCount(), instructionsBefore);
+      expect(await exerciseCount(), exercisesBefore);
+      expect(await instructionCount(), instructionsBefore);
 
-    await db.into(db.exercises).insert(
-          ExercisesCompanion.insert(
-            id: 'sentinel',
-            name: 'Ejercicio local',
-            bodyPart: 'chest',
-            equipment: 'barbell',
-            target: 'pectorals',
-            muscleGroup: 'chest',
-          ),
-        );
+      await db
+          .into(db.exercises)
+          .insert(
+            ExercisesCompanion.insert(
+              id: 'sentinel',
+              name: 'Ejercicio local',
+              bodyPart: 'chest',
+              equipment: 'barbell',
+              target: 'pectorals',
+              muscleGroup: 'chest',
+            ),
+          );
 
-    await repo.initializeCatalogIfEmpty();
+      await repo.initializeCatalogIfEmpty();
 
-    expect(await exerciseCount(), exercisesBefore + 1);
-    final sentinel = await (db.select(db.exercises)
-          ..where((t) => t.id.equals('sentinel')))
-        .getSingleOrNull();
-    expect(sentinel, isNotNull, reason: 'RF-4: el loader nunca borra filas');
-  });
+      expect(await exerciseCount(), exercisesBefore + 1);
+      final sentinel = await (db.select(
+        db.exercises,
+      )..where((t) => t.id.equals('sentinel'))).getSingleOrNull();
+      expect(sentinel, isNotNull, reason: 'RF-4: el loader nunca borra filas');
+    },
+  );
 
   group('rest_seconds (RF-5 de la 002)', () {
     test('ajusta el descanso por defecto dentro del rango', () async {
@@ -156,10 +173,13 @@ void main() {
 
       await repo.updateRestSeconds('0001', 120);
 
-      final exercise = await (db.select(db.exercises)
-            ..where((t) => t.id.equals('0001')))
-          .getSingle();
-      expect(exercise.restSeconds, 120);
+      final exercise = await (db.select(
+        db.exercises,
+      )..where((t) => t.id.equals('0001'))).getSingle();
+      expect(exercise.restSeconds, 90);
+      expect(await repo.effectiveRestSeconds('0001'), 120);
+      final preference = await db.select(db.exercisePreferences).getSingle();
+      expect(preference.restSeconds, 120);
     });
 
     test('rechaza fuera del rango 15-300 y deja el valor intacto', () async {
@@ -174,26 +194,80 @@ void main() {
         throwsArgumentError,
       );
 
-      final exercise = await (db.select(db.exercises)
-            ..where((t) => t.id.equals('0001')))
-          .getSingle();
+      final exercise = await (db.select(
+        db.exercises,
+      )..where((t) => t.id.equals('0001'))).getSingle();
       expect(exercise.restSeconds, 90);
+      expect(await repo.effectiveRestSeconds('0001'), 90);
+      expect(await db.select(db.exercisePreferences).get(), isEmpty);
     });
+
+    test('el upsert conserva los overrides musculares y created_at', () async {
+      await repo.initializeCatalogIfEmpty();
+      final profile = await db.select(db.localProfiles).getSingle();
+      final createdAt = DateTime(2026, 1, 1);
+      await db
+          .into(db.exercisePreferences)
+          .insert(
+            ExercisePreferencesCompanion.insert(
+              id: 'preference-muscles',
+              localUserId: profile.localUserId,
+              exerciseId: '0001',
+              restSeconds: const Value(120),
+              target: const Value('pectorals'),
+              muscleGroup: const Value('triceps'),
+              secondaryMuscles: const Value('["triceps"]'),
+              createdAt: createdAt,
+              updatedAt: createdAt,
+            ),
+          );
+
+      await repo.updateRestSeconds('0001', 135);
+
+      final preference = await db.select(db.exercisePreferences).getSingle();
+      expect(preference.restSeconds, 135);
+      expect(preference.target, 'pectorals');
+      expect(preference.muscleGroup, 'triceps');
+      expect(preference.secondaryMuscles, '["triceps"]');
+      expect(preference.createdAt, createdAt);
+      expect(preference.updatedAt.isAfter(createdAt), isTrue);
+    });
+
+    test(
+      'el descanso efectivo y su stream ignoran el legacy y reaccionan',
+      () async {
+        await repo.initializeCatalogIfEmpty();
+        await (db.update(db.exercises)..where((t) => t.id.equals('0001')))
+            .write(const ExercisesCompanion(restSeconds: Value(120)));
+        expect(await repo.effectiveRestSeconds('0001'), 90);
+
+        final expectation = expectLater(
+          repo.watchEffectiveRestSeconds('0001'),
+          emitsInOrder([90, 120, 135]),
+        );
+        await Future<void>.delayed(Duration.zero);
+        await repo.updateRestSeconds('0001', 120);
+        await repo.updateRestSeconds('0001', 135);
+        await expectation;
+      },
+    );
   });
 
   group('Spec 003: buscador y filtros', () {
-    test('RF-1: el nombre contiene el texto sin distinguir mayúsculas',
-        () async {
-      await repo.initializeCatalogIfEmpty();
+    test(
+      'RF-1: el nombre contiene el texto sin distinguir mayúsculas',
+      () async {
+        await repo.initializeCatalogIfEmpty();
 
-      final page = await repo.searchPage(query: 'PReSS');
+        final page = await repo.searchPage(query: 'PReSS');
 
-      expect(page.total, 164);
-      expect(page.exercises, isNotEmpty);
-      for (final ex in page.exercises) {
-        expect(ex.name.toLowerCase(), contains('press'));
-      }
-    });
+        expect(page.total, 164);
+        expect(page.exercises, isNotEmpty);
+        for (final ex in page.exercises) {
+          expect(ex.name.toLowerCase(), contains('press'));
+        }
+      },
+    );
 
     test('RF-1: los acentos de la consulta se ignoran', () async {
       await repo.initializeCatalogIfEmpty();
@@ -242,10 +316,10 @@ void main() {
       );
 
       expect(page.total, 195);
-      expect(
-        page.exercises.map((e) => e.equipment).toSet(),
-        {'barbell', 'kettlebell'},
-      );
+      expect(page.exercises.map((e) => e.equipment).toSet(), {
+        'barbell',
+        'kettlebell',
+      });
     });
 
     test('RF-3: la búsqueda y los filtros se combinan con AND', () async {
@@ -264,20 +338,22 @@ void main() {
       }
     });
 
-    test('RF-3: los secundarios se filtran dentro del JSON de la fila',
-        () async {
-      await repo.initializeCatalogIfEmpty();
+    test(
+      'RF-3: los secundarios se filtran dentro del JSON de la fila',
+      () async {
+        await repo.initializeCatalogIfEmpty();
 
-      final page = await repo.searchPage(
-        filter: const ExerciseFilter(secondaryMuscles: {'biceps'}),
-        pageSize: 1000,
-      );
+        final page = await repo.searchPage(
+          filter: const ExerciseFilter(secondaryMuscles: {'biceps'}),
+          pageSize: 1000,
+        );
 
-      expect(page.total, 171);
-      for (final ex in page.exercises) {
-        expect(jsonDecode(ex.secondaryMuscles!), contains('biceps'));
-      }
-    });
+        expect(page.total, 171);
+        for (final ex in page.exercises) {
+          expect(jsonDecode(ex.secondaryMuscles!), contains('biceps'));
+        }
+      },
+    );
 
     test('RF-1: los comodines de LIKE se tratan como texto literal', () async {
       await repo.initializeCatalogIfEmpty();
@@ -287,29 +363,31 @@ void main() {
       expect(page.total, 0);
     });
 
-    test('RF-5: paginación de 50 con total estable y orden por nombre',
-        () async {
-      await repo.initializeCatalogIfEmpty();
+    test(
+      'RF-5: paginación de 50 con total estable y orden por nombre',
+      () async {
+        await repo.initializeCatalogIfEmpty();
 
-      final first = await repo.searchPage(pageSize: 50);
-      final second = await repo.searchPage(offset: 50, pageSize: 50);
+        final first = await repo.searchPage(pageSize: 50);
+        final second = await repo.searchPage(offset: 50, pageSize: 50);
 
-      expect(first.exercises.length, 50);
-      expect(second.exercises.length, 50);
-      expect(first.total, 1324);
-      expect(second.total, 1324);
+        expect(first.exercises.length, 50);
+        expect(second.exercises.length, 50);
+        expect(first.total, 1324);
+        expect(second.total, 1324);
 
-      final all = (await repo.searchPage(pageSize: 1000)).exercises;
-      expect(
-        [...first.exercises, ...second.exercises].map((e) => e.id),
-        all.take(100).map((e) => e.id).toList(),
-        reason: 'páginas consecutivas sin solaparse y ordenadas por nombre',
-      );
+        final all = (await repo.searchPage(pageSize: 1000)).exercises;
+        expect(
+          [...first.exercises, ...second.exercises].map((e) => e.id),
+          all.take(100).map((e) => e.id).toList(),
+          reason: 'páginas consecutivas sin solaparse y ordenadas por nombre',
+        );
 
-      final last = await repo.searchPage(offset: 1300, pageSize: 50);
-      expect(last.exercises.length, 24);
-      expect(last.total, 1324);
-    });
+        final last = await repo.searchPage(offset: 1300, pageSize: 50);
+        expect(last.exercises.length, 24);
+        expect(last.total, 1324);
+      },
+    );
 
     test('RF-4: el contador coincide con un barrido completo', () async {
       await repo.initializeCatalogIfEmpty();
@@ -334,20 +412,22 @@ void main() {
       expect(page.exercises, isEmpty);
     });
 
-    test('RF-3: las opciones salen de la base local (10/28/19/29/40)',
-        () async {
-      await repo.initializeCatalogIfEmpty();
+    test(
+      'RF-3: las opciones salen de la base local (10/28/19/29/40)',
+      () async {
+        await repo.initializeCatalogIfEmpty();
 
-      final options = await repo.filterOptions();
+        final options = await repo.filterOptions();
 
-      expect(options.bodyParts.length, 10);
-      expect(options.equipments.length, 28);
-      expect(options.targets.length, 19);
-      expect(options.muscleGroups.length, 29);
-      expect(options.secondaryMuscles.length, 40);
-      expect(options.bodyParts.first, 'back');
-      expect(options.bodyParts.last, 'waist');
-      expect(options.secondaryMuscles.first, 'abdominals');
-    });
+        expect(options.bodyParts.length, 10);
+        expect(options.equipments.length, 28);
+        expect(options.targets.length, 19);
+        expect(options.muscleGroups.length, 29);
+        expect(options.secondaryMuscles.length, 40);
+        expect(options.bodyParts.first, 'back');
+        expect(options.bodyParts.last, 'waist');
+        expect(options.secondaryMuscles.first, 'abdominals');
+      },
+    );
   });
 }

@@ -48,8 +48,15 @@ const _setTypeLabels = {
 
 class LiveWorkoutView extends StatefulWidget {
   final String workoutId;
+  final RestNotificationService? restNotifier;
+  final DateTime Function()? clock;
 
-  const LiveWorkoutView({super.key, required this.workoutId});
+  const LiveWorkoutView({
+    super.key,
+    required this.workoutId,
+    this.restNotifier,
+    this.clock,
+  });
 
   @override
   State<LiveWorkoutView> createState() => _LiveWorkoutViewState();
@@ -58,13 +65,13 @@ class LiveWorkoutView extends StatefulWidget {
 class _LiveWorkoutViewState extends State<LiveWorkoutView>
     with WidgetsBindingObserver {
   final WorkoutManager _manager = WorkoutManager();
-  final RestNotifier _restNotifier = RestNotifier();
+  late final RestNotificationService _restNotifier;
   late final Stream<Workout?> _workout;
   late final Stream<List<({WorkoutExercise item, Exercise exercise})>>
-      _exercises;
+  _exercises;
   late final Stream<List<WorkoutSet>> _sets;
   late final Stream<FatiguePanel> _fatiguePanel;
-  late final ValueNotifier<DateTime> _now = ValueNotifier(DateTime.now());
+  late final ValueNotifier<DateTime> _now;
   Timer? _clockTimer;
   DateTime? _startedAt;
   bool _busy = false;
@@ -79,12 +86,17 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   final bool _showBack = false;
   final Set<String> _expandedExerciseIds = {};
   FatigueNotifier? _fatigueNotifier;
-  bool _restDismissed = false;
-  RestTimerPhase _lastRestPhase = RestTimerPhase.idle;
+  List<({WorkoutExercise item, Exercise exercise})> _currentEntries = const [];
+  final Map<String, RestTimerPhase> _lastRestPhases = {};
+  final Set<String> _managedRestKeys = {};
+
+  DateTime _timeNow() => widget.clock?.call() ?? DateTime.now();
 
   @override
   void initState() {
     super.initState();
+    _restNotifier = widget.restNotifier ?? RestNotifier();
+    _now = ValueNotifier(_timeNow());
     WidgetsBinding.instance.addObserver(this);
     _workout = workoutRepository.watchWorkout(widget.workoutId);
     _exercises = workoutRepository.watchExercises(widget.workoutId);
@@ -93,50 +105,87 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     // Use FatigueNotifier con debounce para actualizar fatiga en tiempo real
     // cuando cambian las series durante el entrenamiento en vivo.
     _fatigueNotifier = FatigueNotifier(
-      sources: [
-        _sets.map((_) {}),
-      ],
+      sources: [_sets.map((_) {})],
       recalculate: fatigueRepository.recalculate,
     );
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      _now.value = DateTime.now();
+      _now.value = _timeNow();
       _checkRestDone();
     });
-    _restDismissed = false;
-    _lastRestPhase = RestTimerPhase.idle;
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
-      _scheduleRestNotification();
+      unawaited(_scheduleRestNotifications());
     } else if (state == AppLifecycleState.resumed) {
-      _restNotifier.cancel();
+      unawaited(_cancelManagedRestNotifications());
+      _now.value = _timeNow();
+      _checkRestDone();
     }
   }
 
-  Future<void> _scheduleRestNotification() async {
-    final endsAt = _currentWorkout?.restEndsAt;
-    if (endsAt == null || !endsAt.isAfter(DateTime.now())) return;
-    await _restNotifier.scheduleAt(endsAt);
+  Future<void> _scheduleRestNotifications() async {
+    final now = _timeNow();
+    final hasAssociatedRest = _currentEntries.any(
+      (entry) =>
+          _restOfExercise(entry.item).phaseAt(now) != RestTimerPhase.idle,
+    );
+    for (final entry in _currentEntries) {
+      final rest = _restOfExercise(entry.item);
+      if (rest.phaseAt(now) != RestTimerPhase.running) continue;
+      final key = entry.item.id;
+      _managedRestKeys.add(key);
+      await _restNotifier.scheduleAt(
+        rest.endsAt!,
+        timerKey: key,
+        body: 'Reanuda tu sesión · ${entry.exercise.name}',
+      );
+    }
+    if (hasAssociatedRest) return;
+    final workout = _currentWorkout;
+    if (workout == null) return;
+    final legacy = _restOf(workout);
+    if (legacy.phaseAt(now) != RestTimerPhase.running) return;
+    _managedRestKeys.add(RestNotificationService.legacyKey);
+    await _restNotifier.scheduleAt(legacy.endsAt!);
+  }
+
+  Future<void> _cancelManagedRestNotifications() async {
+    for (final key in _managedRestKeys) {
+      await _restNotifier.cancel(timerKey: key);
+    }
   }
 
   RestTimer _restOf(Workout workout) => RestTimer(
-        endsAt: workout.restEndsAt,
-        pausedRemaining: workout.restPausedSeconds == null
-            ? null
-            : Duration(seconds: workout.restPausedSeconds!),
-      );
+    endsAt: workout.restEndsAt,
+    pausedRemaining: workout.restPausedSeconds == null
+        ? null
+        : Duration(seconds: workout.restPausedSeconds!),
+  );
+
+  RestTimer _restOfExercise(WorkoutExercise item) => RestTimer(
+    endsAt: item.restEndsAt,
+    pausedRemaining: item.restPausedSeconds == null
+        ? null
+        : Duration(seconds: item.restPausedSeconds!),
+  );
 
   /// Arranca el descanso tras una serie normal/failure/drop (RF-5 de la 002).
   /// Con [restSeconds] usa el descanso planificado de esa serie (RF-1 de la
   /// 004); si no, el del ejercicio.
-  Future<void> _startRest(Exercise exercise, {int? restSeconds}) async {
-    _restNotifier.resetAlertFlag();
-    final now = DateTime.now();
-    final seconds = (restSeconds ?? exercise.restSeconds).clamp(15, 300);
-    final timer = const RestTimer().start(now, Duration(seconds: seconds));
-    await workoutRepository.saveRestTimer(widget.workoutId, endsAt: timer.endsAt);
+  Future<void> _startRest(WorkoutExercise item, {int? restSeconds}) async {
+    _restNotifier.resetAlertFlag(timerKey: item.id);
+    _managedRestKeys.add(item.id);
+    _managedRestKeys.add(RestNotificationService.legacyKey);
+    _lastRestPhases[item.id] = RestTimerPhase.running;
+    await _restNotifier.cancel(timerKey: item.id);
+    await _restNotifier.cancel();
+    await workoutRepository.startRestTimer(
+      workoutExerciseId: item.id,
+      plannedRestSeconds: restSeconds,
+      now: _timeNow(),
+    );
   }
 
   /// Series de la última sesión terminada, por ejercicio (RF-13/RF-14 de la
@@ -162,23 +211,66 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   }
 
   void _toggleRest() {
-    _applyRest(
-      DateTime.now(),
-      (rest, now) => rest.phaseAt(now) == RestTimerPhase.paused
-          ? rest.resume(now)
-          : rest.pause(now),
+    unawaited(_restNotifier.cancel());
+    unawaited(
+      _applyRest(
+        _timeNow(),
+        (rest, now) => rest.phaseAt(now) == RestTimerPhase.paused
+            ? rest.resume(now)
+            : rest.pause(now),
+      ),
     );
   }
 
   void _adjustRest(int deltaSeconds) {
-    _applyRest(
-      DateTime.now(),
-      (rest, now) => rest.adjust(Duration(seconds: deltaSeconds), now),
+    unawaited(
+      _applyRest(
+        _timeNow(),
+        (rest, now) => rest.adjust(Duration(seconds: deltaSeconds), now),
+      ),
     );
   }
 
   void _skipRest() {
-    _applyRest(DateTime.now(), (rest, _) => rest.skip());
+    _managedRestKeys.add(RestNotificationService.legacyKey);
+    _lastRestPhases[RestNotificationService.legacyKey] = RestTimerPhase.idle;
+    unawaited(_restNotifier.cancel());
+    unawaited(workoutRepository.saveRestTimer(widget.workoutId));
+  }
+
+  Future<void> _toggleExerciseRest(WorkoutExercise item) async {
+    final now = _timeNow();
+    final phase = _restOfExercise(item).phaseAt(now);
+    if (phase != RestTimerPhase.running && phase != RestTimerPhase.paused) {
+      return;
+    }
+    _managedRestKeys.add(item.id);
+    await _restNotifier.cancel(timerKey: item.id);
+    if (phase == RestTimerPhase.paused) {
+      await workoutRepository.resumeRestTimer(item.id, now);
+    } else {
+      await workoutRepository.pauseRestTimer(item.id, now);
+    }
+  }
+
+  Future<void> _adjustExerciseRest(
+    WorkoutExercise item,
+    int deltaSeconds,
+  ) async {
+    _managedRestKeys.add(item.id);
+    await workoutRepository.adjustRestTimer(
+      workoutExerciseId: item.id,
+      requestedDeltaSeconds: deltaSeconds,
+      now: _timeNow(),
+    );
+    await _restNotifier.cancel(timerKey: item.id);
+  }
+
+  Future<void> _skipExerciseRest(String workoutExerciseId) async {
+    _managedRestKeys.add(workoutExerciseId);
+    _lastRestPhases[workoutExerciseId] = RestTimerPhase.idle;
+    await workoutRepository.skipRestTimer(workoutExerciseId);
+    await _restNotifier.cancel(timerKey: workoutExerciseId);
   }
 
   /// Recalcula las sugerencias de progresión para el aviso en vivo (RF-3 de
@@ -192,8 +284,9 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       }
       return;
     }
-    final suggestions =
-        await routineRepository.progressionSuggestions(widget.workoutId);
+    final suggestions = await routineRepository.progressionSuggestions(
+      widget.workoutId,
+    );
     if (!mounted) return;
     setState(() {
       _liveSuggestions = [
@@ -203,16 +296,40 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       ];
     });
   }
+
   void _checkRestDone() {
-    if (_currentWorkout == null) return;
-    final rest = _restOf(_currentWorkout!);
-    final phase = rest.phaseAt(DateTime.now());
-    // Detectar transición a done
-    if (phase == RestTimerPhase.done && _lastRestPhase != RestTimerPhase.done && !_restDismissed) {
-      _restDismissed = true;
-      _restNotifier.alertNow();
+    final now = _now.value;
+    final itemIds = <String>{};
+    for (final entry in _currentEntries) {
+      final key = entry.item.id;
+      itemIds.add(key);
+      final phase = _restOfExercise(entry.item).phaseAt(now);
+      if (phase == RestTimerPhase.done &&
+          _lastRestPhases[key] != RestTimerPhase.done) {
+        _managedRestKeys.add(key);
+        unawaited(_restNotifier.cancel(timerKey: key));
+        unawaited(_restNotifier.alertNow(timerKey: key));
+      }
+      _lastRestPhases[key] = phase;
     }
-    _lastRestPhase = phase;
+    _lastRestPhases.removeWhere(
+      (key, _) =>
+          key != RestNotificationService.legacyKey && !itemIds.contains(key),
+    );
+
+    final workout = _currentWorkout;
+    if (workout == null) return;
+    const legacyKey = RestNotificationService.legacyKey;
+    final legacyPhase = _restOf(workout).phaseAt(now);
+    if (legacyPhase == RestTimerPhase.done) {
+      _managedRestKeys.add(legacyKey);
+      unawaited(_restNotifier.cancel());
+      if (_lastRestPhases[legacyKey] != RestTimerPhase.done) {
+        unawaited(_restNotifier.alertNow());
+        unawaited(workoutRepository.saveRestTimer(workout.id));
+      }
+    }
+    _lastRestPhases[legacyKey] = legacyPhase;
   }
 
   String _formatTime(Duration elapsed) {
@@ -224,7 +341,10 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
 
   String _formatRest(Duration remaining) {
     final minutes = remaining.inMinutes;
-    final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final seconds = remaining.inSeconds
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
     return '$minutes:$seconds';
   }
 
@@ -292,6 +412,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                 );
               }
               final entries = exercisesSnapshot.data!;
+              _currentEntries = entries;
 
               return StreamBuilder<List<WorkoutSet>>(
                 stream: _sets,
@@ -300,7 +421,10 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                     return Center(
                       child: Text(
                         'Cargando sesión...',
-                        style: TextStyle(color: kOnSurfaceVariant, fontSize: 14),
+                        style: TextStyle(
+                          color: kOnSurfaceVariant,
+                          fontSize: 14,
+                        ),
                       ),
                     );
                   }
@@ -321,9 +445,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                           SliverToBoxAdapter(
                             child: _summaryStrip(workout, sets),
                           ),
-                          SliverToBoxAdapter(
-                            child: _progressionStrip(),
-                          ),
+                          SliverToBoxAdapter(child: _progressionStrip()),
                           // Nueva sección de fatiga después del strip de progresión (T-006)
                           StreamBuilder<FatiguePanel>(
                             stream: _fatiguePanel,
@@ -365,10 +487,14 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                                 itemBuilder: (context, index) {
                                   final entry = entries[index];
                                   final isFirst = index == 0;
-                                  final isExpanded = isFirst ||
+                                  final isExpanded =
+                                      isFirst ||
                                       _expandedExerciseIds.contains(
-                                          entry.item.id);
-                                  final exerciseSets = setsByExercise[entry.item.id] ?? const <WorkoutSet>[];
+                                        entry.item.id,
+                                      );
+                                  final exerciseSets =
+                                      setsByExercise[entry.item.id] ??
+                                      const <WorkoutSet>[];
                                   if (isExpanded) {
                                     return _ExerciseCard(
                                       key: ValueKey(entry.item.id),
@@ -376,46 +502,91 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                                       exercise: entry.exercise,
                                       sets: exerciseSets,
                                       manager: _manager,
-                                      onLogSet: (weightKg, reps, rir,
-                                          setType) async {
-                                        await workoutRepository.logSet(
-                                          workoutExerciseId: entry.item.id,
-                                          weightKg: weightKg,
-                                          reps: reps,
-                                          rir: rir,
-                                          setType: setType,
-                                        );
-                                        if (setType != 'warmup') {
-                                          await _startRest(entry.exercise);
-                                        }
-                                        await _refreshSuggestions();
-                                      },
-                                      onUpdateSet: (
-                                        setId, {
-                                        required weightKg,
-                                        required reps,
-                                        required rir,
-                                        required setType,
-                                      }) async {
-                                        final updated =
-                                            await workoutRepository.updateSet(
-                                          setId: setId,
-                                          weightKg: weightKg,
-                                          reps: reps,
-                                          rir: rir,
-                                          setType: setType,
-                                        );
-                                        if (setType != 'warmup') {
-                                          await _startRest(
-                                            entry.exercise,
-                                            restSeconds: updated.restSeconds,
-                                          );
-                                        }
-                                        await _refreshSuggestions();
-                                      },
+                                      restModule:
+                                          ValueListenableBuilder<DateTime>(
+                                            valueListenable: _now,
+                                            builder: (context, now, _) {
+                                              final rest = _restOfExercise(
+                                                entry.item,
+                                              );
+                                              if (rest.phaseAt(now) ==
+                                                  RestTimerPhase.idle) {
+                                                return const SizedBox.shrink();
+                                              }
+                                              return Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 12,
+                                                ),
+                                                child: _restModule(
+                                                  rest,
+                                                  Theme.of(context),
+                                                  now,
+                                                  exerciseName:
+                                                      entry.exercise.name,
+                                                  workoutExerciseId:
+                                                      entry.item.id,
+                                                  onAdjust: (delta) =>
+                                                      _adjustExerciseRest(
+                                                        entry.item,
+                                                        delta,
+                                                      ),
+                                                  onToggle: () =>
+                                                      _toggleExerciseRest(
+                                                        entry.item,
+                                                      ),
+                                                  onSkip: () =>
+                                                      _skipExerciseRest(
+                                                        entry.item.id,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                      onLogSet:
+                                          (weightKg, reps, rir, setType) async {
+                                            await workoutRepository.logSet(
+                                              workoutExerciseId: entry.item.id,
+                                              weightKg: weightKg,
+                                              reps: reps,
+                                              rir: rir,
+                                              setType: setType,
+                                            );
+                                            if (setType != 'warmup') {
+                                              await _startRest(entry.item);
+                                            }
+                                            await _refreshSuggestions();
+                                          },
+                                      onUpdateSet:
+                                          (
+                                            setId, {
+                                            required weightKg,
+                                            required reps,
+                                            required rir,
+                                            required setType,
+                                          }) async {
+                                            final updated =
+                                                await workoutRepository
+                                                    .updateSet(
+                                                      setId: setId,
+                                                      weightKg: weightKg,
+                                                      reps: reps,
+                                                      rir: rir,
+                                                      setType: setType,
+                                                    );
+                                            if (setType != 'warmup') {
+                                              await _startRest(
+                                                entry.item,
+                                                restSeconds:
+                                                    updated.restSeconds,
+                                              );
+                                            }
+                                            await _refreshSuggestions();
+                                          },
                                       onUnconfirmSet: (setId) async {
                                         await workoutRepository.setSetCompleted(
-                                            setId, false);
+                                          setId,
+                                          false,
+                                        );
                                         await _refreshSuggestions();
                                       },
                                       onDeleteSet: (setId) async {
@@ -423,13 +594,19 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                                             await _confirmDeleteSet();
                                         if (!confirmed) return;
                                         try {
-                                          await workoutRepository.deleteSet(setId);
-                                        } on SessionNotEditableException catch (error) {
+                                          await workoutRepository.deleteSet(
+                                            setId,
+                                          );
+                                        } on SessionNotEditableException catch (
+                                          error
+                                        ) {
                                           if (!context.mounted) return;
                                           ScaffoldMessenger.of(context)
                                             ..clearSnackBars()
                                             ..showSnackBar(
-                                              SnackBar(content: Text(error.message)),
+                                              SnackBar(
+                                                content: Text(error.message),
+                                              ),
                                             );
                                           return;
                                         }
@@ -440,28 +617,30 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                                       onDeleteExercise: () =>
                                           _removeExercise(entry.item.id),
                                       previous:
-                                          _previousByExercise[entry.item
-                                                  .exerciseId] ??
-                                              const <PreviousSet>[],
+                                          _previousByExercise[entry
+                                              .item
+                                              .exerciseId] ??
+                                          const <PreviousSet>[],
                                       onCollapse: isFirst
                                           ? null
                                           : () => setState(
-                                                () =>
-                                                    _expandedExerciseIds
-                                                        .remove(entry.item.id),
+                                              () => _expandedExerciseIds.remove(
+                                                entry.item.id,
                                               ),
+                                            ),
                                     );
                                   } else {
                                     return _CollapsedExerciseCard(
                                       key: ValueKey(
-                                          'collapsed-${entry.item.id}'),
+                                        'collapsed-${entry.item.id}',
+                                      ),
                                       item: entry.item,
                                       exercise: entry.exercise,
                                       sets: exerciseSets,
                                       onTap: () => setState(
-                                        () =>
-                                            _expandedExerciseIds
-                                                .add(entry.item.id),
+                                        () => _expandedExerciseIds.add(
+                                          entry.item.id,
+                                        ),
                                       ),
                                     );
                                   }
@@ -495,13 +674,11 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     final unitSystem = UnitSystemScope.of(context);
     final weightUnit = weightUnitOf(unitSystem);
     final volume = _manager.computeVolume(sets);
-    final completed =
-        sets.where((set) => set.completed).length;
+    final completed = sets.where((set) => set.completed).length;
 
     double? topE1RM;
     for (final set in sets.where((set) => set.completed)) {
-      final e1RM =
-          _manager.calculateE1RM(set.weightKg, set.reps, set.rir ?? 0);
+      final e1RM = _manager.calculateE1RM(set.weightKg, set.reps, set.rir ?? 0);
       if (e1RM != null && (topE1RM == null || e1RM > topE1RM)) {
         topE1RM = e1RM;
       }
@@ -538,8 +715,9 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                       workout.name ?? 'Sesión libre',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(color: kOnSurface),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: kOnSurface,
+                      ),
                     ),
                   ],
                 ),
@@ -564,9 +742,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
               _metric(
                 theme,
                 '1RM MAX',
-                topE1RM == null
-                    ? '—'
-                    : formatWeightKg(topE1RM, unitSystem),
+                topE1RM == null ? '—' : formatWeightKg(topE1RM, unitSystem),
                 topE1RM == null ? null : weightUnit,
               ),
             ],
@@ -575,7 +751,8 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
             valueListenable: _now,
             builder: (context, now, _) {
               final restPhase = rest.phaseAt(now);
-              final showRestModule = restPhase == RestTimerPhase.running ||
+              final showRestModule =
+                  restPhase == RestTimerPhase.running ||
                   restPhase == RestTimerPhase.paused;
               if (!showRestModule) return const SizedBox.shrink();
               return Column(
@@ -630,108 +807,164 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     );
   }
 
-  Duration _elapsedAt(DateTime now) => _startedAt == null
-      ? Duration.zero
-      : now.difference(_startedAt!);
+  Duration _elapsedAt(DateTime now) =>
+      _startedAt == null ? Duration.zero : now.difference(_startedAt!);
 
   /// Módulo de descanso dentro de la tarjeta de sesión (RF-16 de la 008):
   /// contador con ajuste ±15 s, +30 s, pausa y salto.
-  Widget _restModule(RestTimer rest, ThemeData theme, DateTime now) {
-    final paused = rest.phaseAt(now) == RestTimerPhase.paused;
+  Widget _restModule(
+    RestTimer rest,
+    ThemeData theme,
+    DateTime now, {
+    String? exerciseName,
+    String? workoutExerciseId,
+    void Function(int deltaSeconds)? onAdjust,
+    VoidCallback? onToggle,
+    VoidCallback? onSkip,
+  }) {
+    final phase = rest.phaseAt(now);
+    final paused = phase == RestTimerPhase.paused;
+    final done = phase == RestTimerPhase.done;
+    final suffix = workoutExerciseId == null ? '' : '-$workoutExerciseId';
+    final adjust = onAdjust ?? _adjustRest;
+    final toggle = onToggle ?? _toggleRest;
+    final skip = onSkip ?? _skipRest;
+    final title = done ? 'LISTO' : 'DESCANSO';
+    final label = exerciseName == null ? title : '$title · $exerciseName';
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: kSurfaceContainerLow,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.hourglass_bottom_rounded,
-            size: 20,
-            color: kSecondary,
+          Row(
+            children: [
+              Icon(
+                done
+                    ? Icons.check_circle_outline_rounded
+                    : Icons.hourglass_bottom_rounded,
+                size: 20,
+                color: kSecondary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontSize: 10,
+                        color: kOnSurfaceVariant,
+                        letterSpacing: 0.6,
+                      ),
+                    ),
+                    if (paused)
+                      Text(
+                        'EN PAUSA',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: kSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                _formatRest(rest.remainingAt(now)),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontSize: 16,
+                  color: done ? kPrimary : kOnSurface,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 8),
+          if (done)
+            Align(
+              alignment: Alignment.centerRight,
+              child: _restAction(
+                icon: Icons.close_rounded,
+                tooltip: 'Quitar aviso',
+                key: Key('rest-clear$suffix'),
+                onTap: skip,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(
-                  'DESCANSO',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontSize: 10,
-                    color: kOnSurfaceVariant,
-                    letterSpacing: 0.6,
+                _restAction(
+                  icon: Icons.remove_rounded,
+                  tooltip: 'Ajustar −15 s',
+                  key: Key('rest-minus$suffix'),
+                  onTap: () => adjust(-15),
+                ),
+                _restAction(
+                  icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+                  tooltip: paused ? 'Reanudar descanso' : 'Pausar descanso',
+                  key: Key('rest-pause$suffix'),
+                  onTap: toggle,
+                ),
+                _restAction(
+                  icon: Icons.add_rounded,
+                  tooltip: 'Ajustar +15 s',
+                  key: Key('rest-plus$suffix'),
+                  onTap: () => adjust(15),
+                ),
+                Tooltip(
+                  message: 'Ajustar +30 s',
+                  child: Material(
+                    color: kSurfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(8),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      key: Key('rest-card-add30$suffix'),
+                      onTap: () => adjust(30),
+                      child: SizedBox(
+                        height: 44,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Center(
+                            child: Text(
+                              '+30 s',
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                fontSize: 12,
+                                color: kOnSurface,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-                Text(
-                  _formatRest(rest.remainingAt(now)),
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontSize: 16,
-                    color: kOnSurface,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                _restAction(
+                  icon: Icons.skip_next_rounded,
+                  tooltip: 'Saltar descanso',
+                  key: Key('rest-skip$suffix'),
+                  onTap: skip,
                 ),
               ],
             ),
-          ),
-          _restAction(
-            icon: Icons.remove_rounded,
-            tooltip: 'Ajustar −15 s',
-            key: const Key('rest-minus'),
-            onTap: () => _adjustRest(-15),
-          ),
-          const SizedBox(width: 4),
-          _restAction(
-            icon: paused ? Icons.play_arrow_rounded : Icons.pause_rounded,
-            tooltip: paused ? 'Reanudar descanso' : 'Pausar descanso',
-            key: const Key('rest-pause'),
-            onTap: _toggleRest,
-          ),
-          const SizedBox(width: 4),
-          _restAction(
-            icon: Icons.add_rounded,
-            tooltip: 'Ajustar +15 s',
-            key: const Key('rest-plus'),
-            onTap: () => _adjustRest(15),
-          ),
-          const SizedBox(width: 6),
-          Material(
-            color: kSurfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              key: const Key('rest-card-add30'),
-              onTap: () => _adjustRest(30),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                child: Text(
-                  '+30 s',
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    fontSize: 12,
-                    color: kOnSurface,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 4),
-          _restAction(
-            icon: Icons.skip_next_rounded,
-            tooltip: 'Saltar descanso',
-            key: const Key('rest-skip'),
-            onTap: _skipRest,
-          ),
         ],
       ),
     );
   }
 
   /// Píldora flotante del descanso (RF-17 de la 016): sticky sobre el
-/// contenido con indicador pulsante y +30 s, manteniendo las claves de test
-/// y los textos de la 002 (RF-17).
+  /// contenido con indicador pulsante y +30 s, manteniendo las claves de test
+  /// y los textos de la 002 (RF-17).
   Widget _restPill() {
     final workout = _currentWorkout;
     if (workout == null) return const SizedBox.shrink();
@@ -742,11 +975,12 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       valueListenable: _now,
       builder: (context, now, _) {
         final phase = rest.phaseAt(now);
-        if (phase == RestTimerPhase.idle) return const SizedBox.shrink();
+        if (phase != RestTimerPhase.running && phase != RestTimerPhase.paused) {
+          return const SizedBox.shrink();
+        }
 
-        final done = phase == RestTimerPhase.done;
         final paused = phase == RestTimerPhase.paused;
-        final label = done ? 'LISTO' : paused ? 'EN PAUSA' : 'DESCANSO ACTIVO';
+        final label = paused ? 'EN PAUSA' : 'DESCANSO ACTIVO';
         final pingOn = now.millisecondsSinceEpoch ~/ 1000 % 2 == 0;
 
         return Container(
@@ -784,39 +1018,38 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                 _formatRest(rest.remainingAt(now)),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontSize: 16,
-                  color: done ? kPrimary : kOnSurface,
+                  color: kOnSurface,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(width: 6),
-              if (done)
-                _restAction(
-                  icon: Icons.close_rounded,
-                  tooltip: 'Quitar aviso',
-                  key: const Key('rest-clear'),
-                  onTap: _skipRest,
-                )
-              else
-                Material(
+              Tooltip(
+                message: 'Ajustar +30 s',
+                child: Material(
                   color: kSurfaceBright,
                   shape: const StadiumBorder(),
                   clipBehavior: Clip.antiAlias,
                   child: InkWell(
                     key: const Key('rest-add30'),
                     onTap: () => _adjustRest(30),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      child: Text(
-                        '+30 s',
-                        style: theme.textTheme.labelMedium
-                            ?.copyWith(fontSize: 12, color: kPrimary),
+                    child: SizedBox(
+                      height: 44,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: Center(
+                          child: Text(
+                            '+30 s',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              fontSize: 12,
+                              color: kPrimary,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
+              ),
             ],
           ),
         );
@@ -844,24 +1077,19 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.trending_up,
-            size: 18,
-            color: kPrimary,
-          ),
+          const Icon(Icons.trending_up, size: 18, color: kPrimary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               count == 1
                   ? '${first.exerciseName}: objetivo cumplido, '
-                      'podrás subir a '
-                      '${formatWeightKg(first.sets.last.suggestedWeightKg, unitSystem)} '
-                      '${weightUnitOf(unitSystem)} '
-                      'al terminar la sesión'
+                        'podrás subir a '
+                        '${formatWeightKg(first.sets.last.suggestedWeightKg, unitSystem)} '
+                        '${weightUnitOf(unitSystem)} '
+                        'al terminar la sesión'
                   : '$count ejercicios cumplieron el objetivo. '
-                      'Podrás subir el peso al terminar.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: kOnSurface),
+                        'Podrás subir el peso al terminar.',
+              style: theme.textTheme.bodySmall?.copyWith(color: kOnSurface),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -895,8 +1123,8 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       tooltip: tooltip,
       onPressed: onTap,
       icon: Icon(icon, size: 20, color: kOnSurfaceVariant),
-      visualDensity: VisualDensity.compact,
-      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      visualDensity: VisualDensity.standard,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
       style: IconButton.styleFrom(
         backgroundColor: kSurfaceContainerHighest,
         shape: const StadiumBorder(),
@@ -904,20 +1132,16 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
     );
   }
 
-  Widget _metric(
-    ThemeData theme,
-    String label,
-    String value,
-    String? unit,
-  ) {
+  Widget _metric(ThemeData theme, String label, String value, String? unit) {
     return Expanded(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: theme.textTheme.labelMedium
-                ?.copyWith(color: kOnSurfaceVariant),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: kOnSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 2),
           Row(
@@ -939,8 +1163,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
                 const SizedBox(width: 4),
                 Text(
                   unit,
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: kSecondary),
+                  style: theme.textTheme.bodySmall?.copyWith(color: kSecondary),
                 ),
               ],
             ],
@@ -964,9 +1187,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       disabledBackgroundColor: kSurfaceContainerHigh,
       disabledForegroundColor: kOnSurfaceVariant,
       side: BorderSide.none,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       textStyle: const TextStyle(
         fontFamily: 'Geist',
         fontSize: 14,
@@ -992,10 +1213,7 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
             Expanded(
               child: canUndo
                   ? undoButton
-                  : Tooltip(
-                      message: 'Nada que deshacer',
-                      child: undoButton,
-                    ),
+                  : Tooltip(message: 'Nada que deshacer', child: undoButton),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -1069,13 +1287,16 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       workoutExerciseId: workoutExerciseId,
       exerciseId: selected.id,
     );
+    _lastRestPhases[workoutExerciseId] = RestTimerPhase.idle;
+    await _restNotifier.cancel(timerKey: workoutExerciseId);
     if (!mounted) return;
     await _refreshSuggestions();
   }
 
   /// Quita un ejercicio en curso con sus series (RF-2 de la 002).
   Future<void> _removeExercise(String workoutExerciseId) async {
-    final confirmed = await showDialog<bool>(
+    final confirmed =
+        await showDialog<bool>(
           context: context,
           builder: (dialogContext) => AlertDialog(
             backgroundColor: kSurfaceContainer,
@@ -1118,6 +1339,8 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
         false;
     if (!confirmed || !mounted) return;
     await workoutRepository.removeExercise(workoutExerciseId);
+    _lastRestPhases.remove(workoutExerciseId);
+    await _restNotifier.cancel(timerKey: workoutExerciseId);
     if (!mounted) return;
     await _refreshSuggestions();
   }
@@ -1170,7 +1393,8 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
   Future<void> _finish(List<WorkoutSet> sets) async {
     final completed = sets.where((set) => set.completed).length;
     if (completed == 0) {
-      final discard = await showDialog<bool>(
+      final discard =
+          await showDialog<bool>(
             context: context,
             builder: (dialogContext) => AlertDialog(
               backgroundColor: kSurfaceContainer,
@@ -1227,8 +1451,9 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
       if (!mounted) return;
       // RF-3/RF-4 de la 004: al cerrar una sesión nacida de una rutina se
       // evalúan los objetivos y se sugieren los pesos de la próxima instancia.
-      final suggestions =
-          await routineRepository.progressionSuggestions(widget.workoutId);
+      final suggestions = await routineRepository.progressionSuggestions(
+        widget.workoutId,
+      );
       // La rutina adopta lo que de verdad se registró, serie a serie.
       await routineRepository.persistSessionValues(widget.workoutId);
       if (suggestions.isNotEmpty && mounted) {
@@ -1242,8 +1467,8 @@ class _LiveWorkoutViewState extends State<LiveWorkoutView>
           ),
           builder: (context) => _ProgressionSheet(
             suggestions: suggestions,
-            onApply: (routineSetId, weightKg) => routineRepository
-                .applyProgressedWeight(routineSetId, weightKg),
+            onApply: (routineSetId, weightKg) =>
+                routineRepository.applyProgressedWeight(routineSetId, weightKg),
           ),
         );
       }
@@ -1284,6 +1509,7 @@ class _ExerciseCard extends StatefulWidget {
   final Exercise exercise;
   final List<WorkoutSet> sets;
   final WorkoutManager manager;
+  final Widget restModule;
   final LogSetCallback onLogSet;
   final UpdateSetCallback onUpdateSet;
   final UnconfirmSetCallback onUnconfirmSet;
@@ -1299,6 +1525,7 @@ class _ExerciseCard extends StatefulWidget {
     required this.exercise,
     required this.sets,
     required this.manager,
+    required this.restModule,
     required this.onLogSet,
     required this.onUpdateSet,
     required this.onUnconfirmSet,
@@ -1323,8 +1550,11 @@ class _ExerciseCardState extends State<_ExerciseCard>
   double? get _bestE1RM {
     double? best;
     for (final set in widget.sets.where((set) => set.completed)) {
-      final e1RM =
-          widget.manager.calculateE1RM(set.weightKg, set.reps, set.rir ?? 0);
+      final e1RM = widget.manager.calculateE1RM(
+        set.weightKg,
+        set.reps,
+        set.rir ?? 0,
+      );
       if (e1RM != null && (best == null || e1RM > best)) {
         best = e1RM;
       }
@@ -1379,8 +1609,9 @@ class _ExerciseCardState extends State<_ExerciseCard>
                   ),
                 ],
               ),
-              style:
-                  theme.textTheme.bodyMedium?.copyWith(color: kOnSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: kOnSurfaceVariant,
+              ),
             ),
           ),
         ],
@@ -1420,10 +1651,7 @@ class _ExerciseCardState extends State<_ExerciseCard>
                     ),
                   ),
                 ),
-                child: ExerciseThumb(
-                  exercise: widget.exercise,
-                  size: 44,
-                ),
+                child: ExerciseThumb(exercise: widget.exercise, size: 44),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1441,14 +1669,14 @@ class _ExerciseCardState extends State<_ExerciseCard>
                       ),
                     ),
                     const SizedBox(height: 4),
-                      Text(
-                        '1RM ESTIMADO ${bestE1RM == null ? '—' : '${formatWeightKg(bestE1RM, unitSystem)} ${weightUnitOf(unitSystem)}'}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: kOnSurfaceVariant,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      '1RM ESTIMADO ${bestE1RM == null ? '—' : '${formatWeightKg(bestE1RM, unitSystem)} ${weightUnitOf(unitSystem)}'}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kOnSurfaceVariant,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
@@ -1459,8 +1687,10 @@ class _ExerciseCardState extends State<_ExerciseCard>
                   onPressed: widget.onCollapse,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                   icon: const Icon(
                     Icons.expand_less,
                     size: 22,
@@ -1489,6 +1719,7 @@ class _ExerciseCardState extends State<_ExerciseCard>
               ),
             ],
           ),
+          widget.restModule,
           if (widget.previous.isNotEmpty) ...[
             const SizedBox(height: 8),
             _previousPill(widget.previous.last),
@@ -1538,10 +1769,7 @@ class _ExerciseCardState extends State<_ExerciseCard>
           height: 28,
           child: Row(
             children: [
-              SizedBox(
-                width: 24,
-                child: Text('SET', style: headerStyle),
-              ),
+              SizedBox(width: 24, child: Text('SET', style: headerStyle)),
               const SizedBox(width: 6),
               Expanded(
                 flex: 3,
@@ -1557,26 +1785,36 @@ class _ExerciseCardState extends State<_ExerciseCard>
                 flex: 3,
                 child: Text(
                   weightUnitOf(UnitSystemScope.of(context)).toUpperCase(),
-                  style: headerStyle, textAlign: TextAlign.center,
+                  style: headerStyle,
+                  textAlign: TextAlign.center,
                 ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 flex: 2,
-                child: Text('REPS',
-                    style: headerStyle, textAlign: TextAlign.center),
+                child: Text(
+                  'REPS',
+                  style: headerStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               const SizedBox(width: 6),
               Expanded(
                 flex: 2,
-                child: Text('RIR',
-                    style: headerStyle, textAlign: TextAlign.center),
+                child: Text(
+                  'RIR',
+                  style: headerStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               const SizedBox(width: 6),
               SizedBox(
                 width: 32,
-                child: Text('OK',
-                    style: headerStyle, textAlign: TextAlign.center),
+                child: Text(
+                  'OK',
+                  style: headerStyle,
+                  textAlign: TextAlign.center,
+                ),
               ),
               const SizedBox(width: 32),
             ],
@@ -1614,10 +1852,7 @@ class _ExerciseCardState extends State<_ExerciseCard>
       ],
     );
   }
-
 }
-
-
 
 /// Ejercicio colapsado (mockup de registro en vivo): chips, título y píldora
 /// con las series programadas y el objetivo RIR; al tocar se expande.
@@ -1684,8 +1919,8 @@ class _CollapsedExerciseCardContent extends StatelessWidget {
     final objetivo = minRir == null
         ? null
         : minRir == maxRir
-            ? 'RIR $minRir'
-            : 'RIR $minRir-$maxRir';
+        ? 'RIR $minRir'
+        : 'RIR $minRir-$maxRir';
 
     return GestureDetector(
       key: Key('expand-${item.id}'),
@@ -1704,10 +1939,7 @@ class _CollapsedExerciseCardContent extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ExerciseThumb(
-                  exercise: exercise,
-                  size: 44,
-                ),
+                ExerciseThumb(exercise: exercise, size: 44),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -1737,8 +1969,7 @@ class _CollapsedExerciseCardContent extends StatelessWidget {
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: kSurfaceContainerLow,
                 borderRadius: BorderRadius.circular(8),
@@ -1756,10 +1987,11 @@ class _CollapsedExerciseCardContent extends StatelessWidget {
                       planned == 0
                           ? 'Sin series todavía'
                           : planned == 1
-                              ? '1 serie programada'
-                              : '$planned series programadas',
-                      style: theme.textTheme.bodySmall
-                          ?.copyWith(color: kOnSurfaceVariant),
+                          ? '1 serie programada'
+                          : '$planned series programadas',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: kOnSurfaceVariant,
+                      ),
                     ),
                   ),
                   if (objetivo != null) ...[
@@ -1971,7 +2203,7 @@ class _EditableSetRowState extends State<_EditableSetRow>
                   widget.previous == null
                       ? '—'
                       : '${formatWeightKg(widget.previous!.weightKg, _unitSystem)} × '
-                          '${widget.previous!.reps}',
+                            '${widget.previous!.reps}',
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -2051,14 +2283,22 @@ class _EditableSetRowState extends State<_EditableSetRow>
                     letterSpacing: 0.4,
                   ),
                 ),
-                _stepChip('−${formatDisplay(doubleStep)} $weightUnit',
-                    () => _adjustKg(-doubleStep)),
-                _stepChip('−${formatDisplay(step)} $weightUnit',
-                    () => _adjustKg(-step)),
-                _stepChip('+${formatDisplay(step)} $weightUnit',
-                    () => _adjustKg(step)),
-                _stepChip('+${formatDisplay(doubleStep)} $weightUnit',
-                    () => _adjustKg(doubleStep)),
+                _stepChip(
+                  '−${formatDisplay(doubleStep)} $weightUnit',
+                  () => _adjustKg(-doubleStep),
+                ),
+                _stepChip(
+                  '−${formatDisplay(step)} $weightUnit',
+                  () => _adjustKg(-step),
+                ),
+                _stepChip(
+                  '+${formatDisplay(step)} $weightUnit',
+                  () => _adjustKg(step),
+                ),
+                _stepChip(
+                  '+${formatDisplay(doubleStep)} $weightUnit',
+                  () => _adjustKg(doubleStep),
+                ),
                 _rirChip(),
               ],
             ),
@@ -2171,9 +2411,7 @@ class _EditableSetRowState extends State<_EditableSetRow>
           decoration: BoxDecoration(
             color: _done ? kSecondary : kSurfaceContainerHighest,
             borderRadius: const BorderRadius.all(Radius.circular(8)),
-            border: _done
-                ? null
-                : Border.all(color: kOnSurfaceVariant),
+            border: _done ? null : Border.all(color: kOnSurfaceVariant),
           ),
           child: Icon(
             _done ? Icons.check : Icons.check_outlined,
@@ -2239,9 +2477,9 @@ class _EditableSetRowState extends State<_EditableSetRow>
       ),
     );
   }
-
 }
-  enum _SuggestionOutcome { none, applied, ignored }
+
+enum _SuggestionOutcome { none, applied, ignored }
 
 /// Hoja de sugerencias de progresión al cerrar una sesión nacida de una
 /// rutina (RF-3 y RF-4 de la 004): por ejercicio, Aceptar, Ignorar o
@@ -2250,10 +2488,7 @@ class _ProgressionSheet extends StatefulWidget {
   final List<ProgressionSuggestion> suggestions;
   final Future<void> Function(String routineSetId, double weightKg) onApply;
 
-  const _ProgressionSheet({
-    required this.suggestions,
-    required this.onApply,
-  });
+  const _ProgressionSheet({required this.suggestions, required this.onApply});
 
   @override
   State<_ProgressionSheet> createState() => _ProgressionSheetState();
@@ -2340,7 +2575,9 @@ class _ProgressionSheetState extends State<_ProgressionSheet> {
     final theme = Theme.of(context);
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
         child: Column(
@@ -2368,8 +2605,9 @@ class _ProgressionSheetState extends State<_ProgressionSheet> {
             const SizedBox(height: 4),
             Text(
               'Cumpliste tus series objetivo. ¿Subimos el peso?',
-              style: theme.textTheme.bodyMedium
-                  ?.copyWith(color: kOnSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: kOnSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 12),
             for (final suggestion in widget.suggestions) _row(suggestion),
@@ -2423,8 +2661,9 @@ class _ProgressionSheetState extends State<_ProgressionSheet> {
                     width: 24,
                     child: Text(
                       '${set.orderIndex}',
-                      style: theme.textTheme.labelLarge
-                          ?.copyWith(color: kOnSurfaceVariant),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: kOnSurfaceVariant,
+                      ),
                     ),
                   ),
                   Expanded(

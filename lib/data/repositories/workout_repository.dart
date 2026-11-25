@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import '../../domain/exercise_stats.dart';
 import '../../domain/goals.dart' show setVolumeKg;
 import '../../domain/previous_sets.dart';
+import '../../domain/rest_timer.dart';
 import '../local/database.dart';
 
 /// Encola un cambio local para subirlo a Supabase (RF-11).
@@ -137,23 +138,41 @@ class WorkoutRepository {
   /// Ejercicios de la sesión en orden, con su ficha del catálogo (RF-6).
   Stream<List<({WorkoutExercise item, Exercise exercise})>> watchExercises(
     String workoutId,
-  ) {
+  ) async* {
+    final profile = await (_db.select(
+      _db.localProfiles,
+    )..where((t) => t.id.equals(1))).getSingle();
     final query =
         _db.select(_db.workoutExercises).join([
             innerJoin(
               _db.exercises,
               _db.exercises.id.equalsExp(_db.workoutExercises.exerciseId),
             ),
+            leftOuterJoin(
+              _db.exercisePreferences,
+              _db.exercisePreferences.exerciseId.equalsExp(_db.exercises.id) &
+                  _db.exercisePreferences.localUserId.equals(
+                    profile.localUserId,
+                  ),
+            ),
           ])
           ..where(_db.workoutExercises.workoutId.equals(workoutId))
           ..orderBy([OrderingTerm.asc(_db.workoutExercises.orderIndex)]);
 
-    return query.watch().map(
+    yield* query.watch().map(
       (rows) => [
         for (final row in rows)
           (
             item: row.readTable(_db.workoutExercises),
-            exercise: row.readTable(_db.exercises),
+            exercise: row
+                .readTable(_db.exercises)
+                .copyWith(
+                  restSeconds:
+                      row
+                          .readTableOrNull(_db.exercisePreferences)
+                          ?.restSeconds ??
+                      90,
+                ),
           ),
       ],
     );
@@ -319,9 +338,7 @@ class WorkoutRepository {
     String? name,
   }) async {
     if (exercises.isEmpty) {
-      throw const PastWorkoutValidationException(
-        'Añade al menos un ejercicio',
-      );
+      throw const PastWorkoutValidationException('Añade al menos un ejercicio');
     }
     if (duration.inMinutes < 1 || duration.inMinutes > 720) {
       throw const PastWorkoutValidationException(
@@ -560,6 +577,8 @@ class WorkoutRepository {
 
     final updated = item.copyWith(
       exerciseId: exerciseId,
+      restEndsAt: const Value(null),
+      restPausedSeconds: const Value(null),
       updatedAt: DateTime.now(),
     );
     await _db.update(_db.workoutExercises).replace(updated);
@@ -793,28 +812,30 @@ class WorkoutRepository {
       ..addColumns([_db.workoutExercises.workoutId])
       ..where(_db.workoutExercises.exerciseId.equals(exerciseId));
 
-    final workouts = await (_db.select(_db.workouts)
-          ..where((t) => t.id.isInQuery(exerciseItems))
-          ..where((t) => t.status.equals('finished'))
-          ..where((t) => t.endedAt.isNotNull())
-          ..orderBy([(t) => OrderingTerm.desc(t.endedAt)])
-          ..limit(limit, offset: offset))
-        .get();
+    final workouts =
+        await (_db.select(_db.workouts)
+              ..where((t) => t.id.isInQuery(exerciseItems))
+              ..where((t) => t.status.equals('finished'))
+              ..where((t) => t.endedAt.isNotNull())
+              ..orderBy([(t) => OrderingTerm.desc(t.endedAt)])
+              ..limit(limit, offset: offset))
+            .get();
     if (workouts.isEmpty) return const [];
 
     final workoutIds = [for (final workout in workouts) workout.id];
 
-    final setsRows = await (_db.select(_db.workoutSets).join([
-          innerJoin(
-            _db.workoutExercises,
-            _db.workoutExercises.id.equalsExp(
-              _db.workoutSets.workoutExerciseId,
-            ),
-          ),
-        ])
-          ..where(_db.workoutExercises.exerciseId.equals(exerciseId))
-          ..where(_db.workoutExercises.workoutId.isIn(workoutIds)))
-        .get();
+    final setsRows =
+        await (_db.select(_db.workoutSets).join([
+                innerJoin(
+                  _db.workoutExercises,
+                  _db.workoutExercises.id.equalsExp(
+                    _db.workoutSets.workoutExerciseId,
+                  ),
+                ),
+              ])
+              ..where(_db.workoutExercises.exerciseId.equals(exerciseId))
+              ..where(_db.workoutExercises.workoutId.isIn(workoutIds)))
+            .get();
 
     final setsByWorkout = <String, List<WorkoutSet>>{};
     for (final row in setsRows) {
@@ -830,21 +851,25 @@ class WorkoutRepository {
     for (final workout in workouts) {
       final rows = <ExerciseSetRow>[];
       for (final set in setsByWorkout[workout.id] ?? const <WorkoutSet>[]) {
-        rows.add(ExerciseSetRow(
-          orderIndex: set.orderIndex,
-          setType: set.setType,
-          weightKg: set.weightKg,
-          reps: set.reps,
-          rir: set.rir,
-          completed: set.completed,
-        ));
+        rows.add(
+          ExerciseSetRow(
+            orderIndex: set.orderIndex,
+            setType: set.setType,
+            weightKg: set.weightKg,
+            reps: set.reps,
+            rir: set.rir,
+            completed: set.completed,
+          ),
+        );
       }
-      summaries.add(ExerciseSessionSummary(
-        workoutId: workout.id,
-        name: workout.name ?? 'Sesión',
-        endedAt: workout.endedAt!,
-        sets: rows,
-      ));
+      summaries.add(
+        ExerciseSessionSummary(
+          workoutId: workout.id,
+          name: workout.name ?? 'Sesión',
+          endedAt: workout.endedAt!,
+          sets: rows,
+        ),
+      );
     }
     return summaries;
   }
@@ -938,6 +963,179 @@ class WorkoutRepository {
           ..where((t) => t.workoutExerciseId.isIn(itemIds))
           ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
         .get();
+  }
+
+  RestTimer _restOfExercise(WorkoutExercise item) => RestTimer(
+    endsAt: item.restEndsAt,
+    pausedRemaining: item.restPausedSeconds == null
+        ? null
+        : Duration(seconds: item.restPausedSeconds!),
+  );
+
+  Future<WorkoutExercise> _exerciseItem(String workoutExerciseId) {
+    return (_db.select(
+      _db.workoutExercises,
+    )..where((t) => t.id.equals(workoutExerciseId))).getSingle();
+  }
+
+  Future<ExercisePreference?> _restPreference(
+    String localUserId,
+    String exerciseId,
+  ) {
+    return (_db.select(_db.exercisePreferences)..where(
+          (t) =>
+              t.localUserId.equals(localUserId) &
+              t.exerciseId.equals(exerciseId),
+        ))
+        .getSingleOrNull();
+  }
+
+  Future<String> _localUserId() async {
+    final profile = await (_db.select(
+      _db.localProfiles,
+    )..where((t) => t.id.equals(1))).getSingle();
+    return profile.localUserId;
+  }
+
+  Future<RestTimer> startRestTimer({
+    required String workoutExerciseId,
+    int? plannedRestSeconds,
+    required DateTime now,
+  }) async {
+    late final RestTimer timer;
+    await _db.transaction(() async {
+      final item = await _exerciseItem(workoutExerciseId);
+      var seconds = plannedRestSeconds;
+      if (seconds == null) {
+        final localUserId = await _localUserId();
+        final preference = await _restPreference(localUserId, item.exerciseId);
+        seconds = preference?.restSeconds ?? 90;
+      }
+      seconds = seconds.clamp(15, 300);
+      timer = const RestTimer().start(now, Duration(seconds: seconds));
+      await (_db.update(
+        _db.workoutExercises,
+      )..where((t) => t.id.equals(workoutExerciseId))).write(
+        WorkoutExercisesCompanion(
+          restEndsAt: Value(timer.endsAt),
+          restPausedSeconds: const Value(null),
+        ),
+      );
+      await (_db.update(
+        _db.workouts,
+      )..where((t) => t.id.equals(item.workoutId))).write(
+        const WorkoutsCompanion(
+          restEndsAt: Value(null),
+          restPausedSeconds: Value(null),
+        ),
+      );
+    });
+    return timer;
+  }
+
+  Future<void> saveExerciseRestTimer(
+    String workoutExerciseId, {
+    DateTime? endsAt,
+    Duration? pausedRemaining,
+  }) async {
+    await (_db.update(
+      _db.workoutExercises,
+    )..where((t) => t.id.equals(workoutExerciseId))).write(
+      WorkoutExercisesCompanion(
+        restEndsAt: Value(endsAt),
+        restPausedSeconds: Value(pausedRemaining?.inSeconds),
+      ),
+    );
+  }
+
+  Future<RestTimer> pauseRestTimer(
+    String workoutExerciseId,
+    DateTime now,
+  ) async {
+    late final RestTimer timer;
+    await _db.transaction(() async {
+      final item = await _exerciseItem(workoutExerciseId);
+      timer = _restOfExercise(item).pause(now);
+      await saveExerciseRestTimer(
+        workoutExerciseId,
+        endsAt: timer.endsAt,
+        pausedRemaining: timer.pausedRemaining,
+      );
+    });
+    return timer;
+  }
+
+  Future<RestTimer> resumeRestTimer(
+    String workoutExerciseId,
+    DateTime now,
+  ) async {
+    late final RestTimer timer;
+    await _db.transaction(() async {
+      final item = await _exerciseItem(workoutExerciseId);
+      timer = _restOfExercise(item).resume(now);
+      await saveExerciseRestTimer(
+        workoutExerciseId,
+        endsAt: timer.endsAt,
+        pausedRemaining: timer.pausedRemaining,
+      );
+    });
+    return timer;
+  }
+
+  Future<void> skipRestTimer(String workoutExerciseId) {
+    return saveExerciseRestTimer(workoutExerciseId);
+  }
+
+  Future<RestTimerAdjustment> adjustRestTimer({
+    required String workoutExerciseId,
+    required int requestedDeltaSeconds,
+    required DateTime now,
+  }) async {
+    late final RestTimerAdjustment adjustment;
+    await _db.transaction(() async {
+      final item = await _exerciseItem(workoutExerciseId);
+      final localUserId = await _localUserId();
+      final preference = await _restPreference(localUserId, item.exerciseId);
+      final oldDefault = preference?.restSeconds ?? 90;
+      adjustment = _restOfExercise(item).adjustWithDefault(
+        oldDefaultSeconds: oldDefault,
+        requestedDeltaSeconds: requestedDeltaSeconds,
+        now: now,
+      );
+      final phase = _restOfExercise(item).phaseAt(now);
+      if (phase != RestTimerPhase.running && phase != RestTimerPhase.paused) {
+        return;
+      }
+      if (preference == null) {
+        await _db
+            .into(_db.exercisePreferences)
+            .insert(
+              ExercisePreferencesCompanion.insert(
+                id: const Uuid().v4(),
+                localUserId: localUserId,
+                exerciseId: item.exerciseId,
+                restSeconds: Value(adjustment.defaultSeconds),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      } else {
+        await (_db.update(
+          _db.exercisePreferences,
+        )..where((t) => t.id.equals(preference.id))).write(
+          ExercisePreferencesCompanion(
+            restSeconds: Value(adjustment.defaultSeconds),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+      await saveExerciseRestTimer(
+        workoutExerciseId,
+        endsAt: adjustment.timer.endsAt,
+        pausedRemaining: adjustment.timer.pausedRemaining,
+      );
+    });
+    return adjustment;
   }
 
   /// Persiste el estado local del temporizador de descanso (RF-5 a RF-8 de la

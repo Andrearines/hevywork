@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show OrderingTerm, Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/data/local/database.dart';
+import 'package:hevywork/data/repositories/catalog_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/data/sync/sync_payload.dart';
+import 'package:hevywork/domain/rest_timer.dart';
 
 void main() {
   late AppDatabase db;
@@ -15,10 +18,15 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     enqueued = [];
-    repo = WorkoutRepository(db, enqueue: (operation, table, payload) async {
-      enqueued.add((operation: operation, table: table, payload: payload));
-    });
-    await db.into(db.exercises).insert(
+    repo = WorkoutRepository(
+      db,
+      enqueue: (operation, table, payload) async {
+        enqueued.add((operation: operation, table: table, payload: payload));
+      },
+    );
+    await db
+        .into(db.exercises)
+        .insert(
           ExercisesCompanion.insert(
             id: 'bench-press',
             name: 'Press de banca',
@@ -48,16 +56,18 @@ void main() {
       expect(workout.status, 'active');
       expect(workout.endedAt, isNull);
       expect(
-        workout.startedAt.isAfter(DateTime.now().add(const Duration(minutes: 1))),
+        workout.startedAt.isAfter(
+          DateTime.now().add(const Duration(minutes: 1)),
+        ),
         isFalse,
       );
 
       final profile = await db.select(db.localProfiles).getSingle();
       expect(workout.localUserId, profile.localUserId);
 
-      final stored = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(workout.id)))
-          .getSingle();
+      final stored = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(workout.id))).getSingle();
       expect(stored.status, 'active');
 
       expect(enqueued, hasLength(1));
@@ -92,9 +102,9 @@ void main() {
       final first = await repo.startWorkout();
       final second = await repo.startWorkout();
 
-      final stored = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(first.id)))
-          .getSingle();
+      final stored = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(first.id))).getSingle();
       expect(stored.status, 'abandoned');
       expect(stored.endedAt, isNotNull);
       expect(second.status, 'active');
@@ -114,9 +124,9 @@ void main() {
         exerciseId: 'bench-press',
       );
 
-      final items = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .get();
+      final items = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).get();
       expect(items.map((e) => e.orderIndex), [1, 2]);
       expect(second.orderIndex, 2);
 
@@ -130,49 +140,51 @@ void main() {
   });
 
   group('RF-7: registro de series', () {
-    test('guarda la serie completada, redondea el peso y encola el mapa',
-        () async {
-      final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+    test(
+      'guarda la serie completada, redondea el peso y encola el mapa',
+      () async {
+        final workout = await startWithExercise();
+        final item = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(workout.id))).getSingle();
 
-      final set = await repo.logSet(
-        workoutExerciseId: item.id,
-        weightKg: 80.0009,
-        reps: 8,
-        rir: 2,
-        setType: 'failure',
-      );
+        final set = await repo.logSet(
+          workoutExerciseId: item.id,
+          weightKg: 80.0009,
+          reps: 8,
+          rir: 2,
+          setType: 'failure',
+        );
 
-      expect(set.completed, isTrue);
-      expect(set.setType, 'failure');
-      expect(set.weightKg, closeTo(80.001, 1e-9));
-      expect(set.orderIndex, 1);
+        expect(set.completed, isTrue);
+        expect(set.setType, 'failure');
+        expect(set.weightKg, closeTo(80.001, 1e-9));
+        expect(set.orderIndex, 1);
 
-      final payload = payloadOf(enqueued.length - 1);
-      expect(payload['set_type'], 'failure');
-      expect(payload['reps'], 8);
-      expect(payload['weight_kg'], 80.001);
-      expect(payload['rir'], 2);
-      expect(payload['completed'], isTrue);
+        final payload = payloadOf(enqueued.length - 1);
+        expect(payload['set_type'], 'failure');
+        expect(payload['reps'], 8);
+        expect(payload['weight_kg'], 80.001);
+        expect(payload['rir'], 2);
+        expect(payload['completed'], isTrue);
 
-      final row = buildRemoteRow(
-        table: 'workout_sets',
-        payloadJson: enqueued.last.payload,
-        userId: 'user-1',
-      );
-      expect(row['user_id'], 'user-1');
-      expect(row['workout_exercise_id'], item.id);
-      expect(row['rir'], 2);
-      expect(row['weight_kg'], 80.001);
-    });
+        final row = buildRemoteRow(
+          table: 'workout_sets',
+          payloadJson: enqueued.last.payload,
+          userId: 'user-1',
+        );
+        expect(row['user_id'], 'user-1');
+        expect(row['workout_exercise_id'], item.id);
+        expect(row['rir'], 2);
+        expect(row['weight_kg'], 80.001);
+      },
+    );
 
     test('el order_index sigue al de las series existentes', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
 
       await repo.logSet(
         workoutExerciseId: item.id,
@@ -192,9 +204,9 @@ void main() {
 
     test('rechaza tipo, repeticiones, peso y RIR fuera de la RF-7', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
 
       await expectLater(
         repo.logSet(
@@ -207,21 +219,11 @@ void main() {
         throwsA(isA<SetValidationException>()),
       );
       await expectLater(
-        repo.logSet(
-          workoutExerciseId: item.id,
-          weightKg: 70,
-          reps: 0,
-          rir: 2,
-        ),
+        repo.logSet(workoutExerciseId: item.id, weightKg: 70, reps: 0, rir: 2),
         throwsA(isA<SetValidationException>()),
       );
       await expectLater(
-        repo.logSet(
-          workoutExerciseId: item.id,
-          weightKg: -1,
-          reps: 10,
-          rir: 2,
-        ),
+        repo.logSet(workoutExerciseId: item.id, weightKg: -1, reps: 10, rir: 2),
         throwsA(isA<SetValidationException>()),
       );
       await expectLater(
@@ -240,56 +242,54 @@ void main() {
   });
 
   group('RF-1: deshacer la última serie', () {
-    test('pasa la última completada a false sin borrarla y lo re-encola',
-        () async {
-      final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
-      final first = await repo.logSet(
-        workoutExerciseId: item.id,
-        weightKg: 70,
-        reps: 10,
-        rir: 3,
-      );
-      final second = await repo.logSet(
-        workoutExerciseId: item.id,
-        weightKg: 75,
-        reps: 8,
-        rir: 2,
-      );
+    test(
+      'pasa la última completada a false sin borrarla y lo re-encola',
+      () async {
+        final workout = await startWithExercise();
+        final item = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+        final first = await repo.logSet(
+          workoutExerciseId: item.id,
+          weightKg: 70,
+          reps: 10,
+          rir: 3,
+        );
+        final second = await repo.logSet(
+          workoutExerciseId: item.id,
+          weightKg: 75,
+          reps: 8,
+          rir: 2,
+        );
 
-      final undone = await repo.undoLastSet(workout.id);
+        final undone = await repo.undoLastSet(workout.id);
 
-      expect(undone, isNotNull);
-      expect(undone!.id, second.id);
-      expect(undone.completed, isFalse);
-      expect(
-        undone.updatedAt.isBefore(second.updatedAt),
-        isFalse,
-      );
+        expect(undone, isNotNull);
+        expect(undone!.id, second.id);
+        expect(undone.completed, isFalse);
+        expect(undone.updatedAt.isBefore(second.updatedAt), isFalse);
 
-      final sets = await (db.select(db.workoutSets)
-            ..where((t) => t.workoutExerciseId.equals(item.id)))
-          .get();
-      expect(sets, hasLength(2));
-      expect(
-        sets.where((set) => set.completed).map((set) => set.id),
-        [first.id],
-      );
+        final sets = await (db.select(
+          db.workoutSets,
+        )..where((t) => t.workoutExerciseId.equals(item.id))).get();
+        expect(sets, hasLength(2));
+        expect(sets.where((set) => set.completed).map((set) => set.id), [
+          first.id,
+        ]);
 
-      expect(enqueued.last.operation, 'upsert');
-      expect(enqueued.last.table, 'workout_sets');
-      final payload = payloadOf(enqueued.length - 1);
-      expect(payload['id'], second.id);
-      expect(payload['completed'], isFalse);
-    });
+        expect(enqueued.last.operation, 'upsert');
+        expect(enqueued.last.table, 'workout_sets');
+        final payload = payloadOf(enqueued.length - 1);
+        expect(payload['id'], second.id);
+        expect(payload['completed'], isFalse);
+      },
+    );
 
     test('en cascada deshace varias series seguidas', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       for (var i = 0; i < 3; i++) {
         await repo.logSet(
           workoutExerciseId: item.id,
@@ -322,56 +322,58 @@ void main() {
   });
 
   group('RF-3/RF-4: edición de series', () {
-    test('actualiza los valores, redondea y re-encola con updated_at',
-        () async {
-      final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
-      final set = await repo.logSet(
-        workoutExerciseId: item.id,
-        weightKg: 70,
-        reps: 10,
-        rir: 3,
-      );
+    test(
+      'actualiza los valores, redondea y re-encola con updated_at',
+      () async {
+        final workout = await startWithExercise();
+        final item = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+        final set = await repo.logSet(
+          workoutExerciseId: item.id,
+          weightKg: 70,
+          reps: 10,
+          rir: 3,
+        );
 
-      final updated = await repo.updateSet(
-        setId: set.id,
-        weightKg: 72.5009,
-        reps: 6,
-        rir: 1,
-        setType: 'failure',
-      );
+        final updated = await repo.updateSet(
+          setId: set.id,
+          weightKg: 72.5009,
+          reps: 6,
+          rir: 1,
+          setType: 'failure',
+        );
 
-      expect(updated.reps, 6);
-      expect(updated.weightKg, closeTo(72.501, 1e-9));
-      expect(updated.setType, 'failure');
-      expect(updated.rir, 1);
-      expect(updated.completed, isTrue);
-      expect(updated.updatedAt.isBefore(set.updatedAt), isFalse);
+        expect(updated.reps, 6);
+        expect(updated.weightKg, closeTo(72.501, 1e-9));
+        expect(updated.setType, 'failure');
+        expect(updated.rir, 1);
+        expect(updated.completed, isTrue);
+        expect(updated.updatedAt.isBefore(set.updatedAt), isFalse);
 
-      final stored = await (db.select(db.workoutSets)
-            ..where((t) => t.id.equals(set.id)))
-          .getSingle();
-      expect(stored.reps, 6);
-      expect(stored.weightKg, closeTo(72.501, 1e-9));
+        final stored = await (db.select(
+          db.workoutSets,
+        )..where((t) => t.id.equals(set.id))).getSingle();
+        expect(stored.reps, 6);
+        expect(stored.weightKg, closeTo(72.501, 1e-9));
 
-      expect(enqueued.last.operation, 'upsert');
-      expect(enqueued.last.table, 'workout_sets');
-      final payload = payloadOf(enqueued.length - 1);
-      expect(payload['id'], set.id);
-      expect(payload['reps'], 6);
-      expect(payload['weight_kg'], 72.501);
-      expect(payload['rir'], 1);
-      expect(payload['set_type'], 'failure');
-      expect(payload['completed'], isTrue);
-    });
+        expect(enqueued.last.operation, 'upsert');
+        expect(enqueued.last.table, 'workout_sets');
+        final payload = payloadOf(enqueued.length - 1);
+        expect(payload['id'], set.id);
+        expect(payload['reps'], 6);
+        expect(payload['weight_kg'], 72.501);
+        expect(payload['rir'], 1);
+        expect(payload['set_type'], 'failure');
+        expect(payload['completed'], isTrue);
+      },
+    );
 
     test('rechaza los mismos rangos que la RF-7', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       final set = await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 70,
@@ -402,9 +404,9 @@ void main() {
         throwsA(isA<SetValidationException>()),
       );
 
-      final stored = await (db.select(db.workoutSets)
-            ..where((t) => t.id.equals(set.id)))
-          .getSingle();
+      final stored = await (db.select(
+        db.workoutSets,
+      )..where((t) => t.id.equals(set.id))).getSingle();
       expect(stored.reps, 10);
       expect(stored.setType, 'normal');
       expect(enqueued, hasLength(3));
@@ -412,9 +414,9 @@ void main() {
 
     test('editar una serie deshecha la vuelve a confirmar', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       final set = await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 70,
@@ -436,9 +438,9 @@ void main() {
 
     test('una sesión cerrada no admite deshacer ni edición', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       final set = await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 70,
@@ -456,36 +458,40 @@ void main() {
         throwsA(isA<SessionNotEditableException>()),
       );
 
-      final stored = await (db.select(db.workoutSets)
-            ..where((t) => t.id.equals(set.id)))
-          .getSingle();
+      final stored = await (db.select(
+        db.workoutSets,
+      )..where((t) => t.id.equals(set.id))).getSingle();
       expect(stored.completed, isTrue);
       expect(stored.reps, 10);
     });
   });
 
   group('RF-10: cierre de la sesión', () {
-    test('sin series completadas borra la sesión y lo encola como delete',
-        () async {
-      final workout = await startWithExercise();
+    test(
+      'sin series completadas borra la sesión y lo encola como delete',
+      () async {
+        final workout = await startWithExercise();
 
-      final saved = await repo.finishWorkout(workout.id);
+        final saved = await repo.finishWorkout(workout.id);
 
-      expect(saved, isFalse);
-      expect(await db.select(db.workouts).get(), isEmpty);
-      expect(await db.select(db.workoutExercises).get(), isEmpty);
+        expect(saved, isFalse);
+        expect(await db.select(db.workouts).get(), isEmpty);
+        expect(await db.select(db.workoutExercises).get(), isEmpty);
 
-      expect(enqueued.last.operation, 'delete');
-      expect(enqueued.last.table, 'workouts');
-      expect(payloadOf(enqueued.length - 1)['id'], workout.id);
-    });
+        expect(enqueued.last.operation, 'delete');
+        expect(enqueued.last.table, 'workouts');
+        expect(payloadOf(enqueued.length - 1)['id'], workout.id);
+      },
+    );
 
     test('una serie pendiente no cuenta como completada', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
-      await db.into(db.workoutSets).insert(
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+      await db
+          .into(db.workoutSets)
+          .insert(
             WorkoutSetsCompanion.insert(
               id: 'pending-set',
               workoutExerciseId: item.id,
@@ -506,9 +512,9 @@ void main() {
 
     test('con series completadas la sesión queda finished', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 80,
@@ -519,9 +525,9 @@ void main() {
       final saved = await repo.finishWorkout(workout.id);
 
       expect(saved, isTrue);
-      final stored = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(workout.id)))
-          .getSingle();
+      final stored = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(workout.id))).getSingle();
       expect(stored.status, 'finished');
       expect(stored.endedAt, isNotNull);
 
@@ -535,9 +541,9 @@ void main() {
   group('RF-12: borrar sesión del historial', () {
     Future<Workout> finishedWorkout() async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 80,
@@ -549,20 +555,22 @@ void main() {
       return workout;
     }
 
-    test('borra la sesión con ejercicios y series y encola el delete',
-        () async {
-      final workout = await finishedWorkout();
+    test(
+      'borra la sesión con ejercicios y series y encola el delete',
+      () async {
+        final workout = await finishedWorkout();
 
-      await repo.deleteWorkout(workout.id);
+        await repo.deleteWorkout(workout.id);
 
-      expect(await db.select(db.workouts).get(), isEmpty);
-      expect(await db.select(db.workoutExercises).get(), isEmpty);
-      expect(await db.select(db.workoutSets).get(), isEmpty);
-      expect(enqueued, hasLength(1));
-      expect(enqueued.single.operation, 'delete');
-      expect(enqueued.single.table, 'workouts');
-      expect(payloadOf(0)['id'], workout.id);
-    });
+        expect(await db.select(db.workouts).get(), isEmpty);
+        expect(await db.select(db.workoutExercises).get(), isEmpty);
+        expect(await db.select(db.workoutSets).get(), isEmpty);
+        expect(enqueued, hasLength(1));
+        expect(enqueued.single.operation, 'delete');
+        expect(enqueued.single.table, 'workouts');
+        expect(payloadOf(0)['id'], workout.id);
+      },
+    );
 
     test('la sesión activa no se borra', () async {
       final workout = await startWithExercise();
@@ -584,16 +592,16 @@ void main() {
   group('RF-5: temporizador de descanso local', () {
     test('persiste el estado sin tocar updated_at ni encolar', () async {
       final workout = await startWithExercise();
-      final initial = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(workout.id)))
-          .getSingle();
+      final initial = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(workout.id))).getSingle();
       final endsAt = DateTime.now().add(const Duration(seconds: 90));
 
       await repo.saveRestTimer(workout.id, endsAt: endsAt);
 
-      var stored = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(workout.id)))
-          .getSingle();
+      var stored = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(workout.id))).getSingle();
       expect(stored.restPausedSeconds, isNull);
       expect(stored.restEndsAt, isNotNull);
       expect(
@@ -609,51 +617,287 @@ void main() {
         pausedRemaining: const Duration(seconds: 30),
       );
 
-      stored = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(workout.id)))
-          .getSingle();
+      stored = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(workout.id))).getSingle();
       expect(stored.restEndsAt, isNull);
       expect(stored.restPausedSeconds, 30);
       expect(enqueued, hasLength(2));
     });
   });
 
-  group('RF-9 a RF-11: reanudar la sesión tras cierre', () {
-    Future<LocalProfile> profile() => (db.select(db.localProfiles)
-          ..where((t) => t.id.equals(1)))
-        .getSingle();
+  group('v19: timers por workout_exercise y opción C', () {
+    Future<WorkoutExercise> storedItem(String id) {
+      return (db.select(
+        db.workoutExercises,
+      )..where((t) => t.id.equals(id))).getSingle();
+    }
 
-    test('startWorkout guarda el marcador y no encola nada extra (RF-9)',
-        () async {
-      final workout = await repo.startWorkout();
+    RestTimer restTimerOf(WorkoutExercise item) => RestTimer(
+      endsAt: item.restEndsAt,
+      pausedRemaining: item.restPausedSeconds == null
+          ? null
+          : Duration(seconds: item.restPausedSeconds!),
+    );
 
-      expect((await profile()).lastActiveWorkoutId, workout.id);
+    test(
+      'el inicio resuelve preferencia fresca y prioriza el rest planificado',
+      () async {
+        final workout = await startWithExercise();
+        final item = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+        final catalog = CatalogRepository(db);
+        final now = DateTime(2026, 3, 1, 12);
+        await (db.update(db.exercises)
+              ..where((t) => t.id.equals('bench-press')))
+            .write(const ExercisesCompanion(restSeconds: Value(15)));
+
+        final initial = await repo.startRestTimer(
+          workoutExerciseId: item.id,
+          now: now,
+        );
+        expect(initial.remainingAt(now), const Duration(seconds: 90));
+
+        await catalog.updateRestSeconds('bench-press', 120);
+        final preferred = await repo.startRestTimer(
+          workoutExerciseId: item.id,
+          now: now,
+        );
+        expect(preferred.remainingAt(now), const Duration(seconds: 120));
+
+        final planned = await repo.startRestTimer(
+          workoutExerciseId: item.id,
+          plannedRestSeconds: 30,
+          now: now,
+        );
+        expect(planned.remainingAt(now), const Duration(seconds: 30));
+        expect(await catalog.effectiveRestSeconds('bench-press'), 120);
+        expect(enqueued, hasLength(2));
+      },
+    );
+
+    test(
+      'dos tarjetas conservan timers independientes y comparten solo default',
+      () async {
+        final workout = await repo.startWorkout();
+        final first = await repo.addExercise(
+          workoutId: workout.id,
+          exerciseId: 'bench-press',
+        );
+        final second = await repo.addExercise(
+          workoutId: workout.id,
+          exerciseId: 'bench-press',
+        );
+        final firstUpdatedAt = (await storedItem(first.id)).updatedAt;
+        final secondUpdatedAt = (await storedItem(second.id)).updatedAt;
+        final now = DateTime(2026, 3, 1, 12);
+        await repo.saveRestTimer(
+          workout.id,
+          pausedRemaining: const Duration(seconds: 20),
+        );
+
+        await repo.startRestTimer(workoutExerciseId: first.id, now: now);
+        await repo.startRestTimer(workoutExerciseId: second.id, now: now);
+        final legacy = await (db.select(
+          db.workouts,
+        )..where((t) => t.id.equals(workout.id))).getSingle();
+        expect(legacy.restEndsAt, isNull);
+        expect(legacy.restPausedSeconds, isNull);
+
+        final adjusted = await repo.adjustRestTimer(
+          workoutExerciseId: first.id,
+          requestedDeltaSeconds: 15,
+          now: now,
+        );
+        expect(adjusted.defaultSeconds, 105);
+        expect(adjusted.timer.remainingAt(now), const Duration(seconds: 105));
+        final firstRunning = restTimerOf(await storedItem(first.id));
+        final secondRunning = restTimerOf(await storedItem(second.id));
+        expect(firstRunning.remainingAt(now), const Duration(seconds: 105));
+        expect(secondRunning.remainingAt(now), const Duration(seconds: 90));
+
+        await repo.pauseRestTimer(
+          second.id,
+          now.add(const Duration(seconds: 10)),
+        );
+        final paused = restTimerOf(await storedItem(second.id));
+        expect(paused.phaseAt(now), RestTimerPhase.paused);
+        expect(paused.remainingAt(now), const Duration(seconds: 80));
+        await repo.resumeRestTimer(
+          second.id,
+          now.add(const Duration(minutes: 5)),
+        );
+        final resumed = restTimerOf(await storedItem(second.id));
+        expect(
+          resumed.remainingAt(now.add(const Duration(minutes: 5))),
+          const Duration(seconds: 80),
+        );
+        await repo.skipRestTimer(first.id);
+        expect(
+          restTimerOf(await storedItem(first.id)).phaseAt(now),
+          RestTimerPhase.idle,
+        );
+        expect(
+          await CatalogRepository(db).effectiveRestSeconds('bench-press'),
+          105,
+        );
+        expect((await storedItem(first.id)).updatedAt, firstUpdatedAt);
+        expect((await storedItem(second.id)).updatedAt, secondUpdatedAt);
+        expect(enqueued, hasLength(3));
+      },
+    );
+
+    test(
+      'la transacción usa delta efectivo y conserva músculos y cola',
+      () async {
+        final workout = await startWithExercise();
+        final item = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+        final profile = await db.select(db.localProfiles).getSingle();
+        final createdAt = DateTime(2026, 1, 1);
+        final now = DateTime(2026, 3, 1, 12);
+        await db
+            .into(db.exercisePreferences)
+            .insert(
+              ExercisePreferencesCompanion.insert(
+                id: 'preference-option-c',
+                localUserId: profile.localUserId,
+                exerciseId: item.exerciseId,
+                restSeconds: const Value(295),
+                target: const Value('pectorals'),
+                muscleGroup: const Value('triceps'),
+                secondaryMuscles: const Value('["triceps"]'),
+                createdAt: createdAt,
+                updatedAt: createdAt,
+              ),
+            );
+        await repo.saveExerciseRestTimer(
+          item.id,
+          endsAt: now.add(const Duration(seconds: 40)),
+        );
+        enqueued.clear();
+
+        final capped = await repo.adjustRestTimer(
+          workoutExerciseId: item.id,
+          requestedDeltaSeconds: 30,
+          now: now,
+        );
+        expect(capped.defaultSeconds, 300);
+        expect(capped.appliedDeltaSeconds, 5);
+        expect(capped.timer.remainingAt(now), const Duration(seconds: 45));
+        var preference = await db.select(db.exercisePreferences).getSingle();
+        expect(preference.target, 'pectorals');
+        expect(preference.muscleGroup, 'triceps');
+        expect(preference.secondaryMuscles, '["triceps"]');
+        expect(preference.createdAt, createdAt);
+        expect(preference.updatedAt, now);
+
+        final zero = await repo.adjustRestTimer(
+          workoutExerciseId: item.id,
+          requestedDeltaSeconds: -300,
+          now: now,
+        );
+        expect(zero.defaultSeconds, 15);
+        expect(zero.appliedDeltaSeconds, -285);
+        expect(zero.timer.remainingAt(now), Duration.zero);
+        expect(zero.timer.phaseAt(now), RestTimerPhase.done);
+        preference = await db.select(db.exercisePreferences).getSingle();
+        expect(preference.restSeconds, 15);
+        expect((await storedItem(item.id)).updatedAt, item.updatedAt);
+        expect(enqueued, isEmpty);
+      },
+    );
+
+    test('replace limpia el countdown y no añade campos al payload', () async {
+      final workout = await startWithExercise();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+      await repo.saveExerciseRestTimer(
+        item.id,
+        pausedRemaining: const Duration(seconds: 30),
+      );
+      enqueued.clear();
+
+      await repo.replaceExercise(
+        workoutExerciseId: item.id,
+        exerciseId: 'bench-press',
+      );
+
+      final replaced = await storedItem(item.id);
+      expect(replaced.restEndsAt, isNull);
+      expect(replaced.restPausedSeconds, isNull);
       expect(enqueued, hasLength(1));
+      final payload = payloadOf(0);
+      expect(payload.containsKey('rest_ends_at'), isFalse);
+      expect(payload.containsKey('rest_paused_seconds'), isFalse);
     });
 
-    test('restoreLastActiveWorkout devuelve la sesión activa marcada (RF-10)',
-        () async {
-      final workout = await repo.startWorkout();
+    test(
+      'watchExercises reacciona a preferencias y no al rest legacy',
+      () async {
+        final workout = await startWithExercise();
+        final catalog = CatalogRepository(db);
+        await (db.update(db.exercises)
+              ..where((t) => t.id.equals('bench-press')))
+            .write(const ExercisesCompanion(restSeconds: Value(120)));
+        final iterator = StreamIterator<int>(
+          repo
+              .watchExercises(workout.id)
+              .map((rows) => rows.single.exercise.restSeconds),
+        );
 
-      final restored = await repo.restoreLastActiveWorkout();
+        expect(await iterator.moveNext(), isTrue);
+        expect(iterator.current, 90);
+        await catalog.updateRestSeconds('bench-press', 135);
+        expect(await iterator.moveNext(), isTrue);
+        expect(iterator.current, 135);
+        await iterator.cancel();
+        expect(enqueued, hasLength(2));
+      },
+    );
+  });
 
-      expect(restored!.id, workout.id);
-      expect(restored.status, 'active');
-      expect(restored.endedAt, isNull);
-    });
+  group('RF-9 a RF-11: reanudar la sesión tras cierre', () {
+    Future<LocalProfile> profile() =>
+        (db.select(db.localProfiles)..where((t) => t.id.equals(1))).getSingle();
+
+    test(
+      'startWorkout guarda el marcador y no encola nada extra (RF-9)',
+      () async {
+        final workout = await repo.startWorkout();
+
+        expect((await profile()).lastActiveWorkoutId, workout.id);
+        expect(enqueued, hasLength(1));
+      },
+    );
+
+    test(
+      'restoreLastActiveWorkout devuelve la sesión activa marcada (RF-10)',
+      () async {
+        final workout = await repo.startWorkout();
+
+        final restored = await repo.restoreLastActiveWorkout();
+
+        expect(restored!.id, workout.id);
+        expect(restored.status, 'active');
+        expect(restored.endedAt, isNull);
+      },
+    );
 
     test('restore limpia un marcador huérfano y devuelve null', () async {
-      await (db.update(db.localProfiles)..where((t) => t.id.equals(1)))
-          .write(
+      await (db.update(db.localProfiles)..where((t) => t.id.equals(1))).write(
         const LocalProfilesCompanion(lastActiveWorkoutId: Value('no-existe')),
       );
       expect(await repo.restoreLastActiveWorkout(), isNull);
       expect((await profile()).lastActiveWorkoutId, isNull);
 
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       // Sesión cerrada con series: queda `finished`, ya no reanudable.
       await repo.logSet(
         workoutExerciseId: item.id,
@@ -662,8 +906,9 @@ void main() {
         rir: 2,
       );
       await repo.finishWorkout(workout.id);
-      await (db.update(db.localProfiles)..where((t) => t.id.equals(1)))
-          .write(LocalProfilesCompanion(lastActiveWorkoutId: Value(workout.id)));
+      await (db.update(db.localProfiles)..where((t) => t.id.equals(1))).write(
+        LocalProfilesCompanion(lastActiveWorkoutId: Value(workout.id)),
+      );
 
       expect(await repo.restoreLastActiveWorkout(), isNull);
       expect((await profile()).lastActiveWorkoutId, isNull);
@@ -671,9 +916,9 @@ void main() {
 
     test('finishWorkout limpia el marcador (RF-10)', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 80,
@@ -701,9 +946,9 @@ void main() {
 
       await repo.abandonWorkout(workout.id);
 
-      final stored = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(workout.id)))
-          .getSingle();
+      final stored = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(workout.id))).getSingle();
       expect(stored.status, 'abandoned');
       expect(stored.endedAt, isNotNull);
       expect((await profile()).lastActiveWorkoutId, isNull);
@@ -731,15 +976,25 @@ void main() {
     test('resume duración, series, tonelaje y destacados', () async {
       final workout = await repo.startWorkout(name: 'Push');
       // Fecha el inicio 42 min atrás para una duración determinista.
-      await (db.update(db.workouts)..where((t) => t.id.equals(workout.id)))
-          .write(WorkoutsCompanion(
-        startedAt: Value(DateTime.now().subtract(const Duration(minutes: 42))),
-      ));
+      await (db.update(
+        db.workouts,
+      )..where((t) => t.id.equals(workout.id))).write(
+        WorkoutsCompanion(
+          startedAt: Value(
+            DateTime.now().subtract(const Duration(minutes: 42)),
+          ),
+        ),
+      );
       await repo.addExercise(workoutId: workout.id, exerciseId: 'bench-press');
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
-      await repo.logSet(workoutExerciseId: item.id, weightKg: 80, reps: 8, rir: 2);
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+      await repo.logSet(
+        workoutExerciseId: item.id,
+        weightKg: 80,
+        reps: 8,
+        rir: 2,
+      );
       await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 40,
@@ -747,7 +1002,12 @@ void main() {
         rir: 5,
         setType: 'warmup',
       );
-      await repo.logSet(workoutExerciseId: item.id, weightKg: 85, reps: 6, rir: 1);
+      await repo.logSet(
+        workoutExerciseId: item.id,
+        weightKg: 85,
+        reps: 6,
+        rir: 1,
+      );
 
       await repo.finishWorkout(workout.id);
 
@@ -769,67 +1029,91 @@ void main() {
       expect(highlight.rir, 1);
     });
 
-    test('ordena de más reciente a más antigua y omite no terminadas', () async {
-      // Sesión A terminada hace dos horas.
-      final old = await startWithExercise();
-      final oldItem = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(old.id)))
-          .getSingle();
-      await repo.logSet(workoutExerciseId: oldItem.id, weightKg: 70, reps: 10, rir: 3);
-      await repo.finishWorkout(old.id);
-      await (db.update(db.workouts)..where((t) => t.id.equals(old.id)))
-          .write(WorkoutsCompanion(
-        endedAt: Value(DateTime.now().subtract(const Duration(hours: 2))),
-      ));
+    test(
+      'ordena de más reciente a más antigua y omite no terminadas',
+      () async {
+        // Sesión A terminada hace dos horas.
+        final old = await startWithExercise();
+        final oldItem = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(old.id))).getSingle();
+        await repo.logSet(
+          workoutExerciseId: oldItem.id,
+          weightKg: 70,
+          reps: 10,
+          rir: 3,
+        );
+        await repo.finishWorkout(old.id);
+        await (db.update(db.workouts)..where((t) => t.id.equals(old.id))).write(
+          WorkoutsCompanion(
+            endedAt: Value(DateTime.now().subtract(const Duration(hours: 2))),
+          ),
+        );
 
-      // Sesión B terminada ahora mismo.
-      final recent = await startWithExercise();
-      final recentItem = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(recent.id)))
-          .getSingle();
-      await repo.logSet(workoutExerciseId: recentItem.id, weightKg: 80, reps: 8, rir: 2);
-      await repo.finishWorkout(recent.id);
+        // Sesión B terminada ahora mismo.
+        final recent = await startWithExercise();
+        final recentItem = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(recent.id))).getSingle();
+        await repo.logSet(
+          workoutExerciseId: recentItem.id,
+          weightKg: 80,
+          reps: 8,
+          rir: 2,
+        );
+        await repo.finishWorkout(recent.id);
 
-      // Una sesión a medio empezar y otra abandonada no entran en el feed.
-      await repo.startWorkout();
-      await repo.abandonWorkout((await repo.startWorkout()).id);
-      final active = await repo.startWorkout();
-      await repo.addExercise(workoutId: active.id, exerciseId: 'bench-press');
+        // Una sesión a medio empezar y otra abandonada no entran en el feed.
+        await repo.startWorkout();
+        await repo.abandonWorkout((await repo.startWorkout()).id);
+        final active = await repo.startWorkout();
+        await repo.addExercise(workoutId: active.id, exerciseId: 'bench-press');
 
-      final summaries = await repo.watchFinishedWorkouts().first;
-      expect(summaries.map((s) => s.id), [recent.id, old.id]);
-    });
+        final summaries = await repo.watchFinishedWorkouts().first;
+        expect(summaries.map((s) => s.id), [recent.id, old.id]);
+      },
+    );
   });
 
   group('RF-13/RF-14 de la 008: previo de la sesión anterior', () {
-    test('devuelve el previo por ejercicio de la última sesión anterior',
-        () async {
-      final previous = await startWithExercise();
-      final previousItem = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(previous.id)))
-          .getSingle();
-      await repo.logSet(
-          workoutExerciseId: previousItem.id, weightKg: 70, reps: 10, rir: 3);
-      await repo.logSet(
-          workoutExerciseId: previousItem.id, weightKg: 75, reps: 8, rir: 2);
-      await repo.finishWorkout(previous.id);
+    test(
+      'devuelve el previo por ejercicio de la última sesión anterior',
+      () async {
+        final previous = await startWithExercise();
+        final previousItem = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(previous.id))).getSingle();
+        await repo.logSet(
+          workoutExerciseId: previousItem.id,
+          weightKg: 70,
+          reps: 10,
+          rir: 3,
+        );
+        await repo.logSet(
+          workoutExerciseId: previousItem.id,
+          weightKg: 75,
+          reps: 8,
+          rir: 2,
+        );
+        await repo.finishWorkout(previous.id);
 
-      final current = await repo.startWorkout();
+        final current = await repo.startWorkout();
 
-      final previousSets = await repo.previousSets(
-        before: current.startedAt.add(const Duration(seconds: 1)),
-      );
+        final previousSets = await repo.previousSets(
+          before: current.startedAt.add(const Duration(seconds: 1)),
+        );
 
-      expect(previousSets['bench-press'], isNotNull);
-      expect(previousSets['bench-press']!.map((s) => s.weightKg), [70, 75]);
-      expect(previousSets['bench-press']!.map((s) => s.reps), [10, 8]);
-    });
+        expect(previousSets['bench-press'], isNotNull);
+        expect(previousSets['bench-press']!.map((s) => s.weightKg), [70, 75]);
+        expect(previousSets['bench-press']!.map((s) => s.reps), [10, 8]);
+      },
+    );
 
     test('ignora calentamientos y sesiones sin terminar', () async {
       final finished = await startWithExercise();
-      final finishedItem = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(finished.id)))
-          .getSingle();
+      final finishedItem = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(finished.id))).getSingle();
       await repo.logSet(
         workoutExerciseId: finishedItem.id,
         weightKg: 40,
@@ -838,7 +1122,11 @@ void main() {
         setType: 'warmup',
       );
       await repo.logSet(
-          workoutExerciseId: finishedItem.id, weightKg: 80, reps: 6, rir: 1);
+        workoutExerciseId: finishedItem.id,
+        weightKg: 80,
+        reps: 6,
+        rir: 1,
+      );
       await repo.finishWorkout(finished.id);
 
       final current = await repo.startWorkout();
@@ -864,51 +1152,53 @@ void main() {
       ],
     );
 
-    test('crea una sesión finished con sus series completadas y la encola',
-        () async {
-      final workout = await repo.createPastWorkout(
-        startedAt: past,
-        duration: const Duration(minutes: 60),
-        exercises: const [benchDraft],
-      );
+    test(
+      'crea una sesión finished con sus series completadas y la encola',
+      () async {
+        final workout = await repo.createPastWorkout(
+          startedAt: past,
+          duration: const Duration(minutes: 60),
+          exercises: const [benchDraft],
+        );
 
-      expect(workout.status, 'finished');
-      expect(workout.startedAt, past);
-      expect(workout.endedAt, past.add(const Duration(minutes: 60)));
-      expect(workout.endedAt!.isAfter(DateTime.now()), isFalse);
-      expect(workout.routineId, isNull);
-      expect(workout.name, isNull);
+        expect(workout.status, 'finished');
+        expect(workout.startedAt, past);
+        expect(workout.endedAt, past.add(const Duration(minutes: 60)));
+        expect(workout.endedAt!.isAfter(DateTime.now()), isFalse);
+        expect(workout.routineId, isNull);
+        expect(workout.name, isNull);
 
-      final profile = await db.select(db.localProfiles).getSingle();
-      expect(workout.localUserId, profile.localUserId);
+        final profile = await db.select(db.localProfiles).getSingle();
+        expect(workout.localUserId, profile.localUserId);
 
-      final items = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .get();
-      expect(items, hasLength(1));
-      expect(items.single.orderIndex, 1);
+        final items = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(workout.id))).get();
+        expect(items, hasLength(1));
+        expect(items.single.orderIndex, 1);
 
-      final sets = await (db.select(db.workoutSets)
-            ..where((t) => t.workoutExerciseId.equals(items.single.id)))
-          .get();
-      expect([for (final s in sets) s.orderIndex], [1, 2]);
-      expect(sets.every((s) => s.completed), isTrue);
-      expect([for (final s in sets) s.weightKg], [60.0, 65.0]);
-      expect([for (final s in sets) s.reps], [8, 6]);
+        final sets = await (db.select(
+          db.workoutSets,
+        )..where((t) => t.workoutExerciseId.equals(items.single.id))).get();
+        expect([for (final s in sets) s.orderIndex], [1, 2]);
+        expect(sets.every((s) => s.completed), isTrue);
+        expect([for (final s in sets) s.weightKg], [60.0, 65.0]);
+        expect([for (final s in sets) s.reps], [8, 6]);
 
-      expect(enqueued, hasLength(4));
-      expect(
-        [for (final e in enqueued) e.table],
-        ['workouts', 'workout_exercises', 'workout_sets', 'workout_sets'],
-      );
-      expect(enqueued.every((e) => e.operation == 'upsert'), isTrue);
-      expect(payloadOf(0)['status'], 'finished');
-      expect(
-        payloadOf(0)['ended_at'],
-        past.add(const Duration(minutes: 60)).toIso8601String(),
-      );
-      expect(payloadOf(3)['completed'], true);
-    });
+        expect(enqueued, hasLength(4));
+        expect(
+          [for (final e in enqueued) e.table],
+          ['workouts', 'workout_exercises', 'workout_sets', 'workout_sets'],
+        );
+        expect(enqueued.every((e) => e.operation == 'upsert'), isTrue);
+        expect(payloadOf(0)['status'], 'finished');
+        expect(
+          payloadOf(0)['ended_at'],
+          past.add(const Duration(minutes: 60)).toIso8601String(),
+        );
+        expect(payloadOf(3)['completed'], true);
+      },
+    );
 
     test('el payload encolado es válido para el mapeo RF-13', () async {
       await repo.createPastWorkout(
@@ -937,9 +1227,9 @@ void main() {
         exercises: const [benchDraft],
       );
 
-      final storedActive = await (db.select(db.workouts)
-            ..where((t) => t.id.equals(active.id)))
-          .getSingle();
+      final storedActive = await (db.select(
+        db.workouts,
+      )..where((t) => t.id.equals(active.id))).getSingle();
       expect(storedActive.status, 'active');
       expect(storedActive.endedAt, isNull);
 
@@ -1052,27 +1342,22 @@ void main() {
         duration: const Duration(minutes: 60),
         exercises: const [benchDraft],
       );
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
-      final sets = await (db.select(db.workoutSets)
-            ..where((t) => t.workoutExerciseId.equals(item.id)))
-          .get();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+      final sets = await (db.select(
+        db.workoutSets,
+      )..where((t) => t.workoutExerciseId.equals(item.id))).get();
       final set = sets.first;
 
       await expectLater(
-        repo.updateSet(
-          setId: set.id,
-          weightKg: 70,
-          reps: 5,
-          rir: 2,
-        ),
+        repo.updateSet(setId: set.id, weightKg: 70, reps: 5, rir: 2),
         throwsA(isA<SessionNotEditableException>()),
       );
 
-      final stored = await (db.select(db.workoutSets)
-            ..where((t) => t.id.equals(set.id)))
-          .getSingle();
+      final stored = await (db.select(
+        db.workoutSets,
+      )..where((t) => t.id.equals(set.id))).getSingle();
       expect(stored.weightKg, 60.0);
     });
   });
@@ -1084,9 +1369,9 @@ void main() {
       int reps,
       int rir,
     ) async {
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       return repo.logSet(
         workoutExerciseId: item.id,
         weightKg: weightKg,
@@ -1096,9 +1381,9 @@ void main() {
     }
 
     Future<List<WorkoutSet>> setsOfWorkout(Workout workout) async {
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       return (db.select(db.workoutSets)
             ..where((t) => t.workoutExerciseId.equals(item.id))
             ..orderBy([(t) => OrderingTerm.asc(t.orderIndex)]))
@@ -1111,7 +1396,10 @@ void main() {
       final first = await logSet(workout, 70, 10, 3);
       final second = await logSet(workout, 75, 8, 2);
       final third = await logSet(workout, 80, 6, 1);
-      expect([first.orderIndex, second.orderIndex, third.orderIndex], [1, 2, 3]);
+      expect(
+        [first.orderIndex, second.orderIndex, third.orderIndex],
+        [1, 2, 3],
+      );
 
       await repo.deleteSet(second.id);
 
@@ -1125,26 +1413,28 @@ void main() {
       expect(payloadOf(enqueued.length - 1)['id'], second.id);
     });
 
-    test('borrar la primera serie deja el resto en 1..n sin huecos (RF-5)',
-        () async {
-      final workout = await startWithExercise();
-      final first = await logSet(workout, 70, 10, 3);
-      final second = await logSet(workout, 75, 8, 2);
-      final third = await logSet(workout, 80, 6, 1);
+    test(
+      'borrar la primera serie deja el resto en 1..n sin huecos (RF-5)',
+      () async {
+        final workout = await startWithExercise();
+        final first = await logSet(workout, 70, 10, 3);
+        final second = await logSet(workout, 75, 8, 2);
+        final third = await logSet(workout, 80, 6, 1);
 
-      await repo.deleteSet(first.id);
+        await repo.deleteSet(first.id);
 
-      final rows = await setsOfWorkout(workout);
-      expect(rows.map((s) => s.id), [second.id, third.id]);
-      expect(rows.map((s) => s.orderIndex), [1, 2]);
-    });
+        final rows = await setsOfWorkout(workout);
+        expect(rows.map((s) => s.id), [second.id, third.id]);
+        expect(rows.map((s) => s.orderIndex), [1, 2]);
+      },
+    );
 
     test('las series pendientes sobreviven a una instancia nueva del '
         'repositorio con valores, tipo y orden (RF-7)', () async {
       final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
+      final item = await (db.select(
+        db.workoutExercises,
+      )..where((t) => t.workoutId.equals(workout.id))).getSingle();
       await repo.logSet(
         workoutExerciseId: item.id,
         weightKg: 60,
@@ -1187,51 +1477,55 @@ void main() {
       expect(streamed.every((s) => !s.completed), isTrue);
     });
 
-    test('borrar en una sesión cerrada no cambia filas ni encola (RF-6)',
-        () async {
-      final workout = await startWithExercise();
-      final set = await logSet(workout, 70, 10, 3);
-      await repo.finishWorkout(workout.id);
-      final enqueuedBefore = enqueued.length;
+    test(
+      'borrar en una sesión cerrada no cambia filas ni encola (RF-6)',
+      () async {
+        final workout = await startWithExercise();
+        final set = await logSet(workout, 70, 10, 3);
+        await repo.finishWorkout(workout.id);
+        final enqueuedBefore = enqueued.length;
 
-      await expectLater(
-        repo.deleteSet(set.id),
-        throwsA(isA<SessionNotEditableException>()),
-      );
+        await expectLater(
+          repo.deleteSet(set.id),
+          throwsA(isA<SessionNotEditableException>()),
+        );
 
-      final stored = await (db.select(db.workoutSets)
-            ..where((t) => t.id.equals(set.id)))
-          .getSingle();
-      expect(stored.completed, isTrue);
-      expect(stored.reps, 10);
-      expect(enqueued, hasLength(enqueuedBefore));
-    });
+        final stored = await (db.select(
+          db.workoutSets,
+        )..where((t) => t.id.equals(set.id))).getSingle();
+        expect(stored.completed, isTrue);
+        expect(stored.reps, 10);
+        expect(enqueued, hasLength(enqueuedBefore));
+      },
+    );
 
-    test('confirmar una serie inválida no escribe nada ni encola (RF-6)',
-        () async {
-      final workout = await startWithExercise();
-      final item = await (db.select(db.workoutExercises)
-            ..where((t) => t.workoutId.equals(workout.id)))
-          .getSingle();
-      final set = await repo.logSet(
-        workoutExerciseId: item.id,
-        weightKg: 70,
-        reps: 10,
-        rir: 3,
-      );
-      final enqueuedBefore = enqueued.length;
+    test(
+      'confirmar una serie inválida no escribe nada ni encola (RF-6)',
+      () async {
+        final workout = await startWithExercise();
+        final item = await (db.select(
+          db.workoutExercises,
+        )..where((t) => t.workoutId.equals(workout.id))).getSingle();
+        final set = await repo.logSet(
+          workoutExerciseId: item.id,
+          weightKg: 70,
+          reps: 10,
+          rir: 3,
+        );
+        final enqueuedBefore = enqueued.length;
 
-      await expectLater(
-        repo.updateSet(setId: set.id, weightKg: 70, reps: 0, rir: 3),
-        throwsA(isA<SetValidationException>()),
-      );
+        await expectLater(
+          repo.updateSet(setId: set.id, weightKg: 70, reps: 0, rir: 3),
+          throwsA(isA<SetValidationException>()),
+        );
 
-      final stored = await (db.select(db.workoutSets)
-            ..where((t) => t.id.equals(set.id)))
-          .getSingle();
-      expect(stored.reps, 10);
-      expect(stored.weightKg, 70);
-      expect(enqueued, hasLength(enqueuedBefore));
-    });
+        final stored = await (db.select(
+          db.workoutSets,
+        )..where((t) => t.id.equals(set.id))).getSingle();
+        expect(stored.reps, 10);
+        expect(stored.weightKg, 70);
+        expect(enqueued, hasLength(enqueuedBefore));
+      },
+    );
   });
 }

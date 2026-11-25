@@ -2,17 +2,17 @@
 
 ## Estado general
 
-- **Local vigente antes de 022:** drift SQLite en `lib/data/local/database.dart`,
-  `schemaVersion = 18` (el valor 17 que figuraba aquí estaba desactualizado).
-- **Local aprobado para 022:** v19 en T-003, v20 en T-004 y v21 en T-006.
+- **Local vigente:** drift SQLite en `lib/data/local/database.dart`,
+  `schemaVersion = 19`, implementado en T-003 y pendiente de revisión. Antes de 022
+  era v18; las versiones aprobadas v20 (T-004) y v21 (T-006) siguen sin aplicar.
 - **Remoto:** Supabase Postgres/Storage; cambios solo mediante migraciones en
   `supabase/migrations/`, una por tarea cuando aplique.
 - **Réplica/cola:** SQLite es réplica de trabajo offline; Supabase es fuente de
   verdad compartida. Toda escritura local es inmediata y toda tabla remota de
   usuario tiene `user_id` + RLS.
 - **Unidades:** pesos en kg en base; conversión a lb solo al mostrar.
-- **Planificación:** ninguna migración, regeneración drift ni cambio de esquema
-  descrito aquí se ha aplicado todavía.
+- **Ejecución:** T-003 aplicó únicamente 18→19 y generó el código drift; no hay
+  migración Supabase, v20/v21 ni propagación remota de las nuevas columnas todavía.
 
 ## Relación con specs previas
 

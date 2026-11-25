@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import '../catalog_patches.dart';
 import 'tables/body_metrics.dart';
+import 'tables/exercise_preferences.dart';
 import 'tables/exercises.dart';
 import 'tables/goals.dart';
 import 'tables/local_profiles.dart';
@@ -25,6 +26,7 @@ part 'database.g.dart';
   tables: [
     Exercises,
     ExerciseInstructions,
+    ExercisePreferences,
     Workouts,
     WorkoutExercises,
     WorkoutSets,
@@ -48,7 +50,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -196,6 +198,49 @@ class AppDatabase extends _$AppDatabase {
         }
         // Caché derivado: se reconstruye con `ensureFresh` o al cerrar sesión.
         await m.database.customStatement('DELETE FROM muscle_fatigue');
+      }
+      if (from < 19) {
+        await _createTableIfMissing(m, exercisePreferences);
+        await _addColumnIfMissing(
+          m,
+          workoutExercises,
+          workoutExercises.restPausedSeconds,
+        );
+        await _addColumnIfMissing(
+          m,
+          workoutExercises,
+          workoutExercises.restEndsAt,
+        );
+        final profile = await m.database
+            .customSelect(
+              'SELECT local_user_id FROM local_profiles WHERE id = 1 LIMIT 1',
+            )
+            .getSingleOrNull();
+        if (profile != null) {
+          final rests = await m.database
+              .customSelect(
+                'SELECT id, rest_seconds FROM exercises '
+                'WHERE rest_seconds IS NOT NULL AND rest_seconds != 90',
+              )
+              .get();
+          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+          for (final rest in rests) {
+            await m.database.customStatement(
+              'INSERT OR IGNORE INTO exercise_preferences '
+              '(id, local_user_id, exercise_id, rest_seconds, target, '
+              'muscle_group, secondary_muscles, created_at, updated_at) '
+              'VALUES (?, ?, ?, ?, NULL, NULL, NULL, ?, ?)',
+              [
+                const Uuid().v4(),
+                profile.read<String>('local_user_id'),
+                rest.read<String>('id'),
+                rest.read<int>('rest_seconds'),
+                now,
+                now,
+              ],
+            );
+          }
+        }
       }
     },
   );

@@ -1,22 +1,26 @@
 # Memory Log — Spec 022
 
-## Estado actual — 022/T-001 implementada, pendiente de revisión final (2026-11-23)
+## Estado actual — 022/T-003 implementada, pendiente de revisión (2026-11-25)
 
 - **Slug:** `022-grafico-descansos-y-ejercicios-personalizados`.
-- **Estado: APROBADO (D-117); Q-006 y Q-007 cerradas.** `tarea_actual: revisión
-  final de T-001`. El revisor considera resueltos todos los hallazgos técnicos,
-  incluida CA-02 con cola sembrada y conservada tras claim exitoso. El cierre del
-  implementador repitió la puerta completa en verde bajo D-119 y conservó todo el
-  trabajo existente. D-119 registra la excepción autorizada, pero **no declara
-  T-001 aprobada**; falta la revisión final obligatoria. T-002…T-006 siguen sin
-  implementar ni revisar.
-- **Estado Git actual:** HEAD es `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`
-  (`sicronizacion`), y la referencia local `origin/2.2.0` apunta al mismo commit.
-  Su reflog registra `update by push` a las 12:55:03 -0600. El commit posterior a
-  `9730e8e` incluye fix, pruebas, documentación y el `pubspec.lock` preexistente.
-  La autoría material del commit/push no es atribuible con la evidencia disponible.
-  D-119 autoriza conservarlo como válido, sin atribuir autoría ni reescribir
-  historial; no autoriza commits/push futuros sin permiso expreso.
+- **Estado de diseño: APROBADO (D-117); Q-006 y Q-007 cerradas.**
+  `tarea_actual: revisión de T-003`. **Agente activo:** implementador de T-003;
+  **última implementación completada:** T-003, pendiente de revisión independiente.
+  **T-001 APROBADA**, sin hallazgos bloqueantes/mayores/menores; sus límites de
+  evidencia y Supabase real/RLS/Storage/segunda réplica diferidos se conservan.
+  **T-002 APROBADA**, sin bloqueantes ni mayores. Observación menor no bloqueante:
+  la prueba de fechas a 320 dp no ejercita `textScaler` 1.3 ni la escala efectiva
+  de `FittedBox`; se recomienda caracterizar legibilidad según DESIGN §9 después,
+  sin reabrir T-002 ni incorporarlo a T-003. **T-003 está IMPLEMENTADA, NO
+  APROBADA todavía**; T-004…T-006 siguen sin implementar.
+- **Estado Git actual al cerrar esta planificación:** HEAD es
+  `d227ebcbb13355cc4561a9c91b7ae2ec5db27956` (`fix`). Al inicio de la
+  planificación de T-002 era `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`; el
+  reflog registra `commit: fix` y el nuevo commit contiene documentación y la
+  prueba de claim preexistentes. La transición/autoría no es atribuible con la
+  evidencia disponible y no se altera historial. D-119 solo exceptúa conservar el
+  hash histórico `9d62bac…`; no se extiende a `d227ebc…` ni autoriza commits/push
+  futuros. Este planner no ejecutó operaciones Git de escritura.
 - El usuario respondió «aprovado» a la pregunta que pedía «Apruebo el diseño 022
   completo» o indicar cambios: se registra como aprobación explícita del DESIGN
   completo, sin cambios, el 2026-11-23. La afirmación anterior de aprobación el
@@ -51,12 +55,40 @@
   `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` (`sicronizacion`) para T-001. No
   atribuye autoría ni autoriza commits/push futuros sin permiso, reset, revert,
   rebase u otra reescritura. La regla de AGENTS sigue vigente en T-001…T-006.
+- **D-120:** la geometría del chart se calcula una sola vez por índice cronológico
+  y tamaño real; línea, área, nodos y destacado consumen los mismos nodos. El eje
+  selecciona como máximo cuatro días únicos e incluye año al cruzar años; cada fecha
+  se ajusta con `FittedBox` sin truncar su texto. La frecuencia se crea solo para
+  ventanas finitas. No cambian dominio, ventanas ni formato aprobados en la 021.
+- **D-121 (T-003):** el descanso efectivo es
+  `exercise_preferences.rest_seconds ?? 90`; `exercises.rest_seconds` queda legacy,
+  no se reescribe y solo el backfill 18→19 copia valores distintos de 90 al perfil
+  único mediante `INSERT OR IGNORE`. La preferencia y los timers por item siguen
+  siendo locales en esta tarea: no se amplían payloads, whitelist, cola ni Supabase.
+- **D-122 (T-003):** `WorkoutRepository.startRestTimer` resuelve la preferencia
+  fresca, da prioridad al descanso planificado y limpia el timer legacy. La opción C
+  se calcula con `RestTimer.adjustWithDefault`, aplica el delta efectivo al default
+  y al restante y persiste ambas mitades en una transacción, sin encolar ni tocar
+  `workout_exercises.updated_at`. Reemplazar limpia el countdown del item; pausar,
+  reanudar y saltar no cambian el default.
+- **D-123 (T-003):** los módulos Live y las alertas se dirigen por
+  `workoutExerciseId`; el workout global es solo fallback acotado y desaparece al
+  terminar, saltarse o iniciar un timer asociado. Las notificaciones usan la clave
+  legacy reservada/ID 1 y FNV-1a explícito para IDs estables de items. El ticker
+  recalcula contra `endsAt`, nunca decrementa segundos; background programa solo
+  running futuro y resume cancela las claves gestionadas.
 
 ### Evidencia estática y contratos de planificación
 
-- El chart mezcla cuatro x fijas con otra fórmula desde el quinto punto y destaca
-  `xPositions.last`: T-002 debe obtener un rojo geométrico >4 puntos antes de
-  corregir. El test actual de 12 puntos no inspecciona coordenadas.
+- El chart vigente mezcla cuatro x fijas con otra fórmula desde el quinto punto,
+  deriva el ancho de MediaQuery y destaca/cierra con `xPositions.last`; T-002 debe
+  obtener primero un rojo geométrico >4 y cubrir 2/4/6/12, constraints, área y
+  destacado. `shouldRepaint` no compara todos los datos/tamaño relevantes. El test
+  actual de 12 puntos no inspecciona coordenadas.
+- `PeriodDelta.absolute` ya contiene la resta con signo y `formatChartDeltaKg` ya
+  formatea negativos: CA-07 exige regresión, no un cambio de dominio inventado.
+  `progressWindowDays(all)=0` produce la frecuencia cero que la UI debe ocultar;
+  las ventanas finitas y los puntos/ventanas de la 021 permanecen intactos.
 - `_changeRest()` de la ficha solo hace `setState`; el ajuste live solo guarda el
   timer. Antes de la 022 el countdown era uno por workout, local y no encolado;
   T-003 lo hace independiente y T-006 implementa la réplica aprobada.
@@ -76,8 +108,7 @@
 - **Q-007 (proceso): CERRADA por D-119.** El usuario autorizó conservar como válido
   únicamente `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` y documentar la excepción.
   No se revierte ni oculta el estado; siguen prohibidos commits/push nuevos sin
-  permiso y cualquier reescritura. El cierre de T-001 está implementado y requiere
-  la revisión final obligatoria.
+  permiso y cualquier reescritura. La revisión final posterior aprobó T-001.
 - No hay Q adicional para síntomas de sync en esta fase. Si T-001 no reproduce un
   rojo ni obtiene evidencia remota, devolverá el bloqueo concreto sin declarar el
   arreglo.
@@ -282,6 +313,128 @@
   permanece en el hash autorizado por D-119. T-001 queda **IMPLEMENTADA —
   PENDIENTE DE REVISIÓN FINAL**, sin aprobación unilateral.
 
+## Revisión final — 022/T-001 APROBADA (2026-11-23)
+
+- Veredicto: **APROBADO**, sin hallazgos bloqueantes, mayores ni menores. Se cierra
+  el ciclo de revisión de CA-01…CA-04 y Q-007/D-119.
+- Limitaciones no bloqueantes: resultados de puerta declarados por el implementador;
+  revisor en solo lectura y sin acceso a `/tmp`. Supabase real/RLS/Storage/segunda
+  réplica continúan diferidos al alcance posterior.
+- `tarea_actual` pasa a **T-002**. D-119 no habilita commits/push nuevos.
+
+## Planificación vigente — 022/T-002 (2026-11-23)
+
+- Se leyeron el painter, ficha, enums/dominio y pruebas actuales. CA-05…CA-08 y el
+  DESIGN no cambian. Producción prevista: `exercise_progress_chart.dart`; ficha
+  solo si la integración de constraints lo exige. No se prevén cambios en dominio
+  ni `chart_enums.dart`, migraciones, dependencias, PNG o goldens.
+- Rojo obligatorio >4 puntos antes del fix, observando geometría/pintura real;
+  después 2/4/6/12, x estricta dentro de constraints, último nodo para área/
+  destacado, padre más estrecho que MediaQuery y 320/375 dp. Revisar repaint al
+  cambiar tamaño/datos con igual número de puntos y nodos dentro del alto útil.
+- Mantener constructor/callbacks y dominio 021. Se permite una geometría pura
+  `@visibleForTesting` consumida por el painter o un canvas de registro en tests;
+  no una nueva API de dominio ni dependencias. Pruebas foco:
+  `exercise_progress_chart_test.dart`; regresiones `exercise_stats_test.dart` y
+  `t002_chart_format_test.dart`; ficha solo si se toca.
+- Fechas reales, máximo cuatro y deduplicadas; cruce de año y 320 dp. En Todo se
+  omite el insight de frecuencia cero; las finitas conservan su formato. El delta
+  negativo ya tiene soporte y se protege con regresión.
+- Riesgos: painter privado frágil como seam inicial, corregir x sin área/destacado,
+  repaint obsoleto, fechas duplicadas/truncadas y romper 021. Esta fase solo editó
+  documentación y no ejecutó tests.
+
+## Bitácora de implementación — 022/T-002 (2026-11-24)
+
+### Reanudación, causa y corrección
+
+- Se conservó el trabajo parcial existente. Al reanudar, HEAD seguía en
+  `d227ebcbb13355cc4561a9c91b7ae2ec5db27956`, igual que al inicio; no cambió durante
+  la interrupción. No hubo commit, push, reset, rebase, revert ni clean.
+- **CA-05:** el rojo previo al fix ejecutó el painter real con seis puntos y un
+  `TestRecordingCanvas`. Las posiciones observadas retrocedían de `295` a `236` en el
+  quinto nodo (`Expected: a value less than <236.0>`, `Actual: <295.0>`, salida 1).
+  Causa: cuatro x auxiliares se combinaban con otra fórmula desde el quinto punto.
+  Evidencia roja/verde: `/tmp/opencode/hevywork-t002/red-geometry.txt` y
+  `green-geometry-final.txt`; la misma regresión terminó 1/1 verde.
+- Se añadió una geometría pura `@visibleForTesting`, consumida realmente por el
+  painter, con nodos distribuidos por índice. Línea y área usan esos nodos; el área se
+  cierra desde el último nodo y ambas circunferencias destacadas usan `nodes.last`.
+  Las pruebas de 2/4/6/12 puntos inspeccionan llamadas reales, x creciente, límites de
+  ancho/alto e identidad de paths.
+- **CA-06:** `LayoutBuilder` proporciona el ancho real. Hay cobertura con padre más
+  estrecho que `MediaQuery` en viewports 320/375 dp, y repintado al cambiar valores,
+  fechas o ancho conservando el número de puntos. Datos y tamaño idénticos no fuerzan
+  repintado.
+- **CA-07:** la regresión 100 → 80 kg muestra `-20.0 kg` y conserva puntos/ventana.
+  No se modificaron `exercise_stats.dart`, `chart_enums.dart`, puntos, ventanas ni
+  formateadores de la 021.
+- **CA-08:** el eje fijo se sustituyó por días reales deduplicados, como máximo cuatro
+  y con primer/último día. Al cruzar años se muestra `dd/MM/yyyy`. La primera versión
+  produjo un segundo rojo real a 320 dp (`RenderFlex overflowed by 170 pixels`);
+  `FittedBox` eliminó el overflow sin truncar las fechas. En «Todo» no se crea el
+  insight de frecuencia; en ventanas finitas se conserva `0.16x / semana`. Cero/un
+  punto mantienen el estado vacío. La decisión técnica queda en **D-120**.
+
+### Archivos y verificación
+
+- Producción: `lib/ui/widgets/exercise_progress_chart.dart`.
+- Pruebas: `test/exercise_progress_chart_test.dart`.
+- Coordinación: `docs/specs/022-grafico-descansos-y-ejercicios-personalizados/tasks.md`
+  y esta memoria. No se modificó la integración de `exercise_info_view.dart`.
+- Chart: **17/17**. Chart + `exercise_stats_test` + `t002_chart_format_test`:
+  **37/37**. Esas suites + `exercise_info_view_test` + `routine_detail_view_test`:
+  **64/64**. Sin skips ni relajación de expectativas.
+- Puerta `flutter test --exclude-tags golden --reporter json`: **salida 0** en
+  485409 ms, `done.success=true`, **65/65 suites**, `testStart=testDone=844`; 109
+  eventos ocultos del runner y **735 pruebas reales verdes**, 0 fallos, 0 skips y 0
+  goldens iniciados. JSON/resumen: `/tmp/opencode/hevywork-t002/full-test.json` y
+  `full-test-summary.txt`.
+- `flutter analyze`: **0 incidencias**. Format check y `git diff --check`: limpios.
+  `pubspec.lock` y **33 PNG** conservan hashes iniciales. Sin dependencias,
+  migraciones, PNG/goldens, skips ni timeouts de prueba aumentados.
+- **Estado:** CA-05…CA-08 implementados; T-002 **IMPLEMENTADA — PENDIENTE DE
+  REVISIÓN OBLIGATORIA**. Sin bloqueos ni preguntas abiertas; T-003 no se ha iniciado.
+
+## Revisión — 022/T-002 APROBADA (2026-11-24)
+
+- Veredicto: **APROBADO**, sin hallazgos bloqueantes ni mayores; CA-05…CA-08
+  aceptados. T-002 no se reabre.
+- Observación menor no bloqueante: la regresión de fechas a 320 dp no ejercita
+  `textScaler` 1.3 ni la escala efectiva de `FittedBox`. Se recomienda caracterizar
+  legibilidad según DESIGN §9 como seguimiento posterior, fuera de T-003.
+- `tarea_actual` pasa a **T-003**. No se crea una tarea de chart ni una pregunta
+  abierta; la observación no invalida la puerta ya declarada.
+
+## Planificación vigente — 022/T-003 (2026-11-24)
+
+- Se leyeron `docs/db.md` §§1–2, tablas, database/migraciones, repositorios,
+  `RestTimer`, `RestNotifier`, ficha, LiveWorkout y pruebas actuales. CA-09…CA-12 y
+  DESIGN no cambian. La ficha actual solo hace `setState`; el repositorio escribe el
+  legacy; Live guarda un único timer en `workouts`; notifier usa ID/bandera únicos.
+- **Orden:** rojos actuales cuando sean ejecutables → tabla completa y columnas v19 →
+  una generación build_runner → dominio/repositorios/transacción → ficha/Live/avisos →
+  regresiones y puerta completa. Nueva tabla prevista
+  `tables/exercise_preferences.dart`; generated incluido, nunca editado a mano.
+- **v19:** copiar solo rests !=90 al perfil único, con upsert/idempotencia y sin tocar
+  legacy/historial/cola. Checks para rango, triplete muscular y estados de timer.
+  Preferencia efectiva `rest ?? 90`; streams deben reaccionar en ficha/Live y el inicio
+  consulta valor fresco, conservando prioridad del rest planificado de serie.
+- **Opción C:** delta limitado primero contra default 15–300; aplicar ese delta efectivo
+  al restante con un solo `now`, clamp a cero y persistir default+timer en transacción.
+  Pausa/reanudación/skip no cambian default; idle/done no inventan ajuste. Timer por
+  `workoutExerciseId`, no por `exerciseId`; replace limpia su estado.
+- **Legacy/avisos:** global solo fallback hasta done/skip/nuevo asociado, sin migración
+  arbitraria ni opción C. Avisos con clave e ID determinista por item, estados de alerta
+  por item y schedule/cancel en ciclo de vida. Se permite inyectar reloj/notifier fake.
+- **Límites:** sin Supabase, whitelist, payloads/cola de nuevas columnas, dependencias,
+  PNG o commits/push. Controles tocados ≥44 dp y 320/375 + textScaler 1.3; la deuda de
+  legibilidad del chart no pertenece a este encargo.
+- Riesgos principales: backfill duplicado/copia de 90, upsert que borra músculos,
+  escrituras no atómicas, delta crudo, stale default, reemplazo que hereda timer,
+  notificaciones que cancelan otra tarjeta y tests antiguos que confunden item/legacy.
+  Esta fase solo editó documentación y no ejecutó tests ni build_runner.
+
 ## Histórico — Spec 021
 
 ### Estado al cierre
@@ -449,6 +602,73 @@
 - Criterios detallados: CA-10…CA-17 en `tasks.md` de la 021.
 - Dependencia técnica: ninguna de T-001; se sitúa después para evitar conflictos
   en `exercise_info_view.dart` y `exercise_progress_chart.dart`.
+
+## Bitácora de implementación — 022/T-003 (2026-11-25)
+
+### Rojos y contrato v19
+
+- Reapertura de ficha: `red-info-reopen.txt` falló porque, tras volver a abrir,
+  `105 s` no existía. Segunda serie live: `red-live-second-set.txt` obtuvo 88 s
+  cuando debía usar al menos 104 s tras el ajuste. Coexistencia:
+  `red-live-two-items.txt` no encontró `rest-plus-<workoutExerciseId>` en la
+  primera tarjeta. Las tres regresiones terminaron verdes sin skips ni relajación.
+- Se implementó una única migración drift **18→19**: tabla
+  `exercise_preferences` completa con checks/unicidad, columnas excluyentes
+  `workout_exercises.rest_ends_at/rest_paused_seconds`, guardas idempotentes y
+  backfill selectivo distinto de 90. Las pruebas cubren base creada como v19,
+  upgrade, interrupción, conservación muscular/historial/cola y valores límite.
+- El primer `build_runner` agotó el límite externo sin escribir; la recuperación
+  de esa misma generación terminó en **43 s, 315 outputs** y avisó que la opción
+  retirada `--delete-conflicting-outputs` fue ignorada
+  (`build-runner-complete.txt`). No se editó a mano el generado ni se volvió a
+  generar después: el esquema no cambió y `database.g.dart`, analyze y las
+  migraciones v19 validan la coherencia.
+
+### Dominio, persistencia y UI
+
+- `RestTimer.adjustWithDefault` centraliza la opción C y los topes 15–300 con
+  delta efectivo; done/idle no se convierten en pausa ni inventan ajustes.
+  Repositorio y catálogo resuelven preferencia fresca, priorizan override
+  planificado, reaccionan a cambios y coordinan default/countdown localmente.
+- La ficha persiste y recupera el descanso, conserva `rest-detail-*` y no toca
+  countdown, `updated_at`, maestro legacy ni cola. Live inicia solo series no
+  warmup, mantiene módulos independientes en tarjetas expandidas, limita los
+  controles al ID pulsado y comparte únicamente el default entre items del mismo
+  ejercicio. Reemplazar limpia el countdown y cancela su aviso.
+- El fallback legacy conserva claves globales, no aplica opción C y se limpia al
+  hacer done/skip o iniciar un timer asociado. Las alertas usan IDs FNV-1a
+  estables/distintos y clave legacy reservada; se verificó una alerta por item,
+  clear aislado, pausa congelada, background/resume y cancelación por clave.
+- Los controles tocados miden al menos 44 dp. Live y ficha pasan a 320/375 dp con
+  `textScaler` 1.3; el único ajuste adyacente de ficha fue convertir el encabezado
+  de activación a `Wrap` para evitar overflow, sin modificar chart ni su
+  observación diferida. Decisiones registradas: **D-121…D-123**.
+
+### Pruebas y puerta final
+
+- Dominio + workout + migración + catálogo + ficha
+  (`domain-data-info-first.txt`): **119/119**. Live completo: **25/25**; ficha
+  completa tras las comprobaciones añadidas: **20/20**; notifier: **3/3**.
+  Workout tras el renombrado exigido por lint: **52/52**.
+- `flutter test --exclude-tags golden --reporter expanded`, repetición final:
+  **758/758, All tests passed!, salida 0** (`full-gate-test-final.txt` y `.exit`).
+- `flutter analyze`: **No issues found!, salida 0** (`full-gate-analyze.txt` y
+  `.exit`). La única incidencia previa era el nombre local `_restTimerOf`; se
+  renombró a `restTimerOf` y se repitieron workout y la suite global.
+- `dart format --output=none --set-exit-if-changed` sobre los Dart modificados:
+  **0 cambios**. `git diff --check`: sin incidencias. `pubspec.lock` conserva
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`;
+  los manifiestos SHA-256 de PNG fuente coinciden y `git diff` no lista PNG,
+  sync, migraciones Supabase ni lock.
+- HEAD permanece en `d227ebcbb13355cc4561a9c91b7ae2ec5db27956`; no hubo commits,
+  push, reset, rebase, revert, clean, dependencias, skips, goldens ni timeouts de
+  pruebas aumentados. T-001/T-002, la 021 y el trabajo ajeno se conservan.
+
+### Cierre
+
+- **CA-09…CA-12 quedan implementados y cubiertos por las pruebas anteriores.**
+  T-003 queda **PENDIENTE DE REVISIÓN**, sin autoaprobación. T-004…T-006 no se
+  iniciaron. No quedan bloqueos ni preguntas abiertas para el coordinador.
 
 ## Bitácora de implementación — 021/T-001 (2026-11-18)
 

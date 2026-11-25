@@ -1,15 +1,18 @@
 /// Fase del temporizador de descanso (RF-5 a RF-8 de la 002).
 enum RestTimerPhase { idle, running, paused, done }
 
+typedef RestTimerAdjustment = ({
+  int defaultSeconds,
+  int appliedDeltaSeconds,
+  RestTimer timer,
+});
+
 /// Temporizador de descanso anclado a un instante absoluto (`DateTime`) para
 /// que el tiempo restante sea correcto aunque la app vuelva del fondo o se
 /// restaure la sesión (RF-10). No depende de timers: el resto se calcula
 /// contra `DateTime.now()`.
 class RestTimer {
-  const RestTimer({
-    this.endsAt,
-    this.pausedRemaining,
-  });
+  const RestTimer({this.endsAt, this.pausedRemaining});
 
   /// Instante absoluto en el que termina el descanso; null si no corre.
   final DateTime? endsAt;
@@ -35,12 +38,11 @@ class RestTimer {
   }
 
   /// Arranca un descanso de [duration] segundos a partir de [now].
-  RestTimer start(DateTime now, Duration duration) => RestTimer(
-        endsAt: now.add(duration),
-      );
+  RestTimer start(DateTime now, Duration duration) =>
+      RestTimer(endsAt: now.add(duration));
 
   RestTimer pause(DateTime now) {
-    if (endsAt == null) return this;
+    if (phaseAt(now) != RestTimerPhase.running) return this;
     return RestTimer(pausedRemaining: remainingAt(now));
   }
 
@@ -59,6 +61,31 @@ class RestTimer {
     }
     if (endsAt == null) return RestTimer();
     return RestTimer(endsAt: now.add(clamped));
+  }
+
+  RestTimerAdjustment adjustWithDefault({
+    required int oldDefaultSeconds,
+    required int requestedDeltaSeconds,
+    required DateTime now,
+  }) {
+    final phase = phaseAt(now);
+    if (phase != RestTimerPhase.running && phase != RestTimerPhase.paused) {
+      return (
+        defaultSeconds: oldDefaultSeconds,
+        appliedDeltaSeconds: 0,
+        timer: this,
+      );
+    }
+    final newDefault = (oldDefaultSeconds + requestedDeltaSeconds).clamp(
+      15,
+      300,
+    );
+    final appliedDelta = newDefault - oldDefaultSeconds;
+    return (
+      defaultSeconds: newDefault,
+      appliedDeltaSeconds: appliedDelta,
+      timer: adjust(Duration(seconds: appliedDelta), now),
+    );
   }
 
   /// Salta el descanso (RF-8): vuelve al estado inactivo.

@@ -8,6 +8,21 @@ void main() {
     notifier = RestNotifier();
   });
 
+  group('IDs por timer', () {
+    test('legacy conserva 1 y los IDs de items son estables y distintos', () {
+      expect(
+        RestNotifier.notificationIdFor(RestNotificationService.legacyKey),
+        1,
+      );
+      expect(RestNotifier.notificationIdFor('workout-exercise-a'), 1089720387);
+      expect(RestNotifier.notificationIdFor('workout-exercise-b'), 1106498006);
+      expect(
+        RestNotifier.notificationIdFor('workout-exercise-a'),
+        isNot(RestNotifier.notificationIdFor('workout-exercise-b')),
+      );
+    });
+  });
+
   group('alertNow', () {
     test('no lanza excepción en llamadas múltiples', () async {
       // Primeira llamada

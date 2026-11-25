@@ -158,7 +158,7 @@ void main() {
 
       final db = AppDatabase(NativeDatabase(file));
       final version = await db.customSelect('PRAGMA user_version').getSingle();
-      expect(version.read<int>('user_version'), 18);
+      expect(version.read<int>('user_version'), 19);
 
       final columns = await db
           .customSelect("SELECT name FROM pragma_table_info('exercises')")
@@ -218,7 +218,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final profiles = await reopened.select(reopened.localProfiles).get();
     expect(profiles, hasLength(1));
@@ -266,7 +266,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final exercise = await reopened.select(reopened.exercises).getSingle();
     expect(exercise.id, '0001');
@@ -345,7 +345,7 @@ void main() {
       final version = await reopened
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 18);
+      expect(version.read<int>('user_version'), 19);
 
       final profiles = await reopened.select(reopened.localProfiles).get();
       expect(profiles, hasLength(1));
@@ -380,7 +380,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final routineColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('routines')")
@@ -442,7 +442,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final goalColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('goals')")
@@ -528,7 +528,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final rows = await reopened.select(reopened.bodyMetrics).get();
     expect(rows, hasLength(1));
@@ -562,7 +562,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final columns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('muscle_fatigue')")
@@ -606,7 +606,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final setColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('routine_sets')")
@@ -653,7 +653,7 @@ void main() {
       final version = await reopened
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 18);
+      expect(version.read<int>('user_version'), 19);
 
       final columns = await reopened
           .customSelect("SELECT name FROM pragma_table_info('workout_sets')")
@@ -679,7 +679,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final columns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('local_profiles')")
@@ -711,7 +711,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final columns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('routines')")
@@ -752,7 +752,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     await reopened
         .into(reopened.progressPhotos)
@@ -791,7 +791,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final metricColumns = await reopened
         .customSelect("SELECT name FROM pragma_table_info('body_metrics')")
@@ -842,7 +842,7 @@ void main() {
       final version = await reopened
           .customSelect('PRAGMA user_version')
           .getSingle();
-      expect(version.read<int>('user_version'), 18);
+      expect(version.read<int>('user_version'), 19);
 
       final tables = await reopened
           .customSelect(
@@ -879,7 +879,7 @@ void main() {
     final version = await reopened
         .customSelect('PRAGMA user_version')
         .getSingle();
-    expect(version.read<int>('user_version'), 18);
+    expect(version.read<int>('user_version'), 19);
 
     final profiles = await reopened.select(reopened.localProfiles).get();
     expect(profiles, hasLength(1));
@@ -888,8 +888,7 @@ void main() {
     await reopened.close();
   });
 
-  test('la v18 reaplica el parche muscular del catálogo y vacía el caché',
-      () async {
+  test('la v18 reaplica el parche muscular del catálogo y vacía el caché', () async {
     final db = AppDatabase(NativeDatabase(file));
     for (final companion in [
       ExercisesCompanion.insert(
@@ -922,15 +921,17 @@ void main() {
     ]) {
       await db.into(db.exercises).insert(companion);
     }
-    await db.into(db.muscleFatigue).insert(
-      MuscleFatigueCompanion.insert(
-        localUserId: 'perfil-antiguo',
-        muscle: 'hamstrings',
-        fatigue: 1,
-        raw: 100,
-        computedAt: DateTime(2026, 1, 1),
-      ),
-    );
+    await db
+        .into(db.muscleFatigue)
+        .insert(
+          MuscleFatigueCompanion.insert(
+            localUserId: 'perfil-antiguo',
+            muscle: 'hamstrings',
+            fatigue: 1,
+            raw: 100,
+            computedAt: DateTime(2026, 1, 1),
+          ),
+        );
     await db.customStatement('PRAGMA user_version = 17');
     await db.close();
 
@@ -950,15 +951,240 @@ void main() {
     // Los ejercicios fuera del parche no se tocan.
     expect(byId['0001']!.target, 'abs');
     expect(byId['0001']!.muscleGroup, 'hip flexors');
-    expect(
-      byId['0001']!.secondaryMuscles,
-      '["hip flexors","lower back"]',
-    );
+    expect(byId['0001']!.secondaryMuscles, '["hip flexors","lower back"]');
 
     // El caché derivado se invalida para que se recalcule con los datos nuevos.
     final cache = await reopened.select(reopened.muscleFatigue).get();
     expect(cache, isEmpty);
 
     await reopened.close();
+  });
+
+  test(
+    'la v19 migra solo descansos distintos de 90 y conserva los datos',
+    () async {
+      final db = AppDatabase(NativeDatabase(file));
+      final profile = await db.select(db.localProfiles).getSingle();
+      for (final entry in [('0001', 90), ('0002', 120), ('0003', 15)]) {
+        await db
+            .into(db.exercises)
+            .insert(
+              ExercisesCompanion.insert(
+                id: entry.$1,
+                name: 'Ejercicio ${entry.$1}',
+                bodyPart: 'chest',
+                equipment: 'barbell',
+                target: 'pectorals',
+                muscleGroup: 'chest',
+                restSeconds: Value(entry.$2),
+              ),
+            );
+      }
+      final startedAt = DateTime(2026, 2, 1, 10);
+      await db
+          .into(db.workouts)
+          .insert(
+            WorkoutsCompanion.insert(
+              id: 'workout-v18',
+              localUserId: profile.localUserId,
+              startedAt: startedAt,
+              restPausedSeconds: const Value(45),
+            ),
+          );
+      await db
+          .into(db.workoutExercises)
+          .insert(
+            WorkoutExercisesCompanion.insert(
+              id: 'item-v18',
+              workoutId: 'workout-v18',
+              exerciseId: '0001',
+              orderIndex: 1,
+            ),
+          );
+      await db
+          .into(db.workoutSets)
+          .insert(
+            WorkoutSetsCompanion.insert(
+              id: 'set-v18',
+              workoutExerciseId: 'item-v18',
+              orderIndex: 1,
+              reps: const Value(8),
+              completed: const Value(true),
+            ),
+          );
+      await db
+          .into(db.syncQueue)
+          .insert(
+            SyncQueueCompanion.insert(
+              id: 'queue-v18',
+              operation: 'upsert',
+              targetTable: 'workouts',
+              payload: '{"id":"workout-v18"}',
+              nextAttemptAt: startedAt,
+            ),
+          );
+      await db.customStatement('DROP TABLE exercise_preferences');
+      await db.customStatement(
+        'ALTER TABLE workout_exercises DROP COLUMN rest_ends_at',
+      );
+      await db.customStatement(
+        'ALTER TABLE workout_exercises DROP COLUMN rest_paused_seconds',
+      );
+      await db.customStatement('PRAGMA user_version = 18');
+      await db.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      final version = await reopened
+          .customSelect('PRAGMA user_version')
+          .getSingle();
+      expect(version.read<int>('user_version'), 19);
+      final preferences = await reopened
+          .select(reopened.exercisePreferences)
+          .get();
+      expect(preferences, hasLength(2));
+      expect(preferences.map((row) => row.localUserId).toSet(), {
+        profile.localUserId,
+      });
+      expect(
+        {for (final row in preferences) row.exerciseId: row.restSeconds},
+        {'0002': 120, '0003': 15},
+      );
+      final exercises = await reopened.select(reopened.exercises).get();
+      expect(
+        {for (final row in exercises) row.id: row.restSeconds},
+        {'0001': 90, '0002': 120, '0003': 15},
+      );
+      final workout = await reopened.select(reopened.workouts).getSingle();
+      expect(workout.restPausedSeconds, 45);
+      expect(workout.restEndsAt, isNull);
+      final item = await reopened.select(reopened.workoutExercises).getSingle();
+      expect(item.restEndsAt, isNull);
+      expect(item.restPausedSeconds, isNull);
+      expect(await reopened.select(reopened.workoutSets).get(), hasLength(1));
+      final queue = await reopened.select(reopened.syncQueue).getSingle();
+      expect(queue.id, 'queue-v18');
+      expect(queue.payload, '{"id":"workout-v18"}');
+
+      await expectLater(
+        reopened.customStatement(
+          'INSERT INTO exercise_preferences '
+          '(id, local_user_id, exercise_id, rest_seconds, created_at, updated_at) '
+          "VALUES ('invalid-rest', '${profile.localUserId}', '0001', 14, 1, 1)",
+        ),
+        throwsA(isA<SqliteException>()),
+      );
+      await expectLater(
+        reopened.customStatement(
+          'INSERT INTO exercise_preferences '
+          '(id, local_user_id, exercise_id, target, created_at, updated_at) '
+          "VALUES ('invalid-muscles', '${profile.localUserId}', '0001', "
+          "'pectorals', 1, 1)",
+        ),
+        throwsA(isA<SqliteException>()),
+      );
+      await expectLater(
+        reopened.customStatement(
+          "UPDATE workout_exercises SET rest_ends_at = 100, "
+          "rest_paused_seconds = 10 WHERE id = 'item-v18'",
+        ),
+        throwsA(isA<SqliteException>()),
+      );
+      await expectLater(
+        reopened.customStatement(
+          "UPDATE workout_exercises SET rest_paused_seconds = -1 "
+          "WHERE id = 'item-v18'",
+        ),
+        throwsA(isA<SqliteException>()),
+      );
+      await reopened.close();
+    },
+  );
+
+  test(
+    'la v19 interrumpida no duplica ni pisa una preferencia existente',
+    () async {
+      final db = AppDatabase(NativeDatabase(file));
+      final profile = await db.select(db.localProfiles).getSingle();
+      await db
+          .into(db.exercises)
+          .insert(
+            ExercisesCompanion.insert(
+              id: '0001',
+              name: 'Press',
+              bodyPart: 'chest',
+              equipment: 'barbell',
+              target: 'pectorals',
+              muscleGroup: 'chest',
+              restSeconds: const Value(120),
+            ),
+          );
+      final createdAt = DateTime(2026, 1, 1);
+      await db
+          .into(db.exercisePreferences)
+          .insert(
+            ExercisePreferencesCompanion.insert(
+              id: 'existing-preference',
+              localUserId: profile.localUserId,
+              exerciseId: '0001',
+              restSeconds: const Value(135),
+              target: const Value('pectorals'),
+              muscleGroup: const Value('triceps'),
+              secondaryMuscles: const Value('["triceps"]'),
+              createdAt: createdAt,
+              updatedAt: createdAt,
+            ),
+          );
+      await db.customStatement(
+        'ALTER TABLE workout_exercises DROP COLUMN rest_ends_at',
+      );
+      await db.customStatement(
+        'ALTER TABLE workout_exercises DROP COLUMN rest_paused_seconds',
+      );
+      await db.customStatement('PRAGMA user_version = 18');
+      await db.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      final preferences = await reopened
+          .select(reopened.exercisePreferences)
+          .get();
+      expect(preferences, hasLength(1));
+      expect(preferences.single.id, 'existing-preference');
+      expect(preferences.single.restSeconds, 135);
+      expect(preferences.single.target, 'pectorals');
+      expect(preferences.single.muscleGroup, 'triceps');
+      expect(preferences.single.secondaryMuscles, '["triceps"]');
+      expect(preferences.single.createdAt, createdAt);
+      final columns = await reopened
+          .customSelect(
+            "SELECT name FROM pragma_table_info('workout_exercises')",
+          )
+          .get();
+      expect(
+        columns.map((row) => row.read<String>('name')),
+        containsAll(['rest_ends_at', 'rest_paused_seconds']),
+      );
+      await reopened.close();
+    },
+  );
+
+  test('una base creada como v19 no ejecuta el backfill', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    await db
+        .into(db.exercises)
+        .insert(
+          ExercisesCompanion.insert(
+            id: '0001',
+            name: 'Press',
+            bodyPart: 'chest',
+            equipment: 'barbell',
+            target: 'pectorals',
+            muscleGroup: 'chest',
+            restSeconds: const Value(120),
+          ),
+        );
+
+    expect(db.schemaVersion, 19);
+    expect(await db.select(db.exercisePreferences).get(), isEmpty);
+    await db.close();
   });
 }

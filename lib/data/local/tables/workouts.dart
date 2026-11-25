@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+
 import 'exercises.dart';
 
 class Workouts extends Table {
@@ -9,7 +10,9 @@ class Workouts extends Table {
   TextColumn get notes => text().nullable()();
   DateTimeColumn get startedAt => dateTime()();
   DateTimeColumn get endedAt => dateTime().nullable()();
-  TextColumn get status => text().withDefault(const Constant('active'))(); // active, finished, abandoned
+  TextColumn get status => text().withDefault(
+    const Constant('active'),
+  )(); // active, finished, abandoned
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   // Temporizador de descanso local (RF-5 a RF-8 de la 002): es estado de UI
@@ -32,23 +35,34 @@ class WorkoutExercises extends Table {
   RealColumn get suggestedWeightKg => real().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+  IntColumn get restPausedSeconds => integer().nullable().customConstraint(
+    'NULL CHECK(rest_paused_seconds IS NULL OR rest_paused_seconds >= 0)',
+  )();
+  DateTimeColumn get restEndsAt => dateTime().nullable().customConstraint(
+    'NULL CHECK(rest_ends_at IS NULL OR rest_paused_seconds IS NULL)',
+  )();
 
   @override
   Set<Column> get primaryKey => {id};
-  
+
   @override
-  List<Set<Column>> get uniqueKeys => [{workoutId, orderIndex}];
+  List<Set<Column>> get uniqueKeys => [
+    {workoutId, orderIndex},
+  ];
 }
 
 class WorkoutSets extends Table {
   TextColumn get id => text()(); // UUID
-  TextColumn get workoutExerciseId => text().references(WorkoutExercises, #id)();
+  TextColumn get workoutExerciseId =>
+      text().references(WorkoutExercises, #id)();
   // Serie planificada de la rutina que originó esta serie (RF-2/RF-4): permite
   // persistir en la rutina los valores reales registrados en la sesión. Null
   // en sesiones libres o series añadidas en vivo.
   TextColumn get routineSetId => text().nullable()();
   IntColumn get orderIndex => integer()();
-  TextColumn get setType => text().withDefault(const Constant('normal'))(); // warmup, normal, failure, drop
+  TextColumn get setType => text().withDefault(
+    const Constant('normal'),
+  )(); // warmup, normal, failure, drop
   RealColumn get weightKg => real().withDefault(const Constant(0.0))();
   IntColumn get reps => integer().withDefault(const Constant(0))();
   IntColumn get rir => integer().nullable()();

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:flutter/services.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../domain/exercise_filter.dart';
 import '../../domain/search_text.dart';
@@ -47,38 +48,42 @@ class CatalogRepository {
       final id = item['id'] as String;
       final secondary = item['secondary_muscles'] as List<dynamic>?;
 
-      exercises.add(ExercisesCompanion.insert(
-        id: id,
-        name: item['name'] as String,
-        bodyPart: item['body_part'] as String,
-        equipment: item['equipment'] as String,
-        target: item['target'] as String,
-        muscleGroup: item['muscle_group'] as String,
-        secondaryMuscles: Value(
-          secondary == null ? null : jsonEncode(secondary.cast<String>()),
+      exercises.add(
+        ExercisesCompanion.insert(
+          id: id,
+          name: item['name'] as String,
+          bodyPart: item['body_part'] as String,
+          equipment: item['equipment'] as String,
+          target: item['target'] as String,
+          muscleGroup: item['muscle_group'] as String,
+          secondaryMuscles: Value(
+            secondary == null ? null : jsonEncode(secondary.cast<String>()),
+          ),
+          mediaId: Value(item['media_id'] as String?),
+          imagePath: Value(item['image'] as String?),
+          gifPath: Value(item['gif_url'] as String?),
+          attribution: Value(item['attribution'] as String?),
+          createdAt: Value(
+            item['created_at'] == null
+                ? null
+                : DateTime.tryParse(item['created_at'] as String),
+          ),
         ),
-        mediaId: Value(item['media_id'] as String?),
-        imagePath: Value(item['image'] as String?),
-        gifPath: Value(item['gif_url'] as String?),
-        attribution: Value(item['attribution'] as String?),
-        createdAt: Value(
-          item['created_at'] == null
-              ? null
-              : DateTime.tryParse(item['created_at'] as String),
-        ),
-      ));
+      );
 
       final steps =
           (item['instruction_steps'] as Map<String, dynamic>?) ?? const {};
       steps.forEach((language, rawSteps) {
         final list = (rawSteps as List<dynamic>).cast<String>();
         for (var i = 0; i < list.length; i++) {
-          instructions.add(ExerciseInstructionsCompanion.insert(
-            exerciseId: id,
-            language: language,
-            stepNumber: i + 1,
-            instruction: list[i],
-          ));
+          instructions.add(
+            ExerciseInstructionsCompanion.insert(
+              exerciseId: id,
+              language: language,
+              stepNumber: i + 1,
+              instruction: list[i],
+            ),
+          );
         }
       });
     }
@@ -103,8 +108,9 @@ class CatalogRepository {
   /// Un ejercicio por su id, para resolver las referencias de las metas
   /// (spec 005).
   Future<Exercise?> exerciseById(String id) async {
-    return (_db.select(_db.exercises)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    return (_db.select(
+      _db.exercises,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   /// Ejercicios por lote de ids (RF-3 de la 014): devuelve solo los pedidos,
@@ -112,17 +118,17 @@ class CatalogRepository {
   Future<Map<String, Exercise>> exercisesByIds(List<String> ids) async {
     if (ids.isEmpty) return {};
     final uniqueIds = ids.toSet().toList();
-    final rows = await (_db.select(_db.exercises)
-      ..where((t) => t.id.isIn(uniqueIds)))
-        .get();
+    final rows = await (_db.select(
+      _db.exercises,
+    )..where((t) => t.id.isIn(uniqueIds))).get();
     return {for (final row in rows) row.id: row};
   }
 
   /// Nombre por id de ejercicio, para las tarjetas del dashboard de metas.
   Future<Map<String, String>> exerciseNames() async {
-    final rows = await (_db.selectOnly(_db.exercises)
-          ..addColumns([_db.exercises.id, _db.exercises.name]))
-        .get();
+    final rows = await (_db.selectOnly(
+      _db.exercises,
+    )..addColumns([_db.exercises.id, _db.exercises.name])).get();
     return {
       for (final row in rows)
         row.read(_db.exercises.id)!: row.read(_db.exercises.name)!,
@@ -141,16 +147,18 @@ class CatalogRepository {
   }) async {
     final predicate = _searchPredicate(query, filter);
     final count = _db.exercises.id.count();
-    final total = await (_db.selectOnly(_db.exercises)
-          ..addColumns([count])
-          ..where(predicate))
-        .getSingle()
-        .then((row) => row.read(count) ?? 0);
-    final exercises = await (_db.select(_db.exercises)
-          ..where((t) => predicate)
-          ..orderBy([(t) => OrderingTerm.asc(t.name)])
-          ..limit(pageSize, offset: offset))
-        .get();
+    final total =
+        await (_db.selectOnly(_db.exercises)
+              ..addColumns([count])
+              ..where(predicate))
+            .getSingle()
+            .then((row) => row.read(count) ?? 0);
+    final exercises =
+        await (_db.select(_db.exercises)
+              ..where((t) => predicate)
+              ..orderBy([(t) => OrderingTerm.asc(t.name)])
+              ..limit(pageSize, offset: offset))
+            .get();
     return (exercises: exercises, total: total);
   }
 
@@ -162,18 +170,19 @@ class CatalogRepository {
     if (cached != null) return cached;
 
     Future<List<String>> distinct(GeneratedColumn<String> column) async {
-      final rows = await (_db.selectOnly(_db.exercises, distinct: true)
-            ..addColumns([column])
-            ..orderBy([OrderingTerm.asc(column)]))
-          .get();
+      final rows =
+          await (_db.selectOnly(_db.exercises, distinct: true)
+                ..addColumns([column])
+                ..orderBy([OrderingTerm.asc(column)]))
+              .get();
       return [for (final row in rows) row.read(column)!];
     }
 
     final secondary = <String>{};
     final column = _db.exercises.secondaryMuscles;
-    final rows = await (_db.selectOnly(_db.exercises)
-          ..addColumns([column]))
-        .get();
+    final rows = await (_db.selectOnly(
+      _db.exercises,
+    )..addColumns([column])).get();
     // En `selectOnly` las columnas viajan con su alias calificado
     // (`tabla.columna`), igual que los construye drift internamente.
     final key = '${column.tableName}.${column.name}';
@@ -210,10 +219,12 @@ class CatalogRepository {
 
     final normalized = normalizeSearchText(query);
     if (normalized.isNotEmpty) {
-      conditions.add(_db.exercises.name.like(
-        '%${escapeLike(normalized)}%',
-        escapeChar: r'\',
-      ));
+      conditions.add(
+        _db.exercises.name.like(
+          '%${escapeLike(normalized)}%',
+          escapeChar: r'\',
+        ),
+      );
     }
 
     void addDimension(Column<String> column, Set<String> values) {
@@ -235,10 +246,10 @@ class CatalogRepository {
       ]);
       conditions.add(
         filter.secondaryMuscles
-            .map((name) => secondary.like(
-                  '%${escapeLike(name)}%',
-                  escapeChar: r'\',
-                ))
+            .map(
+              (name) =>
+                  secondary.like('%${escapeLike(name)}%', escapeChar: r'\'),
+            )
             .reduce((a, b) => a | b),
       );
     }
@@ -252,8 +263,37 @@ class CatalogRepository {
   static String escapeLike(String text) =>
       text.replaceAllMapped(RegExp(r'[\\%_]'), (m) => '\\${m[0]}');
 
-  /// Ajusta el descanso por defecto de un ejercicio, 15–300 s (RF-5 de la
-  /// 002). El CHECK de la columna replica el mismo rango en SQLite.
+  Future<String> _localUserId() async {
+    final profile = await (_db.select(
+      _db.localProfiles,
+    )..where((t) => t.id.equals(1))).getSingle();
+    return profile.localUserId;
+  }
+
+  Future<int> effectiveRestSeconds(String exerciseId) async {
+    final localUserId = await _localUserId();
+    final preference =
+        await (_db.select(_db.exercisePreferences)..where(
+              (t) =>
+                  t.localUserId.equals(localUserId) &
+                  t.exerciseId.equals(exerciseId),
+            ))
+            .getSingleOrNull();
+    return preference?.restSeconds ?? 90;
+  }
+
+  Stream<int> watchEffectiveRestSeconds(String exerciseId) async* {
+    final localUserId = await _localUserId();
+    final query = _db.select(_db.exercisePreferences)
+      ..where(
+        (t) =>
+            t.localUserId.equals(localUserId) & t.exerciseId.equals(exerciseId),
+      );
+    yield* query.watchSingleOrNull().map(
+      (preference) => preference?.restSeconds ?? 90,
+    );
+  }
+
   Future<void> updateRestSeconds(String exerciseId, int seconds) async {
     if (seconds < 15 || seconds > 300) {
       throw ArgumentError.value(
@@ -262,7 +302,39 @@ class CatalogRepository {
         'El descanso debe estar entre 15 y 300 segundos',
       );
     }
-    await (_db.update(_db.exercises)..where((t) => t.id.equals(exerciseId)))
-        .write(ExercisesCompanion(restSeconds: Value(seconds)));
+    await _db.transaction(() async {
+      final localUserId = await _localUserId();
+      final existing =
+          await (_db.select(_db.exercisePreferences)..where(
+                (t) =>
+                    t.localUserId.equals(localUserId) &
+                    t.exerciseId.equals(exerciseId),
+              ))
+              .getSingleOrNull();
+      final now = DateTime.now();
+      if (existing == null) {
+        await _db
+            .into(_db.exercisePreferences)
+            .insert(
+              ExercisePreferencesCompanion.insert(
+                id: const Uuid().v4(),
+                localUserId: localUserId,
+                exerciseId: exerciseId,
+                restSeconds: Value(seconds),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      } else {
+        await (_db.update(
+          _db.exercisePreferences,
+        )..where((t) => t.id.equals(existing.id))).write(
+          ExercisePreferencesCompanion(
+            restSeconds: Value(seconds),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+    });
   }
 }

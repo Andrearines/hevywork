@@ -33,7 +33,9 @@ void main() {
     catalogRepository = CatalogRepository(db);
     workoutRepository = WorkoutRepository(db);
 
-    exercise = await db.into(db.exercises).insertReturning(
+    exercise = await db
+        .into(db.exercises)
+        .insertReturning(
           ExercisesCompanion.insert(
             id: '0001',
             name: 'Press de banca con barra',
@@ -50,30 +52,42 @@ void main() {
 
     // Insert exercise instructions in Spanish and English
     await db.batch((batch) {
-      batch.insert(db.exerciseInstructions, ExerciseInstructionsCompanion.insert(
-        exerciseId: '0001',
-        language: 'es',
-        stepNumber: 1,
-        instruction: 'Baja la barra hasta tocar el pecho',
-      ));
-      batch.insert(db.exerciseInstructions, ExerciseInstructionsCompanion.insert(
-        exerciseId: '0001',
-        language: 'es',
-        stepNumber: 2,
-        instruction: 'Empuja hasta extender los brazos',
-      ));
-      batch.insert(db.exerciseInstructions, ExerciseInstructionsCompanion.insert(
-        exerciseId: '0001',
-        language: 'en',
-        stepNumber: 1,
-        instruction: 'Lower the bar to your chest',
-      ));
-      batch.insert(db.exerciseInstructions, ExerciseInstructionsCompanion.insert(
-        exerciseId: '0001',
-        language: 'en',
-        stepNumber: 2,
-        instruction: 'Push until arms extended',
-      ));
+      batch.insert(
+        db.exerciseInstructions,
+        ExerciseInstructionsCompanion.insert(
+          exerciseId: '0001',
+          language: 'es',
+          stepNumber: 1,
+          instruction: 'Baja la barra hasta tocar el pecho',
+        ),
+      );
+      batch.insert(
+        db.exerciseInstructions,
+        ExerciseInstructionsCompanion.insert(
+          exerciseId: '0001',
+          language: 'es',
+          stepNumber: 2,
+          instruction: 'Empuja hasta extender los brazos',
+        ),
+      );
+      batch.insert(
+        db.exerciseInstructions,
+        ExerciseInstructionsCompanion.insert(
+          exerciseId: '0001',
+          language: 'en',
+          stepNumber: 1,
+          instruction: 'Lower the bar to your chest',
+        ),
+      );
+      batch.insert(
+        db.exerciseInstructions,
+        ExerciseInstructionsCompanion.insert(
+          exerciseId: '0001',
+          language: 'en',
+          stepNumber: 2,
+          instruction: 'Push until arms extended',
+        ),
+      );
     });
   });
 
@@ -81,6 +95,21 @@ void main() {
     await db.delete(db.workoutSets).go();
     await db.delete(db.workoutExercises).go();
     await db.delete(db.workouts).go();
+    await db.delete(db.exercisePreferences).go();
+    final profile = await db.select(db.localProfiles).getSingle();
+    final now = DateTime.now();
+    await db
+        .into(db.exercisePreferences)
+        .insert(
+          ExercisePreferencesCompanion.insert(
+            id: 'preference-0001',
+            localUserId: profile.localUserId,
+            exerciseId: '0001',
+            restSeconds: const Value(120),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
   });
 
   tearDownAll(() => db.close());
@@ -89,6 +118,7 @@ void main() {
     WidgetTester tester, {
     Exercise? target,
     String? unitSystem,
+    double textScale = 1.0,
   }) async {
     Widget home = ExerciseInfoView(
       exercise: target ?? exercise,
@@ -98,7 +128,16 @@ void main() {
     if (unitSystem != null) {
       home = UnitSystemScope(unitSystem: unitSystem, child: home);
     }
-    await tester.pumpWidget(MaterialApp(home: home));
+    await tester.pumpWidget(
+      MaterialApp(
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context)
+              .copyWith(textScaler: TextScaler.linear(textScale)),
+          child: child ?? const SizedBox.shrink(),
+        ),
+        home: home,
+      ),
+    );
     await tester.pumpAndSettle();
   }
 
@@ -108,7 +147,9 @@ void main() {
   }
 
   Future<Exercise> insertExercise(String id, String name) {
-    return db.into(db.exercises).insertReturning(
+    return db
+        .into(db.exercises)
+        .insertReturning(
           ExercisesCompanion.insert(
             id: id,
             name: name,
@@ -125,14 +166,7 @@ void main() {
     int reps = 5,
     int? rir = 2,
     String type = 'normal',
-  }) =>
-      (
-        setType: type,
-        weightKg: kg,
-        reps: reps,
-        rir: rir,
-        completed: true,
-      );
+  }) => (setType: type, weightKg: kg, reps: reps, rir: rir, completed: true);
 
   Future<void> seedFinishedSession({
     required String workoutId,
@@ -143,19 +177,24 @@ void main() {
     List<SeedSet> sets = const [],
   }) async {
     final profile = await db.select(db.localProfiles).getSingle();
-    await db.into(db.workouts).insert(
+    await db
+        .into(db.workouts)
+        .insert(
           WorkoutsCompanion.insert(
             id: workoutId,
             localUserId: profile.localUserId,
             name: Value(name),
-            startedAt: (endedAt ?? DateTime.now())
-                .subtract(const Duration(hours: 1)),
+            startedAt: (endedAt ?? DateTime.now()).subtract(
+              const Duration(hours: 1),
+            ),
             endedAt: Value(endedAt),
             status: Value(status),
           ),
         );
     final itemId = '$workoutId-item';
-    await db.into(db.workoutExercises).insert(
+    await db
+        .into(db.workoutExercises)
+        .insert(
           WorkoutExercisesCompanion.insert(
             id: itemId,
             workoutId: workoutId,
@@ -165,7 +204,9 @@ void main() {
         );
     for (var i = 0; i < sets.length; i++) {
       final set = sets[i];
-      await db.into(db.workoutSets).insert(
+      await db
+          .into(db.workoutSets)
+          .insert(
             WorkoutSetsCompanion.insert(
               id: '$itemId-set-${i + 1}',
               workoutExerciseId: itemId,
@@ -180,8 +221,9 @@ void main() {
     }
   }
 
-  testWidgets('muestra nombre y miniatura local sin URL de GIF',
-      (tester) async {
+  testWidgets('muestra nombre y miniatura local sin URL de GIF', (
+    tester,
+  ) async {
     await pumpView(tester);
 
     // Nombre visible
@@ -219,8 +261,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('ajusta el descanso por defecto del ejercicio (RF-5 de la 002)',
-      (tester) async {
+  testWidgets('ajusta el descanso por defecto del ejercicio (RF-5 de la 002)', (
+    tester,
+  ) async {
     await pumpView(tester);
     await tester.scrollUntilVisible(
       find.byKey(const Key('rest-detail-minus')),
@@ -243,6 +286,85 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('el descanso editado sobrevive sin tocar countdown ni sync', (
+    tester,
+  ) async {
+    final workout = await workoutRepository.startWorkout();
+    final item = await workoutRepository.addExercise(
+      workoutId: workout.id,
+      exerciseId: exercise.id,
+    );
+    final now = DateTime(2026, 3, 1, 12);
+    await workoutRepository.startRestTimer(
+      workoutExerciseId: item.id,
+      plannedRestSeconds: 120,
+      now: now,
+    );
+    final timerBefore = await (db.select(
+      db.workoutExercises,
+    )..where((row) => row.id.equals(item.id))).getSingle();
+    final queueBefore = await db.select(db.syncQueue).get();
+
+    await pumpView(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('rest-detail-minus')),
+      300,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('rest-detail-minus')));
+    await tester.pumpAndSettle();
+    expect(find.text('105 s'), findsOneWidget);
+
+    await unmount(tester);
+    await pumpView(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('rest-detail-minus')),
+      300,
+    );
+
+    expect(find.text('105 s'), findsOneWidget);
+    final timerAfter = await (db.select(
+      db.workoutExercises,
+    )..where((row) => row.id.equals(item.id))).getSingle();
+    expect(timerAfter.restEndsAt, timerBefore.restEndsAt);
+    expect(timerAfter.restPausedSeconds, timerBefore.restPausedSeconds);
+    expect(timerAfter.updatedAt, timerBefore.updatedAt);
+    expect(
+      (await (db.select(
+        db.exercises,
+      )..where((row) => row.id.equals(exercise.id))).getSingle()).restSeconds,
+      120,
+    );
+    final queueAfter = await db.select(db.syncQueue).get();
+    expect(queueAfter.map((row) => row.id), queueBefore.map((row) => row.id));
+    await unmount(tester);
+  });
+
+  testWidgets('el stepper de descanso no desborda y mide 44 dp', (
+    tester,
+  ) async {
+    for (final width in [320.0, 375.0]) {
+      tester.view.physicalSize = Size(width, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+
+      await pumpView(tester, textScale: 1.3);
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('rest-detail-plus')),
+        300,
+      );
+      await tester.pumpAndSettle();
+
+      for (final key in ['rest-detail-minus', 'rest-detail-plus']) {
+        final size = tester.getSize(find.byKey(Key(key)));
+        expect(size.width, greaterThanOrEqualTo(44));
+        expect(size.height, greaterThanOrEqualTo(44));
+      }
+      expect(tester.takeException(), isNull, reason: 'viewport $width');
+      await unmount(tester);
+    }
+  });
+
   testWidgets('muestra badges de equipo y músculo', (tester) async {
     await pumpView(tester);
 
@@ -253,8 +375,9 @@ void main() {
   });
 
   group('historial de sesiones paginado (SCR-7, RF-14 y RF-15)', () {
-    testWidgets('sin sesiones muestra el estado vacío con llamada al CTA',
-        (tester) async {
+    testWidgets('sin sesiones muestra el estado vacío con llamada al CTA', (
+      tester,
+    ) async {
       final target = await insertExercise('hist-empty', 'Prensa francesa');
 
       await pumpView(tester, target: target);
@@ -264,20 +387,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Sin sesiones con este ejercicio'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Añadir a Rutina o Iniciar Sesión'),
-        findsOneWidget,
-      );
+      expect(find.text('Sin sesiones con este ejercicio'), findsOneWidget);
+      expect(find.text('Añadir a Rutina o Iniciar Sesión'), findsOneWidget);
       expect(find.byKey(const Key('history-load-more')), findsNothing);
       await unmount(tester);
     });
 
-    testWidgets('la sesión más reciente se expande con tabla, warmup y ★',
-        (tester) async {
+    testWidgets('la sesión más reciente se expande con tabla, warmup y ★', (
+      tester,
+    ) async {
       final target = await insertExercise('hist-full', 'Press inclinado');
       await seedFinishedSession(
         workoutId: 'hist-full-w1',
@@ -292,10 +410,7 @@ void main() {
       );
 
       await pumpView(tester, target: target);
-      await tester.scrollUntilVisible(
-        find.text('Historial de Sesiones'),
-        300,
-      );
+      await tester.scrollUntilVisible(find.text('Historial de Sesiones'), 300);
       await tester.pumpAndSettle();
 
       expect(find.text('Historial de Sesiones'), findsOneWidget);
@@ -311,14 +426,18 @@ void main() {
 
       expect(find.text('1 (Cal.)'), findsOneWidget);
       expect(find.text('2 ☆'), findsOneWidget);
-      expect(find.text('${formatDisplay(100 * (1 + 7 / 30))} kg'), findsWidgets);
+      expect(
+        find.text('${formatDisplay(100 * (1 + 7 / 30))} kg'),
+        findsWidgets,
+      );
       expect(find.text('RPE Promedio: 8.50'), findsOneWidget);
       expect(find.byKey(const Key('history-load-more')), findsNothing);
       await unmount(tester);
     });
 
-    testWidgets('021/T-002 CA-16: RPE medio conserva el formato común',
-        (tester) async {
+    testWidgets('021/T-002 CA-16: RPE medio conserva el formato común', (
+      tester,
+    ) async {
       await (db.update(db.localProfiles)..where((row) => row.id.equals(1)))
           .write(const LocalProfilesCompanion(preferRpe: Value(true)));
       addTearDown(() async {
@@ -364,8 +483,9 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('las sesiones anteriores se muestran condensadas',
-        (tester) async {
+    testWidgets('las sesiones anteriores se muestran condensadas', (
+      tester,
+    ) async {
       final target = await insertExercise('hist-cond', 'Remo con barra');
       final now = DateTime.now();
       await seedFinishedSession(
@@ -403,8 +523,9 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('la fuente analítica excluye estado, fecha y otro ejercicio',
-        (tester) async {
+    testWidgets('la fuente analítica excluye estado, fecha y otro ejercicio', (
+      tester,
+    ) async {
       addTearDown(() async {
         await db.delete(db.workoutSets).go();
         await db.delete(db.workoutExercises).go();
@@ -434,7 +555,7 @@ void main() {
         (
           id: 'analytics-abandoned',
           status: 'abandoned',
-          endedAt: now.subtract(const Duration(days: 1))
+          endedAt: now.subtract(const Duration(days: 1)),
         ),
         (id: 'analytics-no-date', status: 'finished', endedAt: null),
       ]) {
@@ -497,10 +618,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(
-        find.text('Cargar sesiones anteriores (2 más)'),
-        findsOneWidget,
-      );
+      expect(find.text('Cargar sesiones anteriores (2 más)'), findsOneWidget);
       expect(find.text('Página 10'), findsOneWidget);
       expect(find.text('Página 11'), findsNothing);
 
@@ -516,8 +634,9 @@ void main() {
       await unmount(tester);
     });
 
-    testWidgets('muestra los pesos en la unidad del perfil (RNF-7)',
-        (tester) async {
+    testWidgets('muestra los pesos en la unidad del perfil (RNF-7)', (
+      tester,
+    ) async {
       final target = await insertExercise('hist-lb', 'Press militar con barra');
       await seedFinishedSession(
         workoutId: 'hist-lb-w1',
@@ -528,13 +647,13 @@ void main() {
       );
 
       await pumpView(tester, target: target, unitSystem: 'imperial');
-      await tester.scrollUntilVisible(
-        find.text('Historial de Sesiones'),
-        300,
-      );
+      await tester.scrollUntilVisible(find.text('Historial de Sesiones'), 300);
       await tester.pumpAndSettle();
 
-      expect(find.textContaining(formatWeightKg(300, 'imperial')), findsWidgets);
+      expect(
+        find.textContaining(formatWeightKg(300, 'imperial')),
+        findsWidgets,
+      );
       expect(find.text('132.28 lb × 5'), findsOneWidget);
       await unmount(tester);
     });
@@ -576,111 +695,121 @@ void main() {
     });
 
     group('CTA y conservados (G33-G36)', () {
-      testWidgets('G33: CTA visible sin scroll con literal e icono, sin elevation/BoxShadow',
-          (tester) async {
-        await pumpView(tester);
+      testWidgets(
+        'G33: CTA visible sin scroll con literal e icono, sin elevation/BoxShadow',
+        (tester) async {
+          await pumpView(tester);
 
-        // CTA debe ser visible sin necesidad de scroll
-        expect(find.byKey(const Key('exercise-info-cta')), findsOneWidget);
+          // CTA debe ser visible sin necesidad de scroll
+          expect(find.byKey(const Key('exercise-info-cta')), findsOneWidget);
 
-        // El literal debe ser único: "Añadir a Rutina o Iniciar Sesión"
-        expect(find.text('Añadir a Rutina o Iniciar Sesión'), findsOneWidget);
+          // El literal debe ser único: "Añadir a Rutina o Iniciar Sesión"
+          expect(find.text('Añadir a Rutina o Iniciar Sesión'), findsOneWidget);
 
-        // Icono add_circle debe estar presente
-        expect(find.byIcon(Icons.add_circle_outline_rounded), findsOneWidget);
+          // Icono add_circle debe estar presente
+          expect(find.byIcon(Icons.add_circle_outline_rounded), findsOneWidget);
 
-        // No debe haber BoxShadow ni elevation en la vista del CTA
-        final ctaContainer = tester.widget<Container>(
-          find.byKey(const Key('exercise-info-cta')).last,
-        );
-        final boxDecoration = ctaContainer.decoration as BoxDecoration;
-        expect(boxDecoration.boxShadow, isNull);
+          // No debe haber BoxShadow ni elevation en la vista del CTA
+          final ctaContainer = tester.widget<Container>(
+            find.byKey(const Key('exercise-info-cta')).last,
+          );
+          final boxDecoration = ctaContainer.decoration as BoxDecoration;
+          expect(boxDecoration.boxShadow, isNull);
 
-        await unmount(tester);
-      });
+          await unmount(tester);
+        },
+      );
 
-      testWidgets('G34: Given sesión activa, When se pulsa CTA, Then addExercise llamado una vez y snackbar',
-          (tester) async {
-            // Insertar sesión activa en la BD para que watchActiveWorkout la emita
-            final profile = await db.select(db.localProfiles).getSingle();
-            await db.into(db.workouts).insert(
-              WorkoutsCompanion.insert(
-                id: 'test-workout-1',
-                localUserId: profile.localUserId,
-                name: Value('Test Workout'),
-                startedAt: DateTime.now().subtract(const Duration(hours: 1)),
-                endedAt: Value(null),
-                status: const Value('active'),
-              ),
-            );
+      testWidgets(
+        'G34: Given sesión activa, When se pulsa CTA, Then addExercise llamado una vez y snackbar',
+        (tester) async {
+          // Insertar sesión activa en la BD para que watchActiveWorkout la emita
+          final profile = await db.select(db.localProfiles).getSingle();
+          await db
+              .into(db.workouts)
+              .insert(
+                WorkoutsCompanion.insert(
+                  id: 'test-workout-1',
+                  localUserId: profile.localUserId,
+                  name: Value('Test Workout'),
+                  startedAt: DateTime.now().subtract(const Duration(hours: 1)),
+                  endedAt: Value(null),
+                  status: const Value('active'),
+                ),
+              );
 
-            await pumpView(tester);
+          await pumpView(tester);
 
-            // Presionar CTA
-            await tester.tap(find.byKey(const Key('exercise-info-cta')));
-            await tester.pumpAndSettle();
+          // Presionar CTA
+          await tester.tap(find.byKey(const Key('exercise-info-cta')));
+          await tester.pumpAndSettle();
 
-            // Debe mostrarse el snackbar de sesión activa
-            expect(find.text('¡Añadido a la sesión activa!'), findsOneWidget);
+          // Debe mostrarse el snackbar de sesión activa
+          expect(find.text('¡Añadido a la sesión activa!'), findsOneWidget);
 
-            await unmount(tester);
-          });
+          await unmount(tester);
+        },
+      );
 
-      testWidgets('G35: Given sin sesión activa, When se pulsa, Then se crea sesión y snackbar',
-          (tester) async {
-            // No insertar sesión activa; _activeWorkout se mantendrá null
-            // Asegurar perfil en la BD para startWorkout()
-            await db.select(db.localProfiles).getSingle();
+      testWidgets(
+        'G35: Given sin sesión activa, When se pulsa, Then se crea sesión y snackbar',
+        (tester) async {
+          // No insertar sesión activa; _activeWorkout se mantendrá null
+          // Asegurar perfil en la BD para startWorkout()
+          await db.select(db.localProfiles).getSingle();
 
-            await pumpView(tester);
+          await pumpView(tester);
 
-            // Presionar CTA
-            await tester.tap(find.byKey(const Key('exercise-info-cta')));
-            await tester.pumpAndSettle();
+          // Presionar CTA
+          await tester.tap(find.byKey(const Key('exercise-info-cta')));
+          await tester.pumpAndSettle();
 
-            // Debe mostrarse el snackbar de sesión iniciada
-            expect(find.text('Sesión iniciada con el ejercicio'), findsOneWidget);
+          // Debe mostrarse el snackbar de sesión iniciada
+          expect(find.text('Sesión iniciada con el ejercicio'), findsOneWidget);
 
-            await unmount(tester);
-          });
+          await unmount(tester);
+        },
+      );
 
       testWidgets('G36: Given la ficha, When se pinta, Then bloque descanso después del historial,'
           ' conserva claves rest-detail-* y cambia 120 s → 105 s → 120 s,'
-          ' y la atribución se pinta al final',
-          (tester) async {
-            // Verificar que el bloque de descanso está después del historial
-            await pumpView(tester);
+          ' y la atribución se pinta al final', (tester) async {
+        // Verificar que el bloque de descanso está después del historial
+        await pumpView(tester);
 
-            // Desplazar hasta el bloque de descanso (rest-detail)
-            await tester.scrollUntilVisible(
-              find.byKey(const Key('rest-detail-plus')),
-              300,
-            );
-            await tester.pumpAndSettle();
+        // Desplazar hasta el bloque de descanso (rest-detail)
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('rest-detail-plus')),
+          300,
+        );
+        await tester.pumpAndSettle();
 
-            // Verificar claves rest-detail-*
-            expect(find.byKey(const Key('rest-detail-minus')), findsOneWidget);
-            expect(find.byKey(const Key('rest-detail-plus')), findsOneWidget);
+        // Verificar claves rest-detail-*
+        expect(find.byKey(const Key('rest-detail-minus')), findsOneWidget);
+        expect(find.byKey(const Key('rest-detail-plus')), findsOneWidget);
 
-            // Verificar valor inicial 120 s
-            expect(find.text('120 s'), findsOneWidget);
+        // Verificar valor inicial 120 s
+        expect(find.text('120 s'), findsOneWidget);
 
-            // Cambiar a 105 s
-            await tester.tap(find.byKey(const Key('rest-detail-minus')));
-            await tester.pump();
-            expect(find.text('105 s'), findsOneWidget);
+        // Cambiar a 105 s
+        await tester.tap(find.byKey(const Key('rest-detail-minus')));
+        await tester.pump();
+        expect(find.text('105 s'), findsOneWidget);
 
-            // Cambiar de vuelta a 120 s
-            await tester.tap(find.byKey(const Key('rest-detail-plus')));
-            await tester.pump();
-            expect(find.text('120 s'), findsOneWidget);
+        // Cambiar de vuelta a 120 s
+        await tester.tap(find.byKey(const Key('rest-detail-plus')));
+        await tester.pump();
+        expect(find.text('120 s'), findsOneWidget);
 
-            // Verificar que la atribución está al final de la vista
-            // (después del historial y el bloque de descanso)
-            expect(find.text('© Gym visual — https://gymvisual.com/'), findsOneWidget);
+        // Verificar que la atribución está al final de la vista
+        // (después del historial y el bloque de descanso)
+        expect(
+          find.text('© Gym visual — https://gymvisual.com/'),
+          findsOneWidget,
+        );
 
-            await unmount(tester);
-          });
+        await unmount(tester);
+      });
     });
   });
 }

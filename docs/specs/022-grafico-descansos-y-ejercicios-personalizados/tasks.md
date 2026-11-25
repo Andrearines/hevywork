@@ -1,10 +1,10 @@
 # Tareas — Spec 022
 
-**Estado global: APROBADAS Y LISTAS (D-117 y refinamiento D-119, 2026-11-23).**
-**Tarea actual:** revisión final de T-001 tras completar su cierre de implementación
-y repetir la puerta en verde. El revisor considera resueltos todos los hallazgos
-técnicos, incluida CA-02; Q-007 está cerrada por D-119, pero esto **no marca T-001
-aprobada**. Falta la revisión final obligatoria. T-002…T-006 no están implementadas.
+**Estado global: T-001 y T-002 APROBADAS; T-003 IMPLEMENTADA, PENDIENTE DE
+REVISIÓN (2026-11-25).** Q-007/D-119 sigue cerrada. T-004…T-006 no están
+implementadas; T-004 espera la aprobación de T-003.
+La observación menor de legibilidad del chart queda diferida y no forma parte de
+T-003.
 
 Orden recomendado: T-001 → T-002 → T-003 → T-004 → T-005 → T-006.
 T-002 es técnicamente independiente de T-001; las demás dependencias son
@@ -15,8 +15,8 @@ permiso. La única excepción es conservar el hash ya existente/publicado de D-1
 
 ## T-001 — Diagnosticar y corregir la sincronización actual con evidencia
 
-- **Estado:** IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL OBLIGATORIA. Cierre
-  completado bajo D-119; Q-007 cerrada y T-001 todavía no aprobada.
+- **Estado:** **APROBADA POR EL REVISOR — 2026-11-23**, sin hallazgos
+  bloqueantes, mayores ni menores. Q-007/D-119 permanece cerrada.
 - **Trazabilidad:** US-05, FR-10, SCR-05; NFR-01/NFR-03/NFR-05/NFR-06/NFR-08.
 - **Dependencias:** ninguna técnica previa. T-006 depende de su diagnóstico.
 - **Alcance:** reproducir el fallo actual antes de extender sync a nuevas entidades.
@@ -131,15 +131,34 @@ permiso. La única excepción es conservar el hash ya existente/publicado de D-1
   `memory.md` y este `tasks.md`. **Resultado: T-001 IMPLEMENTADA — PENDIENTE DE
   REVISIÓN FINAL**, sin declarar aprobación unilateral.
 
+### Veredicto de revisión final — 2026-11-23
+
+- **APROBADO**, sin hallazgos bloqueantes, mayores ni menores. Se aceptan CA-01…
+  CA-04 y el cierre documental de Q-007/D-119.
+- Limitaciones no bloqueantes: los resultados de puerta son los declarados por el
+  implementador; el revisor trabajó en solo lectura y no tuvo acceso a `/tmp` para
+  reejecutar/inspeccionar esas evidencias.
+- Supabase real, RLS, Storage y segunda réplica quedan diferidos al alcance
+  posterior ya delimitado; este veredicto no los declara verificados.
+- Se habilita el inicio serial de **T-002**, sin reabrir diseño ni CA.
+
 ## T-002 — Reproducir y corregir datos/geometría del gráfico
 
-- **Estado:** LISTA — siguiente en ejecución serial.
+- **Estado:** **APROBADA POR EL REVISOR — 2026-11-24**. CA-05…CA-08 aceptados,
+  sin hallazgos bloqueantes ni mayores; una observación menor no bloqueante queda
+  registrada abajo, sin reabrir la tarea.
 - **Trazabilidad:** US-01, FR-01/FR-02/FR-15, SCR-06; NFR-04/NFR-05/NFR-06.
-- **Dependencias:** ninguna técnica respecto de T-001; debe preceder a T-003 por
-  los archivos compartidos de la ficha. Sin migraciones.
-- **Archivos relevantes:** `lib/ui/widgets/exercise_progress_chart.dart`,
-  `lib/ui/views/exercise_info_view.dart`, `lib/domain/exercise_stats.dart`,
-  `test/exercise_progress_chart_test.dart`, `test/exercise_info_view_test.dart`.
+- **Dependencias:** T-001 ya está aprobada; no hay dependencia de código entre
+  ambas. Debe terminar y aprobarse antes de T-003. Sin migraciones, dependencias,
+  commits/push, PNG ni goldens.
+- **Archivos de producción previstos:** `lib/ui/widgets/exercise_progress_chart.dart`.
+  `lib/ui/views/exercise_info_view.dart` solo si hace falta ajustar la integración
+  de constraints; no se prevén cambios en `lib/domain/exercise_stats.dart` ni
+  `lib/ui/widgets/chart_enums.dart`.
+- **Pruebas previstas:** `test/exercise_progress_chart_test.dart` como foco;
+  `test/exercise_info_view_test.dart` para integración si hace falta; conservar y
+  ejecutar como regresión `test/exercise_stats_test.dart` y
+  `test/t002_chart_format_test.dart` de la 021.
 
 ### Criterios de aceptación
 
@@ -159,21 +178,153 @@ permiso. La única excepción es conservar el hash ya existente/publicado de D-1
   falta— sin duplicados ni overflow y se oculta cualquier frecuencia cero artificial
   en lugar de mostrar `0x / semana`.
 
+### Encargo refinado contra el código vigente — 2026-11-23
+
+No se reabren DESIGN ni CA-05…CA-08. La ejecución debe seguir este orden:
+
+1. **Rojo geométrico antes del fix.** Con más de cuatro puntos, obtener las
+   posiciones o llamadas de pintura reales y demostrar duplicados/no crecimiento.
+   Hoy `_computeXPositions()` devuelve cuatro x para todo `points.length >= 2` y
+   el painter cambia desde `i = 4` a `i * width / (points.length - 1)`. No vale
+   como única regresión comprobar que el widget existe o que no lanza overflow.
+2. **Una sola geometría para todo el painter.** Para 2/4/6/12 puntos, exigir un
+   nodo por punto, `x.length == points.length`, x estrictamente creciente y
+   `0 <= x <= anchoReal`. Línea, área, nodos y destacado deben consumir la misma
+   distribución cronológica por índice; el cierre del área y las dos circunferencias
+   del destacado terminan en `nodes.last`, no en `xPositions.last` de una lista
+   auxiliar. Comprobar también los nodos dentro del alto útil del canvas conforme
+   al DESIGN.
+3. **Constraints reales.** Sustituir el ancho derivado de
+   `MediaQuery.of(context).size.width` por el que realmente recibe el chart
+   (`LayoutBuilder` o equivalente). Probar un padre explícitamente más estrecho que MediaQuery y
+   viewports/padres a 320 y 375 dp, sin excepción/overflow y conservando la
+   correspondencia punto-fecha. Repetir con cambio de ancho y mismo número de
+   puntos: `shouldRepaint` vigente solo compara longitud/min/max/window/metric y no
+   debe dejar geometría obsoleta al cambiar valores, fechas, x o tamaño.
+4. **Dominio 021 intacto.** No cambiar `exerciseProgressPoints`, el filtrado de
+   ventanas, `periodDelta`, `weeklyFrequency`, `formatChartDeltaKg` ni los valores
+   devueltos por `progressChartPoints`. La inspección actual muestra que
+   `PeriodDelta.absolute` ya contiene la resta con signo y el formateador ya admite
+   negativos: CA-07 necesita una regresión de UI con último valor menor que el
+   primero, no convertirlo a magnitud ni modificar dominio por una suposición
+   histórica. Solo el rojo geométrico >4 es obligatorio antes del fix; los demás
+   comportamientos ya correctos se caracterizan sin romperlos.
+5. **Fechas reales y frecuencia.** Reemplazar las etiquetas inferiores fijas
+   `1M/3M/6M/<ventana>` por fechas de puntos representativos, como máximo cuatro,
+   incluyendo primer/último punto cuando sean fechas distintas. Usar `dd/MM`,
+   añadir año cuando el rango lo haga necesario y deduplicar sesiones del mismo
+   día. Probar rango de años cruzados, más de cuatro fechas y 320 dp sin overflow.
+   No eliminar el título de ventana seleccionada ni confundirlo con el eje.
+6. **«Todo» sin cero artificial.** `progressWindowDays(all)` devuelve 0 y
+   `weeklyFrequency` devuelve entonces 0. En ese caso no se crea el insight de
+   frecuencia ni aparece `0x / semana`; en ventanas finitas se conserva el cálculo
+   actual, incluida la expectativa `0.16x / semana` de `t002_chart_format_test`.
+   Cero/un punto mantiene el estado vacío sin plot/insights.
+
+**Seam de prueba/API:** mantener el constructor y callbacks de
+`ExerciseProgressChart`, las claves públicas existentes y las funciones de dominio.
+La primera prueba roja puede inspeccionar el `CustomPaint.painter` vigente y sus
+posiciones/llamadas con un canvas de registro de prueba. Para la solución se permite
+extraer una geometría pura `@visibleForTesting` —nodos, área y destacado— consumida
+realmente por el painter, o añadir claves semánticas al eje si facilitan contar las
+etiquetas. No exponer una API de dominio nueva ni añadir mockito/goldens. Una prueba
+que solo compare una nueva helper consigo misma no demuestra el rojo original.
+
+**Regresiones dirigidas mínimas antes de la puerta común:** chart, stats y
+`t002_chart_format_test`; añadir ficha si se modifica su integración. Al cierre se
+mantiene obligatoria la selección completa no golden + `flutter analyze`.
+
+**Riesgos acotados:** acceder a un painter privado desde prueba es frágil; centralizar
+solo x pero olvidar área/destacado; `shouldRepaint` obsoleto tras resize; etiquetas
+duplicadas en sesiones del mismo día o con año truncado; ocultar también frecuencias
+finitas válidas; y romper expectativas 021 al «arreglar» un delta que ya conserva
+el signo.
+
+**Estado Git de entrega:** al cerrar esta planificación HEAD es
+`d227ebcbb13355cc4561a9c91b7ae2ec5db27956` (`fix`), distinto del hash histórico
+de D-119; la transición no se atribuye ni se reescribe. D-119 no cubre ese nuevo
+hash ni habilita commits/push. El implementador debe conservarlo y trabajar sin
+nuevas operaciones de este tipo.
+
+### Implementación — 2026-11-24
+
+- **Reanudación e integridad:** se conservó el trabajo parcial válido sin reiniciar
+  planificación. HEAD permaneció en `d227ebcbb13355cc4561a9c91b7ae2ec5db27956`
+  durante la interrupción; no hay otra transición que atribuir. No se ejecutaron
+  commit, push, reset, rebase, revert ni clean.
+- **CA-05, rojo→verde:** antes del fix, una prueba con seis sesiones ejecutó el
+  painter real sobre `TestRecordingCanvas` y falló porque el quinto nodo retrocedía:
+  `Expected: a value less than <236.0>`, `Actual: <295.0>`, salida 1. Evidencia:
+  `/tmp/opencode/hevywork-t002/red-geometry.txt`. La misma prueba terminó 1/1 verde
+  tras el fix (`green-geometry-final.txt`). Las regresiones de 2/4/6/12 puntos
+  comprueban un nodo por punto, x estrictamente creciente dentro del canvas, nodos
+  dentro del alto, identidad de paths consumidos y dos circunferencias destacadas en
+  `nodes.last`; el área termina horizontal y verticalmente en el cierre previsto.
+- **CA-06:** `LayoutBuilder` sustituye el ancho de `MediaQuery`. Los casos con padre
+  24 dp más estrecho que viewports de 320/375 dp verifican el ancho real y la
+  alineación del eje. Otra regresión cambia valores, fechas y ancho con el mismo
+  número de puntos y exige `shouldRepaint`; el caso sin cambios no repinta.
+- **CA-07:** una serie desordenada de 100 → 80 kg conserva los puntos cronológicos,
+  la ventana de 90 días y muestra `-20.0 kg`. No se modificó dominio ni se cambió el
+  signo a magnitud. Las regresiones de `exercise_stats` y `t002_chart_format` siguen
+  verdes.
+- **CA-08, segundo rojo→verde:** el eje usa días únicos representativos, como máximo
+  cuatro, con primer/último día y año al cruzar años. La primera versión con cuatro
+  fechas completas falló a 320 dp por `A RenderFlex overflowed by 170 pixels on the
+  right`; `FittedBox` ajusta las fechas sin truncarlas y el caso pasó a verde. «Todo»
+  omite el insight de frecuencia; una ventana finita conserva `0.16x / semana` y los
+  estados de cero/un punto permanecen vacíos. Se registra **D-120** en `memory.md`.
+- **Archivos de implementación:** `lib/ui/widgets/exercise_progress_chart.dart` y
+  `test/exercise_progress_chart_test.dart`, además de esta ficha y `memory.md`. No fue
+  necesario modificar `exercise_info_view.dart`, `exercise_stats.dart` ni
+  `chart_enums.dart`; se conservaron T-001, specs, planificación y trabajo ajeno.
+- **Pruebas dirigidas:** chart **17/17**; chart + stats + formato 021 **37/37**;
+  esas tres suites más `exercise_info_view_test` y `routine_detail_view_test`,
+  **64/64**. Todas con `--exclude-tags golden` cuando corresponde y sin skips.
+- **Puerta completa:** `flutter test --exclude-tags golden --reporter json` → salida
+  0, `done.success=true`, **65/65 suites**, **735 pruebas reales verdes**, 0 fallos,
+  0 skips y 0 goldens iniciados. `testStart=testDone=844`, incluidos 109 eventos
+  ocultos del runner. Evidencias: `/tmp/opencode/hevywork-t002/full-test.json` y
+  `full-test-summary.txt`.
+- **Análisis e higiene:** `flutter analyze` → 0 incidencias; format check y
+  `git diff --check` limpios. `pubspec.lock` y los **33 PNG** conservan sus hashes
+  iniciales. Sin dependencias, migraciones, goldens, skips ni timeouts de prueba.
+- **Resultado:** CA-05…CA-08 implementados y puerta verde. **T-002 IMPLEMENTADA —
+  PENDIENTE DE REVISIÓN OBLIGATORIA**; no se inicia T-003 ni se declara aprobación.
+
+### Veredicto de revisión — 2026-11-24
+
+- **APROBADO**, sin hallazgos bloqueantes ni mayores. CA-05…CA-08 quedan aceptados
+  y T-002 no se reabre.
+- **Observación menor no bloqueante:** la regresión de fechas a 320 dp no ejercita
+  `textScaler` 1.3 ni la escala efectiva aplicada por `FittedBox`. El revisor
+  recomienda caracterizar después la legibilidad según DESIGN §9.
+- Seguimiento diferido, **fuera de T-003**: no se añade trabajo de chart, no cambia
+  la puerta aprobada ni crea una dependencia para persistencia/timers.
+
 ## T-003 — Persistir descanso y aplicar opción C con timers independientes
 
-- **Estado:** LISTA — requiere T-002 aprobada.
+- **Estado:** **IMPLEMENTADA — PENDIENTE DE REVISIÓN (2026-11-25)**.
+  No está aprobada; T-004 permanece bloqueada hasta esa revisión.
 - **Trazabilidad:** US-02, FR-03/FR-04/FR-11, SCR-03/SCR-06;
   NFR-01/NFR-03/NFR-04/NFR-05/NFR-07.
-- **Dependencias:** T-002. Precede a T-004 por la secuencia drift. T-006 activa la
-  réplica remota; esta tarea no encola columnas remotas todavía inexistentes.
-- **Migración:** drift **18→19**, crea `exercise_preferences` completa y añade
-  `rest_ends_at/rest_paused_seconds` a `workout_exercises`; migra descansos de
-  catálogo distintos de 90 y ejecuta `build_runner` en implementación.
-- **Archivos relevantes:** `lib/ui/views/exercise_info_view.dart`,
-  `lib/ui/views/live_workout_view.dart`, `lib/domain/rest_timer.dart`,
-  `lib/data/repositories/catalog_repository.dart`,
-  `lib/data/repositories/workout_repository.dart`, tablas drift y tests de
-  `exercise_info`, `live_workout`, `rest_timer`, `workout_repository` y migración.
+- **Dependencias:** T-002 ya aprobada. Precede a T-004 por la secuencia drift.
+  T-006 activa la réplica remota; esta tarea no encola columnas remotas todavía
+  inexistentes ni añade migración Supabase.
+- **Migración:** una sola migración drift **18→19**, crea `exercise_preferences`
+  completa y añade `rest_ends_at/rest_paused_seconds` a `workout_exercises`; migra
+  descansos de catálogo distintos de 90 y ejecuta `build_runner` en implementación.
+- **Producción prevista:** `lib/data/local/tables/exercise_preferences.dart` (nueva),
+  `lib/data/local/tables/workouts.dart`, `lib/data/local/database.dart` y el generado
+  `lib/data/local/database.g.dart`; `lib/data/repositories/catalog_repository.dart`,
+  `lib/data/repositories/workout_repository.dart`, `lib/domain/rest_timer.dart`,
+  `lib/domain/services/rest_notifier.dart`, `lib/ui/views/exercise_info_view.dart` y
+  `lib/ui/views/live_workout_view.dart`. No tocar chart, PNG, lock ni whitelist remota.
+- **Pruebas previstas:** `test/migration_test.dart`,
+  `test/catalog_repository_test.dart`, `test/workout_repository_test.dart`,
+  `test/rest_timer_test.dart`, `test/rest_notifier_test.dart`,
+  `test/exercise_info_view_test.dart` y `test/live_workout_view_test.dart`; conservar
+  las regresiones previas y añadir integración/sync solo si se toca ese código.
 
 ### Criterios de aceptación
 
@@ -192,6 +343,207 @@ permiso. La única excepción es conservar el hash ya existente/publicado de D-1
   o cambia el ciclo de vida, **Then** cada countdown conserva su
   `workoutExerciseId`, corre simultáneamente y no depende de ticks; el global solo
   funciona como fallback legacy hasta terminar, saltarse o iniciar uno asociado.
+
+### Encargo refinado contra el código vigente — 2026-11-24
+
+No se reabren producto, DESIGN ni CA-09…CA-12. La observación de chart de T-002
+queda explícitamente fuera. El trabajo aprobado de T-002 está aún sin commitear y
+debe conservarse.
+
+#### A. Orden obligatorio de cambios
+
+1. Conservar evidencia inicial de Git/archivos y obtener rojos ejecutables del
+   comportamiento actual cuando sea posible: ficha que olvida al remontar, ajuste
+   live que no cambia el predeterminado de la serie siguiente y dos tarjetas que
+   terminan compartiendo el timer del workout. No borrar las pruebas legacy: las
+   que describen el modelo nuevo se adaptan a `workout_exercise`; el global recibe
+   cobertura específica de fallback.
+2. Crear las tablas/columnas y el paso 18→19 completos, registrar la nueva tabla en
+   `@DriftDatabase` y **después** ejecutar una sola vez
+   `dart run build_runner build --delete-conflicting-outputs`. No editar a mano
+   `database.g.dart`, no crear v20/v21 ni SQL Supabase.
+3. Implementar primero dominio puro y repositorios con pruebas de migración,
+   preferencias, estados y opción C; después conectar ficha, LiveWorkout y avisos.
+   Una corrección de UI no debe duplicar reglas ya cubiertas en dominio/repositorio.
+4. Ejecutar regresiones dirigidas y, al cierre, la puerta completa
+   `flutter test --exclude-tags golden` + `flutter analyze`. Sin skips, dependencias,
+   PNG/goldens, commits ni push.
+
+#### B. Migración drift 18→19 y conservación
+
+- `exercise_preferences` se crea ya con su contrato final de `docs/db.md`: `id` PK,
+  `local_user_id`, `exercise_id`, `rest_seconds` nullable, triplete muscular
+  nullable, `created_at/updated_at`, `UNIQUE(local_user_id, exercise_id)`, rango
+  `NULL o 15–300` y consistencia muscular todo-nulo/todo-no-nulo. T-003 solo escribe
+  descanso; no adelanta la UI ni las reglas musculares de T-005.
+- `workout_exercises` recibe `rest_ends_at` y `rest_paused_seconds`, ambos nullable,
+  con checks `rest_paused_seconds >= 0` y prohibición de ambos no nulos. No se añaden
+  a `workouts`, que conserva sus dos columnas legacy.
+- En `onUpgrade`, `from < 19` usa las guardas idempotentes existentes para tabla y
+  columnas. La copia toma el `local_user_id` del perfil único y solo los valores de
+  `exercises.rest_seconds != 90`: inserta una preferencia por ejercicio, con UUID,
+  timestamps y `INSERT OR IGNORE`/upsert que no duplica ni pisa una fila dejada por
+  una migración interrumpida. No crea usuarios ni copia el valor 90 como override.
+- No se reescribe `exercises.rest_seconds`: queda legacy para catálogo. Tampoco se
+  copia `workouts.rest_*` a un ejercicio arbitrario ni se borra durante la apertura.
+  Workouts, ejercicios, series, historial, cola y payloads anteriores deben quedar
+  byte/lógicamente intactos salvo las nuevas filas/columnas aprobadas.
+- Adaptar las expectativas mecánicas `user_version` 18→19 en `migration_test.dart`
+  y añadir una base v18 real/simulada con descansos 90/120/15, perfil conocido,
+  historial y cola. Comprobar copia selectiva, propietario, unicidad, checks,
+  idempotencia, generated v19 y conservación. Sembrar después una preferencia en
+  una base creada directamente como v19: `onCreate` no ejecuta backfill.
+
+#### C. Preferencia y descanso efectivo reactivo
+
+- `CatalogRepository.updateRestSeconds` deja de escribir el maestro `exercises` para
+  catálogo: valida 15–300 y hace upsert solo de `rest_seconds` + `updated_at` en la
+  preferencia del usuario/ejercicio, conservando el triplete muscular. El valor 90
+  es válido; la limpieza de filas vacías corresponde a las operaciones nullable de
+  T-005, no a esta mutación entera.
+- Exponer lectura y `watch` del descanso efectivo por usuario/ejercicio. En toda
+  pantalla con base real, catálogo usa **`preference.restSeconds ?? 90`**, nunca una
+  segunda lectura del legacy. `workout_sets.rest_seconds` sigue siendo el override
+  planificado de esa serie y `exercises.rest_seconds` no se vuelve a escribir en T-003.
+- `watchExercises` debe reaccionar también a `exercise_preferences` y proporcionar a
+  LiveWorkout el valor efectivo sin romper su forma de record `(item, exercise)` ni
+  el consumo de `TrainView`; se permite proyectar una copia de `Exercise` con el rest
+  efectivo o un seam equivalente. El arranque de un descanso resuelve el valor fresco
+  en ese momento, no una copia obsoleta; un override planificado no nulo conserva
+  prioridad.
+- `ExerciseInfoView` sustituye su `setState`-only por lectura/watch y escritura del
+  repositorio, cancelando suscripciones al desmontar. Mantener `rest-detail-*`.
+  Remontar recupera la preferencia y cambiarla no toca `rest_ends_at`,
+  `rest_paused_seconds` ni el countdown legacy. Un cambio desde ficha sí actualiza
+  el predeterminado visible/usable en Live, pero no reinicia un timer ya activo.
+- Las pruebas actuales que insertan directamente un `Exercise(restSeconds: 120)` en
+  una base v19 deben sembrar también su preferencia 120 y limpiar/restaurar
+  preferencias entre casos; no se debe reintroducir el fallback legacy para hacerlas
+  pasar.
+
+#### D. Timers por `workoutExerciseId` y opción C
+
+- Mantener `RestTimer` anclado a `DateTime`: **idle** = ambos nulos/módulo oculto;
+  **running** = solo `rest_ends_at` futuro; **paused** = solo `rest_paused_seconds`;
+  **done** = `rest_ends_at` pasado y restante cero. Skip/clear pasa a idle; un nuevo
+  set que no sea warmup arranca/reinicia solo su tarjeta. Guardar/restaurar no usa
+  decrementos de ticks ni altera otros items.
+- Centralizar la opción C en una función pura con un único `now` y probarla con reloj
+  fijo. Para running/paused:
+  `newDefault = clamp(oldDefault + requestedDelta, 15, 300)`,
+  `appliedDelta = newDefault - oldDefault` y
+  `newRemaining = max(0, remainingAt(now) + appliedDelta)`.
+  Se persiste `newDefault` y se reconstruye `endsAt = now + newRemaining` o el restante
+  pausado, conservando fase. Nunca se asigna `newDefault = newRemaining` ni se aplica
+  dos veces el delta. En los límites, el restante recibe el delta efectivo —incluido
+  cero— y puede llegar a cero, nunca a negativo.
+- La mutación de predeterminado + countdown se coordina en una única transacción
+  local de repositorio/servicio compartido; no se muestra éxito con solo una mitad
+  persistida y no espera red. Pausar/reanudar/saltar no cambia preferencia. Idle/done
+  no inventan una opción C: pausar un done no lo convierte en `paused(0)` y una
+  tarjeta idle solo arranca por la acción de serie prevista.
+- Una tarjeta running/paused muestra `DESCANSO` + nombre, tiempo tabular y controles
+  `−15/+15/+30`, pausa/reanudación y salto; done queda visible como `LISTO` hasta
+  clear/skip. Las claves de controles se scopean por `workoutExerciseId`, por ejemplo
+  `rest-plus-<id>`, para poder actuar sobre dos módulos simultáneos. El módulo vive en
+  la tarjeta expandida, no en `_summaryStrip`; colapsar solo oculta presentación.
+- Añadir ejercicio deja su timer idle; borrarlo elimina su fila. **Reemplazar** un
+  ejercicio limpia sus dos campos de timer para no heredar el countdown del ejercicio
+  anterior. Dos items del mismo `exerciseId` comparten predeterminado, pero un ajuste
+  modifica solo el countdown del `workoutExerciseId` pulsado.
+
+#### E. Fallback legacy, ciclo de vida y notificaciones
+
+- El método/estado antiguo de `workouts` queda explícitamente separado como legacy.
+  No se migra a un item ni recibe opción C por carecer de ejercicio asociado. La antigua
+  píldora/módulo global solo puede representarlo mientras no haya pasado a done, no se
+  haya saltado y no se inicie ningún timer asociado; esos tres caminos lo retiran de la
+  UI y limpian ambos campos legacy sin tocar preferencias. El modelo nuevo no vuelve a
+  escribir el global; iniciar un timer asociado también cancela el aviso legacy.
+- El ticker existente solo actualiza `now` y evalúa transiciones por item. Sustituir
+  `_restDismissed/_lastRestPhase` globales por estado por `workoutExerciseId`, para que
+  dos timers lleguen a done y alerten una vez cada uno, sin aviso repetido en cada tick.
+- `RestNotifier` deja de compartir el ID fijo 1 y una única bandera para el modelo nuevo.
+  Usar una clave por `workoutExerciseId` y un ID entero **determinista entre procesos**;
+  reservar la clave/ID legacy para el fallback. `scheduleAt`, `cancel`, `alertNow` y
+  `resetAlertFlag` deben dirigirse a esa clave. Al ir a background se programa cada
+  running futuro, no los paused/idle; al volver se cancelan los avisos gestionados.
+  Pausa/skip/clear/done y nuevo start cancelan o reprograman solo la clave afectada.
+- Para pruebas se permite inyectar reloj y notifier/fake en `LiveWorkoutView`, sin nueva
+  dependencia. Verificar coexistencia, reanudación con `endsAt` absoluto, pausa congelada,
+  background/resume y una alerta por item. El fallo de permiso/plataforma sigue sin
+  romper el entrenamiento.
+- Controles nuevos/tocados con targets ≥44 dp (los actuales `_restAction` y botones de
+  ficha usan 36), labels/tooltips y `tabular-nums`. Comprobar SCR-03/SCR-06 a 320/375 dp
+  y `textScaler` 1.3 sin overflow; no incluir el chart ni su `FittedBox` en este trabajo.
+
+#### F. Límite de sincronización y pruebas de cierre
+
+- No modificar `remoteColumns`, `sync_payload.dart`, `sync_queue`, migraciones Supabase
+  ni `_exercisePayload` para introducir los campos nuevos. Guardar preferencia/timer no
+  llama al enqueuer ni crea mutaciones remotas; conservar la regla de no tocar
+  `updated_at` de workout/workout_exercise por estado local salvo que un contrato v19
+  explícito lo exija. `exercise_preferences.updated_at` sí cambia en cada mutación.
+- **Migración/repositorio:** upgrade real e interrumpido, checks running/paused/done/
+  idle, preferencia efectiva/streams, rango invocado con 14/301, preservación muscular,
+  payload/cola sin entradas nuevas y `updated_at` esperado.
+- **Dominio:** running/paused, ±15/+30, topes 15/300 con delta efectivo, restante a cero,
+  idle/done y reanudación con reloj fijo.
+- **Ficha:** cambio → desmontar → remontar, persistencia entre dos instancias, countdown
+  previo intacto y reactividad del predeterminado en Live.
+- **Live:** dos ejercicios simultáneos con distinto restante; cada control actúa solo en
+  su ID; opción C persiste ambas mitades y la segunda serie sin override usa el nuevo
+  default; pausa/reanudación/skip conservan default; remontar restaura estados; warmup no
+  arranca; replace limpia; global legacy termina/salta/se desplaza al iniciar asociado.
+- **Avisos/responsive:** IDs estables/distintos y cancelación por clave, alertas no
+  duplicadas, schedule/cancel en ciclo de vida, 320/375 + textScaler 1.3 y targets 44 dp.
+
+**Riesgos concretos:** backfill que copia 90 o duplica filas; lectura legacy que deja
+ficha/Live divergentes; upsert que borra músculos de T-005; dos escrituras no atómicas;
+delta crudo en vez de delta efectivo; timer compartido por `exerciseId` en vez de
+`workoutExerciseId`; reemplazo que hereda countdown; ID de notificación no estable o
+cancelación de otro timer; global legacy que reaparece tras done; suites antiguas que
+siguen leyendo `workouts.rest_*` sin distinguir fallback; y actualizar generated antes de
+terminar el esquema.
+
+### Registro de implementación — 2026-11-25
+
+- **CA-09:** la ficha lee/escribe `exercise_preferences`, recupera el valor tras
+  desmontar y conserva intactos countdown, `workout_exercises.updated_at`, valor
+  legacy y cola. El rojo inicial de reapertura quedó en
+  `/tmp/opencode/hevywork-t003/red-info-reopen.txt`.
+- **CA-10/CA-11:** opción C pura con delta efectivo y topes 15–300; preferencia y
+  countdown se escriben en una transacción local. La segunda serie y la reapertura
+  usan el nuevo default; pausa/reanudar/skip no lo alteran y done/idle no inventan
+  ajustes. Los rojos iniciales de segunda serie y dos items están en
+  `red-live-second-set.txt` y `red-live-two-items.txt`.
+- **CA-12:** módulos por `workoutExerciseId`, reloj absoluto y notifier fake
+  inyectable; coexistencia, controles aislados, warmup, replace, reanudación,
+  legacy acotado, background/resume y una alerta por item tienen regresiones.
+  `RestNotifier` reserva legacy/ID 1 y deriva IDs FNV-1a estables para items.
+- **Datos:** solo drift 18→19 y su generado. La generación recuperada terminó en
+  43 s con 315 outputs; el aviso del runner indica que la opción retirada
+  `--delete-conflicting-outputs` fue ignorada. No hubo regeneraciones posteriores
+  porque el esquema no volvió a cambiar. Backfill selectivo !=90, idempotencia,
+  checks y conservación quedaron cubiertos.
+- **Responsive:** controles tocados ≥44 dp; Live y ficha pasan 320/375 dp con
+  `textScaler` 1.3. El encabezado de activación usa `Wrap` para evitar overflow;
+  no se modificó el chart ni su observación diferida de T-002.
+- **Pruebas:** lote dominio/datos/ficha **119/119**, Live **25/25**, ficha final
+  **20/20**, notifier **3/3** y workout tras lint **52/52**. Puerta final
+  `flutter test --exclude-tags golden --reporter expanded`: **758/758, salida 0**;
+  `flutter analyze`: **0 incidencias, salida 0**. Formato y `git diff --check`
+  limpios. Evidencias en `/tmp/opencode/hevywork-t003/full-gate-test-final.txt`,
+  `full-gate-test-final.exit`, `full-gate-analyze.txt` y
+  `full-gate-analyze.exit`.
+- **Límites:** sin cambios en sync/payloads/whitelist/cola, Supabase, dependencias,
+  lock, PNG/goldens, skips ni timeouts de pruebas. `pubspec.lock` y hashes de PNG
+  fuente coinciden con el inicio; HEAD sigue en
+  `d227ebcbb13355cc4561a9c91b7ae2ec5db27956`, sin commits/push ni operaciones
+  destructivas. Se conservaron T-001/T-002, la 021 y el trabajo ajeno.
+- **Cierre:** implementación completada con CA-09…CA-12 cubiertos; queda
+  **pendiente de revisión independiente**, no aprobada. Decisiones D-121…D-123 y
+  bitácora completa en `memory.md`. Sin bloqueos ni preguntas abiertas.
 
 ## T-004 — Crear personalizados locales con imagen e integrarlos en catálogo
 
@@ -333,8 +685,11 @@ permiso. La única excepción es conservar el hash ya existente/publicado de D-1
 - Cada SCR-03/05/06/07/08/09 del DESIGN tiene tarea; cada FR y NFR tiene
   verificación asociada.
 - Todos los criterios usan Given/When/Then; no quedan condicionados a Q-006.
-- No hay placeholders pendientes, SQL aplicado ni cambios drift. T-001 modificó
-  la whitelist de perfiles y sus pruebas; T-002…T-006 no tienen implementación.
-- Q-006 está cerrada por D-117 y Q-007 por D-119. **Tarea actual: revisión final de
-  T-001**, ya implementada y con la puerta de cierre en verde, sin declararla
-  aprobada unilateralmente. Las demás se entregan al satisfacer dependencias.
+- T-001 modificó la whitelist de perfiles y sus pruebas; T-002 corrigió el chart
+  y añadió regresiones; T-003 implementó drift v19, descansos persistentes y timers
+  independientes y está pendiente de revisión. T-004…T-006 no tienen implementación;
+  no se aplicó SQL Supabase ni se adelantaron drift v20/v21.
+- Q-006 está cerrada por D-117 y Q-007 por D-119. **T-001 y T-002 APROBADAS** por
+  revisión. La observación menor de legibilidad de T-002 queda diferida sin reabrirla.
+  **Tarea actual: revisión de T-003 IMPLEMENTADA**, sin autoaprobación ni cambios
+  en CA-09…CA-12. T-004…T-006 se entregan al satisfacer dependencias.

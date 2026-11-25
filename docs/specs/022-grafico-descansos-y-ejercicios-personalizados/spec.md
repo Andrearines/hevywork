@@ -1,10 +1,11 @@
 # Spec 022 — Gráfico, descansos y ejercicios personalizados
 
 **Estado: APROBADA — DESIGN y alcance confirmados por el usuario el 2026-11-23.**
-**Tarea actual:** T-001 está lista para cierre por el mismo implementador y nueva
-revisión obligatoria; no se declara aprobada desde planificación. El revisor ya
-considera resueltos todos los hallazgos técnicos, incluida CA-02 con cola sembrada
-y conservada tras claim exitoso. T-002…T-006 siguen sin implementar.
+**Tarea actual:** **revisión de T-003, implementada y aún no aprobada.** T-001 y
+T-002 están **APROBADAS**. T-002 no tuvo bloqueantes ni mayores; su observación
+menor sobre legibilidad a 320 dp/textScaler 1.3 queda diferida y no amplía T-003.
+T-004…T-006 siguen sin implementar; la ejecución de T-003 no alteró diseño ni
+CA-09…CA-12.
 
 La spec 021 está cerrada y aprobada; esta petición nueva no la reabre ni cambia sus
 criterios. Q-006 quedó cerrada por D-117 y Q-007 por D-119. El diseño vinculante
@@ -229,7 +230,7 @@ recomendada es serial. T-006 depende de T-001 y T-005, transitivamente de todas.
 La spec no se cierra hasta que todos los FR tengan regresión, todas las tareas
 estén aprobadas por revisión y se cumpla NFR-05 sin excepciones.
 
-## 11. Q-007 — Cerrada por D-119; cierre pendiente de T-001
+## 11. Q-007 — Cerrada por D-119; T-001 aprobada
 
 El revisor considera resueltos todos sus hallazgos técnicos, incluida CA-02 con una
 mutación sembrada cuyo payload, estado, intentos y fecha se conservan tras claim
@@ -243,6 +244,13 @@ publicado, con HEAD y `origin/2.2.0` en ese hash según la evidencia local. La
 autoría material sigue sin atribuirse. Se mantiene la regla de AGENTS: ningún
 commit nuevo sin permiso; tampoco se autoriza push futuro ni reescritura.
 
-D-119 no modifica CA-01…CA-03 ni ningún otro CA técnico. T-001 vuelve al mismo
-implementador para cierre y después al mismo revisor para una nueva revisión
-obligatoria. El planner no la declara aprobada.
+D-119 no modificó CA-01…CA-03 ni ningún otro CA técnico. Tras el cierre del
+implementador, la revisión final devolvió **APROBADO** para T-001, sin hallazgos
+bloqueantes, mayores ni menores. Limitaciones no bloqueantes: puerta declarada por
+el implementador, revisor en solo lectura sin acceso a `/tmp`; Supabase real/RLS/
+Storage/segunda réplica diferidos al alcance posterior.
+
+La revisión posterior aprobó T-002 sin bloqueantes ni mayores. Su observación menor
+de legibilidad a 320 dp/textScaler 1.3/FittedBox queda diferida sin reabrir la tarea.
+La spec continúa con **T-003**, refinada contra el código vigente y sin reabrir
+diseño ni CA-09…CA-12.

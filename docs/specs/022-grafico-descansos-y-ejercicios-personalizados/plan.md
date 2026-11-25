@@ -1,17 +1,19 @@
 # Plan técnico — Spec 022
 
 **Estado: APROBADO (D-117, 2026-11-23); T-001…T-006 listas según dependencias.**
-**Estado actual de T-001:** lista para cierre por el mismo implementador y nueva
-revisión obligatoria; no aprobada por el planner. Q-007 está cerrada por D-119.
-La planificación inicial no aplicó implementación ni migraciones; la ejecución y
-sus evidencias posteriores se conservan en `tasks.md` y `memory.md`.
+**Estado actual:** T-001 y T-002 **APROBADAS**; **T-003 implementada, pendiente de
+revisión**. Q-007 está cerrada por D-119. La observación menor de legibilidad del
+chart queda diferida, fuera de T-003. La planificación no aplicó migraciones ni
+regeneración; la ejecución de T-003 y su única v19 generada, verificaciones y
+límites se conservan en `tasks.md` y `memory.md`.
 
 ## 1. Preflight y límites
 
 - Proyecto móvil Flutter con backend Supabase: réplica local drift, cola de subida
   y Storage. No se crean carpetas `app/`, `api/` ni `web/`.
-- `schemaVersion` vigente: 18; destino tras la secuencia: 21. `image_picker` ya
-  está declarado; no se añaden dependencias ni se modifica `pubspec.lock`.
+- `schemaVersion` al planificar: 18; vigente tras T-003: 19; destino tras la
+  secuencia: 21. `image_picker` ya está declarado; no se añaden dependencias ni se
+  modifica `pubspec.lock`.
 - La 021 está cerrada; no se tocan sus criterios ni sus archivos.
 - Al inicio había cambios preexistentes en `docs/DESIGN.md` y `pubspec.lock`. Solo
   se actualizó la sección 022 del primero; el lock se preservó.
@@ -26,31 +28,42 @@ En `lib/ui/widgets/exercise_progress_chart.dart`:
 
 - `_computeXPositions()` devuelve siempre cuatro posiciones para dos o más puntos.
 - Desde el quinto punto, el painter cambia a otra fórmula basada en
-  `i / (points.length - 1)`, lo que puede mezclar posiciones duplicadas o no
-  crecientes; el destacado usa `xPositions.last`, no el último nodo calculado.
+  `i / (points.length - 1)`, lo que mezcla posiciones duplicadas o no crecientes;
+  área y destacado usan `xPositions.last`, no necesariamente el último nodo real.
 - El ancho se deriva de `MediaQuery`, no de las restricciones reales del padre.
-- El delta pasa `periodDeltaValue?.absolute` al formateador.
+  `shouldRepaint` no compara todos los valores/fechas/posiciones/tamaño relevantes.
+- El eje inferior usa etiquetas fijas `1M/3M/6M/<ventana>`, no fechas de puntos.
+- `progressWindowDays(all)=0` hace que la UI calcule y muestre `0x / semana`.
+- `PeriodDelta.absolute` ya contiene la resta con signo y `formatChartDeltaKg` ya
+  conserva negativos: CA-07 necesita cobertura, no un cambio de dominio forzado.
 - El test con doce puntos no inspecciona coordenadas ni cierre del área.
 
 T-002 debe demostrar primero el fallo con coordenadas/pintura observable y después
-corregir con una única distribución cronológica por índice. El rediseño aprobado
-usa fechas reales (máximo cuatro), delta con signo y oculta la frecuencia cero
-artificial de «Todo». Sin goldens.
+corregir con una única distribución cronológica por índice consumida por línea,
+área, nodos y destacado. Usará constraints reales, fechas reales (máximo cuatro,
+deduplicadas), conservará delta/puntos/ventanas 021 y ocultará solo la frecuencia
+cero artificial de «Todo». También comprobará repaint y nodos dentro del alto útil.
+Sin cambios previstos en `exercise_stats.dart`/`chart_enums.dart`, sin goldens.
 
 ### Descanso
 
-- `ExerciseInfoView._changeRest()` solo ejecuta `setState`; el repositorio sí
-  ofrece `CatalogRepository.updateRestSeconds()`.
+- `ExerciseInfoView._changeRest()` solo ejecuta `setState`;
+  `CatalogRepository.updateRestSeconds()` todavía escribe el legacy
+  `exercises.rest_seconds`, no una preferencia por usuario.
 - `LiveWorkoutView._adjustRest()` solo transforma y guarda el timer del workout;
-  no actualiza el predeterminado.
+  no actualiza el predeterminado. `watchExercises` tampoco observa preferencias.
 - El workout vigente tiene un único `restEndsAt/restPausedSeconds`, sin
-  `workoutExerciseId` asociado.
+  `workoutExerciseId` asociado; fases/avisos dismissed también son globales.
+- `RestNotifier` usa ID fijo 1 y una única bandera: no representa avisos simultáneos.
 - El contrato previo considera ese countdown local y no lo encola.
 
 T-003 sustituye el modelo operativo por timers por `workout_exercise`, conserva el
-global solo como fallback legacy y aplica opción C. T-006 activa la réplica del
-predeterminado/countdown aprobada por D-117. El delta aplicado al restante es el
-mismo que realmente cambia el predeterminado tras su límite 15–300 s.
+global solo como fallback legacy y aplica opción C. Migra a preferencias solo los
+rests de catálogo distintos de 90 y usa preferencia/90 como valor efectivo reactivo.
+T-006 activa la réplica del predeterminado/countdown aprobada por D-117. El delta
+aplicado al restante es el mismo que realmente cambia el predeterminado tras su
+límite 15–300 s; ambas escrituras se coordinan localmente y los avisos se clavean por
+`workoutExerciseId`.
 
 ### Catálogo y personalizados
 
@@ -187,10 +200,12 @@ generado. En planificación no se ejecuta.
 
 ## 8. Entrega al implementador
 
-Devolver **T-001 al mismo implementador para cierre** y después al mismo revisor
-para nueva revisión obligatoria; el planner no la marca aprobada. Tras su
-aprobación, seguir T-002 → T-003 → T-004 → T-005 → T-006. Cada tarea exige sus
-CA, regresiones, puerta completa no golden + analyze y revisión independiente.
+Entregar **T-003 al implementador como tarea actual**. T-001 y T-002 ya están
+aprobadas; después seguir T-004 → T-005 → T-006. El orden schema/generated →
+repositorios/dominio → UI/notificaciones, las pruebas y los riesgos vigentes están
+en `tasks.md` §T-003. No se reabren CA-09…CA-12 ni se incorpora trabajo de chart.
+Cada tarea exige sus CA, regresiones, puerta completa no golden + analyze y revisión
+independiente, sin commits/push nuevos.
 
 ## 9. Refinamiento de proceso T-001 — Q-007/D-119
 
@@ -206,5 +221,7 @@ Q-007 y se limita al commit ya existente/publicado
 commits/push futuros, reset, revert, rebase u otra reescritura.
 
 La puerta común queda: sin PNG ni dependencias nuevas y sin commits/push nuevos
-sin permiso en T-001…T-006. La excepción no altera CA-01…CA-03 ni ningún otro CA
-técnico y no sustituye la nueva revisión.
+sin permiso en T-001…T-006. La excepción no alteró CA-01…CA-03 ni ningún otro CA
+técnico. La revisión final posterior devolvió **APROBADO** para T-001, sin
+hallazgos bloqueantes/mayores/menores; sus límites no bloqueantes constan en
+`tasks.md` y `memory.md`.

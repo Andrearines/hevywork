@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../data/local/database.dart';
+import '../../data/repositories/catalog_repository.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../domain/exercise_stats.dart';
 import '../../domain/media.dart';
@@ -50,11 +52,17 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
 
   Workout? _activeWorkout;
   StreamSubscription<Workout?>? _activeWorkoutSubscription;
+  StreamSubscription<int>? _restSubscription;
+  CatalogRepository? _catalogRepository;
 
   @override
   void initState() {
     super.initState();
-    _restSeconds = widget.exercise.restSeconds;
+    _restSeconds = widget.database == null ? widget.exercise.restSeconds : 90;
+    _catalogRepository = widget.database == null
+        ? null
+        : CatalogRepository(widget.database!);
+    _listenRest();
     _loadSteps();
     _loadInitialHistory();
     _gifFile = null;
@@ -65,9 +73,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   void _loadSteps() async {
     if (widget.database == null) return;
     final database = widget.database!;
-    final rows = await (database.select(database.exerciseInstructions)
-          ..where((t) => t.exerciseId.equals(widget.exercise.id)))
-        .get();
+    final rows = await (database.select(
+      database.exerciseInstructions,
+    )..where((t) => t.exerciseId.equals(widget.exercise.id))).get();
 
     final grouped = <String, List>{};
     for (final row in rows) {
@@ -89,20 +97,33 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     });
   }
 
+  void _listenRest() {
+    final repository = _catalogRepository;
+    if (repository == null) return;
+    _restSubscription = repository
+        .watchEffectiveRestSeconds(widget.exercise.id)
+        .listen((seconds) {
+          if (!mounted) return;
+          setState(() => _restSeconds = seconds);
+        });
+  }
+
   void _listenActiveWorkout() {
     if (widget.workoutRepository == null) return;
-    _activeWorkoutSubscription =
-        widget.workoutRepository!.watchActiveWorkout().listen((Workout? workout) {
-      if (!mounted) return;
-      setState(() {
-        _activeWorkout = workout;
-      });
-    });
+    _activeWorkoutSubscription = widget.workoutRepository!
+        .watchActiveWorkout()
+        .listen((Workout? workout) {
+          if (!mounted) return;
+          setState(() {
+            _activeWorkout = workout;
+          });
+        });
   }
 
   @override
   void dispose() {
     _activeWorkoutSubscription?.cancel();
+    _restSubscription?.cancel();
     super.dispose();
   }
 
@@ -173,7 +194,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                       ],
                     ),
                   ),
-                  const Divider(height: 1, color: palette.kSurfaceContainerHighest),
+                  const Divider(
+                    height: 1,
+                    color: palette.kSurfaceContainerHighest,
+                  ),
                   // SCR-2: Identidad
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -197,7 +221,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                   // SCR-6: Biomecánica & Cues
                   const Padding(
                     padding: EdgeInsets.fromLTRB(0, 24, 0, 0),
-                    child: Divider(height: 1, color: palette.kSurfaceContainerHighest),
+                    child: Divider(
+                      height: 1,
+                      color: palette.kSurfaceContainerHighest,
+                    ),
                   ),
                   _buildCuesSection(exercise),
                   Padding(
@@ -219,7 +246,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                       child: Text(
                         exercise.attribution!,
-                        style: const TextStyle(fontSize: 10, color: palette.kOutline),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: palette.kOutline,
+                        ),
                       ),
                     ),
                   const SizedBox(height: 100),
@@ -241,7 +271,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       decoration: BoxDecoration(
         color: palette.kSurfaceContainer,
         borderRadius: const BorderRadius.all(Radius.circular(12)),
-        border: Border.fromBorderSide(BorderSide(color: palette.kSurfaceContainerHighest)),
+        border: Border.fromBorderSide(
+          BorderSide(color: palette.kSurfaceContainerHighest),
+        ),
       ),
       clipBehavior: Clip.antiAlias,
       child: _gifFile != null
@@ -250,9 +282,15 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               builder: (context, snapshot) {
                 final file = snapshot.data;
                 if (file != null) {
-                  final dpi = (MediaQuery.of(context).devicePixelRatio * 220).round();
-                  return Image.file(file, fit: BoxFit.contain, scale: 1.0,
-                      cacheWidth: dpi, cacheHeight: dpi);
+                  final dpi = (MediaQuery.of(context).devicePixelRatio * 220)
+                      .round();
+                  return Image.file(
+                    file,
+                    fit: BoxFit.contain,
+                    scale: 1.0,
+                    cacheWidth: dpi,
+                    cacheHeight: dpi,
+                  );
                 }
                 return local;
               },
@@ -309,11 +347,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            exerciseName,
-            const Spacer(),
-            tierChip,
-          ],
+          children: [exerciseName, const Spacer(), tierChip],
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -392,7 +426,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.6,
-              color: language == _language ? palette.kPrimary : palette.kOnSurfaceVariant,
+              color: language == _language
+                  ? palette.kPrimary
+                  : palette.kOnSurfaceVariant,
             ),
           ),
       ],
@@ -443,11 +479,18 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.timer_outlined, size: 18, color: palette.kOnSurfaceVariant),
+          const Icon(
+            Icons.timer_outlined,
+            size: 18,
+            color: palette.kOnSurfaceVariant,
+          ),
           const SizedBox(width: 10),
           Expanded(
-            child: Text('Descanso por defecto',
-              style: theme.textTheme.bodyLarge?.copyWith(color: palette.kOnSurface),
+            child: Text(
+              'Descanso por defecto',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: palette.kOnSurface,
+              ),
             ),
           ),
           Text(
@@ -461,9 +504,12 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             key: const Key('rest-detail-minus'),
             tooltip: 'Reducir 15 s',
             onPressed: _restSeconds > 15 ? () => _changeRest(-15) : null,
-            icon: const Icon(Icons.remove_rounded, color: palette.kOnSurfaceVariant),
-            visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: const Icon(
+              Icons.remove_rounded,
+              color: palette.kOnSurfaceVariant,
+            ),
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             style: IconButton.styleFrom(
               backgroundColor: palette.kSurfaceContainerHighest,
               shape: const StadiumBorder(),
@@ -473,9 +519,12 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             key: const Key('rest-detail-plus'),
             tooltip: 'Aumentar 15 s',
             onPressed: _restSeconds < 300 ? () => _changeRest(15) : null,
-            icon: const Icon(Icons.add_rounded, color: palette.kOnSurfaceVariant),
-            visualDensity: VisualDensity.compact,
-            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: const Icon(
+              Icons.add_rounded,
+              color: palette.kOnSurfaceVariant,
+            ),
+            visualDensity: VisualDensity.standard,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             style: IconButton.styleFrom(
               backgroundColor: palette.kSurfaceContainerHighest,
               shape: const StadiumBorder(),
@@ -489,6 +538,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   Future<void> _changeRest(int deltaSeconds) async {
     final next = (_restSeconds + deltaSeconds).clamp(15, 300);
     setState(() => _restSeconds = next);
+    await _catalogRepository?.updateRestSeconds(widget.exercise.id, next);
   }
 
   Widget _buildProgressChartSection() {
@@ -649,7 +699,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         decoration: BoxDecoration(
           color: palette.kSurfaceContainer,
           borderRadius: const BorderRadius.all(Radius.circular(8)),
-          border: Border.fromBorderSide(BorderSide(color: palette.kSurfaceContainerHighest)),
+          border: Border.fromBorderSide(
+            BorderSide(color: palette.kSurfaceContainerHighest),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -671,7 +723,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                   ),
                   if (chip != null && chip.isNotEmpty)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: palette.kSurfaceContainerHighest,
                         borderRadius: BorderRadius.circular(4),
@@ -687,7 +742,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                     ),
                   if (actionIcon != null) ...[
                     const SizedBox(width: 4),
-                    Icon(actionIcon, size: 16, color: palette.kOnSurfaceVariant),
+                    Icon(
+                      actionIcon,
+                      size: 16,
+                      color: palette.kOnSurfaceVariant,
+                    ),
                   ],
                 ],
               ),
@@ -706,7 +765,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
-                  style: const TextStyle(fontSize: 11, color: palette.kOnSurfaceVariant),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: palette.kOnSurfaceVariant,
+                  ),
                 ),
               ],
             ],
@@ -774,7 +836,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       childrenPadding: const EdgeInsets.symmetric(horizontal: 16),
       title: Row(
         children: [
-          const Icon(Icons.tune_rounded, size: 18, color: palette.kOnSurfaceVariant),
+          const Icon(
+            Icons.tune_rounded,
+            size: 18,
+            color: palette.kOnSurfaceVariant,
+          ),
           const SizedBox(width: 10),
           const Flexible(
             child: Text(
@@ -801,8 +867,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             ),
           )
         else
-          for (var i = 0; i < steps.length; i++)
-            _buildStep(i + 1, steps[i]),
+          for (var i = 0; i < steps.length; i++) _buildStep(i + 1, steps[i]),
         if (_steps.length > 1) ...[
           const SizedBox(height: 8),
           _buildLanguageSwitch(),
@@ -824,16 +889,13 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          runSpacing: 4,
           children: [
-            Expanded(
-              child: Text(
-                'Distribución de activación',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: palette.kOnSurfaceVariant,
-                ),
-              ),
+            const Text(
+              'Distribución de activación',
+              style: TextStyle(fontSize: 12, color: palette.kOnSurfaceVariant),
             ),
             Text(
               'Foco Principal: ${muscleLabel(primaryTarget)}',
@@ -869,7 +931,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         Wrap(
           spacing: 16,
           children: [
-            _muscleChip(muscleLabel(primaryTarget), '${(primaryFlex * 100 / (primaryFlex + secondaryFlex)).round()}%', palette.kOnSurface),
+            _muscleChip(
+              muscleLabel(primaryTarget),
+              '${(primaryFlex * 100 / (primaryFlex + secondaryFlex)).round()}%',
+              palette.kOnSurface,
+            ),
             if (secondaryList.isNotEmpty)
               for (var i = 0; i < secondaryList.length; i++)
                 _muscleChip(
@@ -910,7 +976,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         const SizedBox(width: 5),
         Text(
           '$label $percent',
-          style: const TextStyle(fontSize: 11, color: palette.kOnSurfaceVariant),
+          style: const TextStyle(
+            fontSize: 11,
+            color: palette.kOnSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -944,7 +1013,10 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             Flexible(
               child: Text(
                 '${_history.length + _historyUpcoming.length} registros',
-                style: const TextStyle(fontSize: 12, color: palette.kOnSurfaceVariant),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: palette.kOnSurfaceVariant,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -972,7 +1044,8 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       padding: const EdgeInsets.only(top: 12),
       child: Text(
         'Sin sesiones con este ejercicio',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: palette.kOnSurfaceVariant),
+        style: Theme.of(context).textTheme.bodySmall
+            ?.copyWith(color: palette.kOnSurfaceVariant),
       ),
     );
   }
@@ -1043,18 +1116,28 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.autorenew_rounded, size: 14, color: palette.kOnSurfaceVariant),
+                const Icon(
+                  Icons.autorenew_rounded,
+                  size: 14,
+                  color: palette.kOnSurfaceVariant,
+                ),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     '${session.completedSetCount} sets completados',
-                    style: const TextStyle(fontSize: 12, color: palette.kOnSurface),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: palette.kOnSurface,
+                    ),
                   ),
                 ),
                 if (topText.isNotEmpty)
                   Text(
                     topText,
-                    style: const TextStyle(fontSize: 11, color: palette.kOnSurfaceVariant),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: palette.kOnSurfaceVariant,
+                    ),
                   ),
               ],
             ),
@@ -1130,10 +1213,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
             const SizedBox(height: 2),
             const Text(
               'Volumen total',
-              style: TextStyle(
-                fontSize: 10,
-                color: palette.kOnSurfaceVariant,
-              ),
+              style: TextStyle(fontSize: 10, color: palette.kOnSurfaceVariant),
             ),
           ],
         ),
@@ -1185,10 +1265,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
       ),
       child: const Row(
         children: [
-          SizedBox(
-            width: 56,
-            child: Text('SET', style: headerStyle),
-          ),
+          SizedBox(width: 56, child: Text('SET', style: headerStyle)),
           Expanded(
             child: Text(
               'PESO × REPS',
@@ -1198,11 +1275,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           ),
           SizedBox(
             width: 44,
-            child: Text(
-              'RIR',
-              textAlign: TextAlign.center,
-              style: headerStyle,
-            ),
+            child: Text('RIR', textAlign: TextAlign.center, style: headerStyle),
           ),
           SizedBox(
             width: 60,
@@ -1228,8 +1301,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     final label = isWarmup ? '${index + 1} (Cal.)' : '${index + 1}';
     final star = bestE1rm != null && set.countsForStats && set.e1rm == bestE1rm;
     final weight = weightUnitOf(units);
-    final load =
-        '${formatWeightKg(set.weightKg, units)} $weight × ${set.reps}';
+    final load = '${formatWeightKg(set.weightKg, units)} $weight × ${set.reps}';
     final e1rm = set.e1rm;
 
     final setCell = Text(
@@ -1249,8 +1321,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           ? null
           : const BoxDecoration(
               border: Border(
-                bottom:
-                    BorderSide(color: palette.kSurfaceContainerHighest),
+                bottom: BorderSide(color: palette.kSurfaceContainerHighest),
               ),
             ),
       child: Row(
@@ -1258,10 +1329,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
           SizedBox(
             width: 56,
             child: star
-                ? Semantics(
-                    label: 'Mejor e1RM histórico',
-                    child: setCell,
-                  )
+                ? Semantics(label: 'Mejor e1RM histórico', child: setCell)
                 : setCell,
           ),
           Expanded(
@@ -1330,7 +1398,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.history, size: 16, color: palette.kOnSurfaceVariant),
+            const Icon(
+              Icons.history,
+              size: 16,
+              color: palette.kOnSurfaceVariant,
+            ),
             const SizedBox(width: 8),
             Flexible(
               child: Text(
@@ -1409,8 +1481,18 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   String _sessionDateLabel(DateTime endedAt) {
     final day = endedAt.toLocal();
     const months = [
-      'ene', 'feb', 'mar', 'abr', 'may', 'jun',
-      'jul', 'ago', 'sep', 'oct', 'nov', 'dic',
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
     ];
     return '${day.day} ${months[day.month - 1]} ${day.year}';
   }
@@ -1435,7 +1517,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
     final hasActiveWorkout = _activeWorkout != null;
     return Semantics(
       button: true,
-      label: hasActiveWorkout ? 'Añadir ejercicio a la sesión activa' : 'Iniciar sesión y añadir ejercicio',
+      label: hasActiveWorkout
+          ? 'Añadir ejercicio a la sesión activa'
+          : 'Iniciar sesión y añadir ejercicio',
       child: Container(
         key: const Key('exercise-info-cta'),
         height: 64,
@@ -1469,7 +1553,9 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                 );
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Sesión iniciada con el ejercicio')),
+                  const SnackBar(
+                    content: Text('Sesión iniciada con el ejercicio'),
+                  ),
                 );
               }
             },
@@ -1478,7 +1564,11 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.add_circle_outline_rounded, size: 20, color: palette.kSurface),
+                  const Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 20,
+                    color: palette.kSurface,
+                  ),
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(

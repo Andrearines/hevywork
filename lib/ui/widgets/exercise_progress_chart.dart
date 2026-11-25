@@ -40,6 +40,7 @@ const Key chartWindowSixMonthsKey = Key('chart-window-sixmonths');
 const Key chartWindowOneYearKey = Key('chart-window-oneyear');
 const Key chartAllKey = Key('chart-all');
 const Key chartPlotKey = Key('chart-plot');
+const Key chartDateAxisKey = Key('chart-date-axis');
 const Key insightDeltaKey = Key('insight-delta');
 const Key insightFrequencyKey = Key('insight-frequency');
 
@@ -135,6 +136,68 @@ class ExerciseProgressChart extends StatelessWidget {
   }
 }
 
+@visibleForTesting
+class ExerciseProgressChartGeometry {
+  final Size size;
+  final List<Offset> nodes;
+  final Path linePath;
+  final Path areaPath;
+
+  ExerciseProgressChartGeometry({
+    required this.size,
+    required this.nodes,
+    required this.linePath,
+    required this.areaPath,
+  });
+}
+
+@visibleForTesting
+ExerciseProgressChartGeometry buildExerciseProgressChartGeometry(
+  List<ExerciseSessionPoint> points,
+  Size size,
+) {
+  final nodes = <Offset>[];
+  if (points.isNotEmpty) {
+    final values = points.map((point) => point.value).toList();
+    final maxVal = values.reduce(math.max);
+    final minVal = values.reduce(math.min);
+    final span = math.max(0.01, maxVal - minVal);
+    const verticalPadding = 20.0;
+    final availableHeight = math.max(0.0, size.height - verticalPadding * 2);
+
+    for (var i = 0; i < points.length; i++) {
+      final x = points.length == 1
+          ? size.width / 2
+          : i * size.width / (points.length - 1);
+      final normalized = (points[i].value - minVal) / span;
+      final y = verticalPadding + (1 - normalized) * availableHeight;
+      nodes.add(Offset(x, y));
+    }
+  }
+
+  final linePath = Path();
+  if (nodes.isNotEmpty) {
+    linePath.moveTo(nodes.first.dx, nodes.first.dy);
+    for (final node in nodes.skip(1)) {
+      linePath.lineTo(node.dx, node.dy);
+    }
+  }
+
+  final areaPath = nodes.isEmpty
+      ? Path()
+      : (Path.from(linePath)
+          ..lineTo(nodes.last.dx, size.height)
+          ..lineTo(nodes.first.dx, size.height)
+          ..close());
+
+  return ExerciseProgressChartGeometry(
+    size: size,
+    nodes: nodes,
+    linePath: linePath,
+    areaPath: areaPath,
+  );
+}
+
 class _ChartPlot extends StatelessWidget {
   final List<ExerciseSessionPoint> points;
   final ProgressMetric metric;
@@ -152,240 +215,239 @@ class _ChartPlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final unitSystem = UnitSystemScope.of(context);
-    final weightUnit = weightUnitOf(unitSystem);
-    final plotHeight = 120.0;
-    final paddingLeft = 40.0;
-    final paddingRight = 40.0;
-    final paddingTop = 20.0;
-    final availableWidth = size.width - paddingLeft - paddingRight;
-    final availableHeight = plotHeight;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final unitSystem = UnitSystemScope.of(context);
+        final weightUnit = weightUnitOf(unitSystem);
+        const plotHeight = 120.0;
+        const horizontalPadding = 40.0;
+        final availableWidth = math.max(
+          0.0,
+          constraints.maxWidth - horizontalPadding * 2,
+        );
+        final canvasSize = Size(availableWidth, plotHeight);
+        final geometry = buildExerciseProgressChartGeometry(points, canvasSize);
+        final periodDeltaValue = periodDelta(points);
+        final windowDays = progressWindowDays(window);
+        final frequency = windowDays == 0
+            ? null
+            : weeklyFrequency(
+                sessionCount: points.length,
+                windowDays: windowDays,
+              );
+        final domainMetric = switch (metric) {
+          ProgressMetric.e1rm => ExerciseProgressMetric.e1rm,
+          ProgressMetric.load => ExerciseProgressMetric.load,
+          ProgressMetric.volume => ExerciseProgressMetric.volume,
+        };
+        final deltaText = formatChartDeltaKg(
+          periodDeltaValue?.absolute ?? 0,
+          domainMetric,
+          unitSystem,
+        );
+        final dates = _representativeDates(points);
+        final includeYear = points.first.date.year != points.last.date.year;
 
-    final values = points.map((p) => p.value).toList();
-    final maxVal = values.reduce(math.max);
-    final minVal = values.reduce(math.min);
-    final span = (math.max(0.01, maxVal - minVal)).clamp(0.01, double.infinity);
-
-    double yOf(double value) {
-      final normalized = (value - minVal) / span;
-      return paddingTop + availableHeight - (normalized * availableHeight);
-    }
-
-    final List<double> xPositions = _computeXPositions(availableWidth);
-
-    final periodDeltaValue = periodDelta(points);
-    final frequency = weeklyFrequency(
-      sessionCount: points.length,
-      windowDays: progressWindowDays(window),
-    );
-
-    final domainMetric = switch (metric) {
-      ProgressMetric.e1rm => ExerciseProgressMetric.e1rm,
-      ProgressMetric.load => ExerciseProgressMetric.load,
-      ProgressMetric.volume => ExerciseProgressMetric.volume,
-    };
-    final String deltaText = formatChartDeltaKg(
-      periodDeltaValue?.absolute ?? 0,
-      domainMetric,
-      unitSystem,
-    );
-    final String freqText = '${formatDisplay(frequency)}x / semana';
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  '${_metricLabel(metric, weightUnit)} · ${_windowLabel(window)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: kOnSurface,
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisSize: MainAxisSize.min,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Flexible(
-                    child: Tooltip(
-                      message: 'Delta período',
-                      child: Container(
-                        key: insightDeltaKey,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kSurfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          deltaText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: kPrimary,
-                          ),
-                        ),
+                  Expanded(
+                    child: Text(
+                      '${_metricLabel(metric, weightUnit)} · ${_windowLabel(window)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: kOnSurface,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: Tooltip(
-                      message: 'Frecuencia media semanal',
-                      child: Container(
-                        key: insightFrequencyKey,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kSurfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          freqText,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            color: kPrimary,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(
+                        child: Tooltip(
+                          message: 'Delta período',
+                          child: Container(
+                            key: insightDeltaKey,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: kSurfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              deltaText,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: kPrimary,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                      if (frequency != null) ...[
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Tooltip(
+                            message: 'Frecuencia media semanal',
+                            child: Container(
+                              key: insightFrequencyKey,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: kSurfaceContainerHighest,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${formatDisplay(frequency)}x / semana',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: kPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
-        ),
-
-        SizedBox(
-          width: availableWidth,
-          height: availableHeight,
-          child: CustomPaint(
-            key: chartPlotKey,
-            painter: _SparklinePainter(
-              points: points,
-              minVal: minVal,
-              maxVal: maxVal,
-              span: span,
-              yOf: yOf,
-              xPositions: xPositions,
-              window: window,
-              metric: metric,
-              size: Size(availableWidth, availableHeight),
             ),
-            size: Size(availableWidth, availableHeight),
-          ),
-        ),
-
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Transform.translate(
-                offset: Offset(paddingLeft - 20, 0),
-                child: Text(
-                  '1M',
-                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
+            Align(
+              child: SizedBox(
+                width: availableWidth,
+                child: Column(
+                  children: [
+                    SizedBox(
+                      width: availableWidth,
+                      height: plotHeight,
+                      child: CustomPaint(
+                        key: chartPlotKey,
+                        painter: _SparklinePainter(
+                          points: points,
+                          geometry: geometry,
+                          window: window,
+                          metric: metric,
+                        ),
+                        size: canvasSize,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        key: chartDateAxisKey,
+                        children: [
+                          for (var i = 0; i < dates.length; i++)
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: i == 0
+                                    ? Alignment.centerLeft
+                                    : i == dates.length - 1
+                                    ? Alignment.centerRight
+                                    : Alignment.center,
+                                child: Text(
+                                  _formatAxisDate(
+                                    dates[i],
+                                    includeYear: includeYear,
+                                  ),
+                                  maxLines: 1,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    color: kOnSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Transform.translate(
-                offset: Offset(paddingLeft + availableWidth / 3 - 20, 0),
-                child: Text(
-                  '3M',
-                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
-                ),
-              ),
-              Transform.translate(
-                offset: Offset(paddingLeft + availableWidth * 2 / 3 - 20, 0),
-                child: Text(
-                  '6M',
-                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
-                ),
-              ),
-              Transform.translate(
-                offset: Offset(paddingLeft + availableWidth - 40, 0),
-                child: Text(
-                  _windowLabel(window),
-                  style: TextStyle(fontSize: 10, color: kOnSurfaceVariant),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
+            ),
+          ],
+        );
+      },
     );
   }
 
-  List<double> _computeXPositions(double availableWidth) {
-    if (points.length <= 1) {
-      final center = availableWidth / 2;
-      return [center, center, center, center];
+  String _metricLabel(ProgressMetric metric, String weightUnit) =>
+      switch (metric) {
+        ProgressMetric.e1rm => '1RM Estimado',
+        ProgressMetric.load => 'Carga Máx ($weightUnit)',
+        ProgressMetric.volume => 'Volumen',
+      };
+}
+
+List<DateTime> _representativeDates(List<ExerciseSessionPoint> points) {
+  final uniqueDates = <DateTime>[];
+  for (final point in points) {
+    final date = point.date;
+    if (uniqueDates.isEmpty || !_isSameDay(uniqueDates.last, date)) {
+      uniqueDates.add(date);
     }
-    return [
-      0,
-      availableWidth / 3,
-      availableWidth * 2 / 3,
-      availableWidth,
-    ].map((pos) => pos.toDouble()).toList();
   }
+  if (uniqueDates.length <= 4) return uniqueDates;
+  return [
+    for (var i = 0; i < 4; i++) uniqueDates[i * (uniqueDates.length - 1) ~/ 3],
+  ];
+}
 
-  String _metricLabel(ProgressMetric m, String weightUnit) =>
-      m == ProgressMetric.e1rm
-          ? '1RM Estimado'
-          : m == ProgressMetric.load
-              ? 'Carga Máx ($weightUnit)'
-              : 'Volumen';
+bool _isSameDay(DateTime first, DateTime second) {
+  return first.year == second.year &&
+      first.month == second.month &&
+      first.day == second.day;
+}
 
-  String _windowLabel(ProgressWindow w) => w == ProgressWindow.oneMonth
-      ? '1M'
-      : w == ProgressWindow.threeMonths
-          ? '3M'
-          : w == ProgressWindow.sixMonths
-              ? '6M'
-              : w == ProgressWindow.oneYear
-                  ? '1A'
-                  : 'Todo';
+String _formatAxisDate(DateTime date, {required bool includeYear}) {
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return includeYear ? '$day/$month/${date.year}' : '$day/$month';
+}
+
+bool _samePoints(
+  List<ExerciseSessionPoint> first,
+  List<ExerciseSessionPoint> second,
+) {
+  if (first.length != second.length) return false;
+  for (var i = 0; i < first.length; i++) {
+    if (first[i].date != second[i].date || first[i].value != second[i].value) {
+      return false;
+    }
+  }
+  return true;
 }
 
 class _SparklinePainter extends CustomPainter {
   final List<ExerciseSessionPoint> points;
-  final double minVal;
-  final double maxVal;
-  final double span;
-  final double Function(double) yOf;
-  final List<double> xPositions;
+  final ExerciseProgressChartGeometry geometry;
   final ProgressWindow window;
   final ProgressMetric metric;
-  final Size size;
 
   _SparklinePainter({
     required this.points,
-    required this.minVal,
-    required this.maxVal,
-    required this.span,
-    required this.yOf,
-    required this.xPositions,
+    required this.geometry,
     required this.window,
     required this.metric,
-    required this.size,
   });
 
   @override
@@ -396,62 +458,26 @@ class _SparklinePainter extends CustomPainter {
       return;
     }
 
-    const strokeWidth = 2.0;
-
-    final areaPath = Path();
-    for (var i = 0; i < points.length; i++) {
-      final x = xPositions.isNotEmpty && i < xPositions.length
-          ? xPositions[i]
-          : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
-      final y = yOf(points[i].value);
-      if (i == 0) {
-        areaPath.moveTo(x, y);
-      } else {
-        areaPath.lineTo(x, y);
-      }
-    }
-    final lastY = yOf(points.last.value);
-    areaPath.lineTo(xPositions.last, size.height);
-    areaPath.lineTo(0, size.height);
-    areaPath.close();
-
     final areaGradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0x220061A8), Color(0x000061A8)],
-      stops: [0.0, 1.0],
+      colors: const [Color(0x220061A8), Color(0x000061A8)],
+      stops: const [0.0, 1.0],
     );
     final areaPaint = Paint()
       ..shader = areaGradient.createShader(Offset.zero & size);
-    canvas.drawPath(areaPath, areaPaint);
+    canvas.drawPath(geometry.areaPath, areaPaint);
 
     final strokePaint = Paint()
       ..color = kChartLine
-      ..strokeWidth = strokeWidth
+      ..strokeWidth = 2
       ..style = PaintingStyle.stroke;
+    canvas.drawPath(geometry.linePath, strokePaint);
 
-    final linePath = Path();
-    for (var i = 0; i < points.length; i++) {
-      final x = xPositions.isNotEmpty && i < xPositions.length
-          ? xPositions[i]
-          : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
-      final y = yOf(points[i].value);
-      if (i == 0) {
-        linePath.moveTo(x, y);
-      } else {
-        linePath.lineTo(x, y);
-      }
-    }
-    canvas.drawPath(linePath, strokePaint);
-
-    for (var i = 0; i < points.length; i++) {
-      final x = xPositions.isNotEmpty && i < xPositions.length
-          ? xPositions[i]
-          : (i * size.width / (points.length - 1)).clamp(0.0, size.width);
-      final y = yOf(points[i].value);
-      canvas.drawCircle(Offset(x, y), 3, Paint()..color = kChartNode);
+    for (final node in geometry.nodes) {
+      canvas.drawCircle(node, 3, Paint()..color = kChartNode);
       canvas.drawCircle(
-        Offset(x, y),
+        node,
         3,
         Paint()
           ..color = kChartNodeStroke
@@ -459,13 +485,10 @@ class _SparklinePainter extends CustomPainter {
       );
     }
 
+    final highlightedNode = geometry.nodes.last;
+    canvas.drawCircle(highlightedNode, 5, Paint()..color = kPrimary);
     canvas.drawCircle(
-      Offset(xPositions.last, lastY),
-      5,
-      Paint()..color = kPrimary,
-    );
-    canvas.drawCircle(
-      Offset(xPositions.last, lastY),
+      highlightedNode,
       5,
       Paint()
         ..color = kSurface
@@ -476,10 +499,9 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_SparklinePainter oldDelegate) {
-    return oldDelegate.points.length != points.length ||
-        oldDelegate.minVal != minVal ||
-        oldDelegate.maxVal != maxVal ||
+    return oldDelegate.geometry.size != geometry.size ||
         oldDelegate.window != window ||
-        oldDelegate.metric != metric;
+        oldDelegate.metric != metric ||
+        !_samePoints(oldDelegate.points, points);
   }
 }
