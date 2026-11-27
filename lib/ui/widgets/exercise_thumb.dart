@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../../data/local/database.dart';
@@ -28,6 +30,14 @@ class ExerciseThumb extends StatelessWidget {
         height: size,
         child: imagePath == null
             ? const ThumbFallback()
+            : exercise.origin == 'custom'
+            ? Image.file(
+                File(imagePath),
+                fit: BoxFit.cover,
+                cacheWidth: cacheSize,
+                cacheHeight: cacheSize,
+                errorBuilder: (_, _, _) => const ThumbFallback(),
+              )
             : Image.asset(
                 thumbAsset(imagePath),
                 fit: BoxFit.cover,

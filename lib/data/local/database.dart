@@ -50,7 +50,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 19;
+  int get schemaVersion => 20;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -241,6 +241,14 @@ class AppDatabase extends _$AppDatabase {
             );
           }
         }
+      }
+      if (from < 20) {
+        await _addColumnIfMissing(m, exercises, exercises.origin);
+        await _addColumnIfMissing(m, exercises, exercises.localUserId);
+        await _addColumnIfMissing(m, exercises, exercises.imageStoragePath);
+        await _addColumnIfMissing(m, exercises, exercises.imageMimeType);
+        await _addColumnIfMissing(m, exercises, exercises.imageUploadStatus);
+        await _addColumnIfMissing(m, exercises, exercises.updatedAt);
       }
     },
   );

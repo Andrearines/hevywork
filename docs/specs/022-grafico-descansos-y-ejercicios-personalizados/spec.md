@@ -1,11 +1,11 @@
 # Spec 022 — Gráfico, descansos y ejercicios personalizados
 
 **Estado: APROBADA — DESIGN y alcance confirmados por el usuario el 2026-11-23.**
-**Tarea actual:** **revisión de T-003, implementada y aún no aprobada.** T-001 y
-T-002 están **APROBADAS**. T-002 no tuvo bloqueantes ni mayores; su observación
-menor sobre legibilidad a 320 dp/textScaler 1.3 queda diferida y no amplía T-003.
-T-004…T-006 siguen sin implementar; la ejecución de T-003 no alteró diseño ni
-CA-09…CA-12.
+**Tarea actual:** **T-004 LISTA para el implementador.** T-001, T-002 y T-003
+están **APROBADAS**. T-003 no tuvo hallazgos bloqueantes, mayores ni menores; sus
+limitaciones de evidencia quedan registradas sin reabrir CA-09…CA-12. La observación
+menor de T-002 sobre legibilidad a 320 dp/textScaler 1.3 sigue diferida y no amplía
+T-004. T-004…T-006 siguen sin implementar; no se reabren producto ni DESIGN.
 
 La spec 021 está cerrada y aprobada; esta petición nueva no la reabre ni cambia sus
 criterios. Q-006 quedó cerrada por D-117 y Q-007 por D-119. El diseño vinculante
@@ -252,5 +252,18 @@ Storage/segunda réplica diferidos al alcance posterior.
 
 La revisión posterior aprobó T-002 sin bloqueantes ni mayores. Su observación menor
 de legibilidad a 320 dp/textScaler 1.3/FittedBox queda diferida sin reabrir la tarea.
-La spec continúa con **T-003**, refinada contra el código vigente y sin reabrir
-diseño ni CA-09…CA-12.
+
+## 12. T-003 aprobada; T-004 actual
+
+La revisión independiente de T-003 devolvió **APROBADO**, sin hallazgos bloqueantes,
+mayores ni menores, y aceptó CA-09…CA-12. Confirmó migración/backfill/checks,
+opción C transaccional, timers/avisos independientes, fallback, responsive y ausencia
+de sync anticipado. Limitaciones: revisor en solo lectura, 758/758/analyze declarados
+por el implementador y diff Git completo no reconstruible; HEAD observado entonces
+`d227ebc…`, sin cambios. Estas limitaciones no reabren la tarea ni prueban T-004.
+
+La spec continúa con **T-004**, delimitada contra el código v19 vigente y sin reabrir
+diseño ni CA-13…CA-16. Incluye alta/edición local completa, imagen/fallback,
+integración/reacción de vistas y descanso directo custom. El borrado de personalizados,
+SCR-09 y toda réplica/supabase permanecen fuera; se exige drift 19→20, una sola
+generación y la puerta completa no golden + analyze antes de otra revisión.

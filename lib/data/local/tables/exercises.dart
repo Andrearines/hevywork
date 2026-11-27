@@ -7,18 +7,42 @@ class Exercises extends Table {
   TextColumn get equipment => text()();
   TextColumn get target => text()();
   TextColumn get muscleGroup => text()();
-  TextColumn get secondaryMuscles => text().nullable()(); // JSON array de strings
+  TextColumn get secondaryMuscles =>
+      text().nullable()(); // JSON array de strings
   TextColumn get mediaId => text().nullable()();
-  TextColumn get imagePath => text().nullable()(); // Ruta local del dataset (images/…)
-  TextColumn get gifPath => text().nullable()(); // Ruta local del dataset (videos/…)
+  TextColumn get imagePath =>
+      text().nullable()(); // Ruta local del dataset (images/…)
+  TextColumn get gifPath =>
+      text().nullable()(); // Ruta local del dataset (videos/…)
   TextColumn get attribution => text().nullable()();
   DateTimeColumn get createdAt => dateTime().nullable()();
+  TextColumn get origin => text().customConstraint(
+    "NOT NULL DEFAULT 'catalog' "
+    "CHECK(origin IN ('catalog','custom'))",
+  )();
+  TextColumn get localUserId => text().nullable().customConstraint(
+    'CHECK((origin = \'custom\' AND local_user_id IS NOT NULL) OR '
+    "(origin = 'catalog' AND local_user_id IS NULL))",
+  )();
+  TextColumn get imageStoragePath => text().nullable()();
+  TextColumn get imageMimeType => text().nullable().customConstraint(
+    'CHECK(image_mime_type IS NULL OR image_mime_type IN '
+    "('image/jpeg','image/png','image/webp'))",
+  )();
+  TextColumn get imageUploadStatus => text().nullable().customConstraint(
+    'CHECK((origin = \'catalog\' AND image_upload_status IS NULL) OR '
+    "(origin = 'custom' AND image_upload_status IN "
+    "('none','pending_upload','uploaded','pending_delete')))",
+  )();
+  DateTimeColumn get updatedAt => dateTime().nullable().customConstraint(
+    "CHECK(origin = 'catalog' OR updated_at IS NOT NULL)",
+  )();
   // Descanso por defecto tras una serie, en segundos (RF-5 de la 002):
   // rango 15–300 s, 90 s por defecto. El mismo rango lo valida
   // `CatalogRepository.updateRestSeconds` en Dart.
   IntColumn get restSeconds => integer().customConstraint(
-        'NOT NULL DEFAULT 90 CHECK(rest_seconds BETWEEN 15 AND 300)',
-      )();
+    'NOT NULL DEFAULT 90 CHECK(rest_seconds BETWEEN 15 AND 300)',
+  )();
 
   @override
   Set<Column> get primaryKey => {id};

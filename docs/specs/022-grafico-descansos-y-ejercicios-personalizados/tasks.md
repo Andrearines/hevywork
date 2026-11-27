@@ -1,10 +1,10 @@
 # Tareas — Spec 022
 
-**Estado global: T-001 y T-002 APROBADAS; T-003 IMPLEMENTADA, PENDIENTE DE
-REVISIÓN (2026-11-25).** Q-007/D-119 sigue cerrada. T-004…T-006 no están
-implementadas; T-004 espera la aprobación de T-003.
-La observación menor de legibilidad del chart queda diferida y no forma parte de
-T-003.
+**Estado global: T-001, T-002 y T-003 APROBADAS; T-004 IMPLEMENTADA —
+PENDIENTE DE REVISIÓN (2026-11-26).** Q-007/D-119 sigue cerrada. T-005 y T-006
+no están implementadas; T-004 debe superar revisión independiente antes de entregar
+T-005. La observación menor de legibilidad del chart queda diferida y no forma parte
+de T-004.
 
 Orden recomendado: T-001 → T-002 → T-003 → T-004 → T-005 → T-006.
 T-002 es técnicamente independiente de T-001; las demás dependencias son
@@ -304,8 +304,9 @@ nuevas operaciones de este tipo.
 
 ## T-003 — Persistir descanso y aplicar opción C con timers independientes
 
-- **Estado:** **IMPLEMENTADA — PENDIENTE DE REVISIÓN (2026-11-25)**.
-  No está aprobada; T-004 permanece bloqueada hasta esa revisión.
+- **Estado:** **APROBADA POR EL REVISOR — 2026-11-25**, sin hallazgos
+  bloqueantes, mayores ni menores. CA-09…CA-12 quedan aceptados y T-004 ya puede
+  iniciarse; las limitaciones de evidencia se conservan en el veredicto posterior.
 - **Trazabilidad:** US-02, FR-03/FR-04/FR-11, SCR-03/SCR-06;
   NFR-01/NFR-03/NFR-04/NFR-05/NFR-07.
 - **Dependencias:** T-002 ya aprobada. Precede a T-004 por la secuencia drift.
@@ -545,18 +546,44 @@ terminar el esquema.
   **pendiente de revisión independiente**, no aprobada. Decisiones D-121…D-123 y
   bitácora completa en `memory.md`. Sin bloqueos ni preguntas abiertas.
 
+### Veredicto de revisión — 2026-11-25
+
+- **APROBADO**, sin hallazgos bloqueantes, mayores ni menores. CA-09…CA-12 quedan
+  aceptados: migración v19/backfill/checks, opción C transaccional, estados y timers
+  independientes, fallback legacy, notificaciones, responsive y ausencia de sync
+  anticipado. T-003 no se reabre.
+- **Limitaciones de evidencia, no nuevos hallazgos:** revisor en solo lectura;
+  758/758 pruebas no golden y `flutter analyze` sin incidencias son resultados
+  declarados por el implementador, no una repetición independiente; el diff Git
+  completo no fue reconstruible por el revisor. Durante su revisión HEAD permaneció
+  en `d227ebcbb13355cc4561a9c91b7ae2ec5db27956`, sin cambios.
+- Al planificar T-004 se observó HEAD `1e22b4af5967fb585c004ea5aa2eee15766d580d`
+  (`T4`), una posición por delante de `origin/2.2.0` (`d227ebc…`). Se registra sin
+  atribuir la transición ni autoría, sin reescribir historial y sin ampliar D-119.
+  La prohibición de commits/push nuevos sigue vigente para T-004.
+- **Siguiente:** `tarea_actual: T-004`. T-004 deberá superar su propia puerta y
+  revisión independiente; este veredicto no aprueba producción futura.
+
 ## T-004 — Crear personalizados locales con imagen e integrarlos en catálogo
 
-- **Estado:** LISTA — requiere T-003 aprobada.
+- **Estado:** **IMPLEMENTADA — PENDIENTE DE REVISIÓN (2026-11-26)**; T-003 está
+  aprobada. CA-13…CA-16 y la puerta completa están implementados; no se declara
+  aprobación unilateral ni se inicia T-005.
 - **Trazabilidad:** US-03, FR-05/FR-06/FR-13/FR-14/FR-17,
   SCR-06/SCR-07/SCR-08; NFR-01…NFR-06.
 - **Dependencias:** T-003 y contratos v19/v20 de `docs/db.md`. No requiere T-001
-  para guardado local; T-006 activa su sincronización.
-- **Migración:** drift **19→20**, extiende `exercises` con origen, propietario,
-  metadata/estado de imagen y `updated_at`; ejecuta `build_runner`. Sin SQL remoto.
-- **Archivos relevantes:** catálogo/repositorio, `CatalogView`,
-  selector/`ExercisePicker`, `ExerciseInfoView`, `CustomExerciseEditorView`,
-  `ThumbFallback`, tablas drift/migración local y tests de catálogo/editor/migración.
+  para guardado local; T-006 activa su sincronización. Precede a T-005 por el modelo
+  custom y a T-006 por la secuencia drift.
+- **Migración:** una sola drift **19→20**, extiende `exercises` con origen,
+  propietario, metadata/estado de imagen y `updated_at`; después ejecuta una sola
+  generación `build_runner`. Sin SQL remoto ni edición manual del generado.
+- **Archivos relevantes:** `tables/exercises.dart`, `database.dart` y su generado;
+  dominio puro de custom/imagen, almacenamiento local inyectable,
+  `CatalogRepository`, `WorkoutRepository`, `CatalogView`, `ExercisePicker`,
+  `ExerciseInfoView`, `CustomExerciseEditorView` nueva, `ExerciseThumb`/
+  `ThumbFallback`, reanudación mínima de rutinas y configuración existente de
+  `image_picker` en Android/iOS. Pruebas de dominio, repositorio, migración, editor,
+  catálogo/selector, ficha, miniaturas, rutinas y workouts.
 
 ### Criterios de aceptación
 
@@ -576,6 +603,297 @@ terminar el esquema.
 - **CA-16:** **Given** una base v19, **When** se aplica v20, **Then** conserva
   catálogo/historial/preferencias, exige `local_user_id` en todo custom y pasa
   migración + `build_runner`; no hay dependencias ni PNG nuevos.
+
+### Encargo refinado contra el código vigente — 2026-11-25
+
+No se reabren producto, DESIGN, CA-13…CA-16 ni el borrado ya excluido por la spec.
+T-003 está aprobada. Al iniciar esta delimitación la worktree estaba limpia y HEAD
+era `1e22b4af5967fb585c004ea5aa2eee15766d580d` (`T4`), una posición por delante de
+`origin/2.2.0`; se conserva sin atribuir la transición desde el HEAD revisado.
+
+Evidencia estática que el implementador debe convertir en pruebas, sin repetir la
+suite durante planificación:
+
+- `Exercises` aún no tiene origen/propietario/media remota prevista ni `updated_at`;
+  `schemaVersion` es 19. No existe `CustomExerciseEditorView`.
+- `CatalogRepository` solo importa/busca el maestro y cachea opciones sin propietario;
+  `initializeCatalogIfEmpty` se detiene con cualquier fila. Un custom insertado antes
+  de importar el asset no debe bloquear esa importación en v20.
+- `CatalogView` pagina de 50, pero `ExercisePicker` solo pide la primera página;
+  ambos cargan con futuros y necesitan invalidación/reanudación para reflejar altas y
+  ediciones sin perder la consulta activa.
+- `ExerciseThumb` y la ficha tratan todo `imagePath` como asset. Para custom deben
+  usar `Image.file` con `errorBuilder` a `ThumbFallback`; el maestro conserva
+  `Image.asset`/GIF y ningún custom muestra atribución inexistente.
+- La ficha, la proyección `watchExercises`, `startRestTimer` y `adjustRestTimer`
+  todavía resuelven todo como preferencia/90. En v20, custom usa su propia fila.
+- `image_picker` ya está en `pubspec.yaml` y se usa con `pickImage` en otras vistas.
+  Faltan `NSCameraUsageDescription`/`NSPhotoLibraryUsageDescription` en iOS y
+  `android.permission.CAMERA` en Android. No se añade `permission_handler`.
+
+#### A. Orden obligatorio de cambios
+
+1. Registrar estado/diff inicial y obtener rojos ejecutables cuando sea posible:
+   alta/edición inexistentes, custom tratado como asset, descanso custom que cae a
+   90 o crea preferencia, selector limitado a 50 y custom que impide inicializar el
+   asset. No borrar regresiones T-001…T-003 ni relajar tests para aceptar v20.
+2. Completar tabla, checks y el único paso drift 19→20. **Después**, ejecutar una
+   sola vez `dart run build_runner build --delete-conflicting-outputs`; no editar a
+   mano `database.g.dart`, no crear v21 ni generar antes de cerrar el esquema.
+3. Implementar dominio puro de validación/músculos/MIME, almacenamiento de archivos
+   inyectable y repositorios. Después conectar editor, miniaturas/ficha, catálogo,
+   selector y reanudaciones. La UI no duplica reglas canónicas ni de tamaño/MIME.
+4. Añadir solo la configuración de plataforma requerida por el plugin y ejecutar
+   regresiones dirigidas. Al cierre, puerta completa `flutter test --exclude-tags
+   golden` + `flutter analyze`, sin skips, dependencias, PNG/goldens, commits ni push.
+
+#### B. Migración drift 19→20 y conservación
+
+- `schemaVersion` pasa a 20. En `onUpgrade`, `from < 20` añade mediante las guardas
+  idempotentes existentes, en orden compatible con sus checks:
+  `origin`, `local_user_id`, `image_storage_path`, `image_mime_type`,
+  `image_upload_status` y `updated_at`. No se reconstruye `exercises` ni se ejecuta
+  backfill de customs. Una actualización desde v18 ejecuta primero todo el paso v19
+  y solo después añade estas columnas.
+- `origin` es `NOT NULL DEFAULT 'catalog'` con vocabulario `catalog/custom`.
+  `local_user_id` queda `NULL` en catálogo y un **check SQL** exige no nulo en todo
+  custom. `updated_at` es obligatorio para custom; `image_upload_status` es `NULL`
+  en catálogo y en custom pertenece a `none/pending_upload/uploaded/pending_delete`.
+  `image_mime_type` solo admite nulo o `image/jpeg`, `image/png`, `image/webp`.
+  Las filas maestras existentes quedan como `catalog`, propietario/status/update
+  nulos y con todos sus valores anteriores intactos.
+- La migración no toca `rest_seconds`, preferencias, timers, rutinas, workouts,
+  series, objetivos, fatiga, cola ni payloads. No crea tabla remota ni índice/
+  constraint no aprobado. El ID y los demás invariantes de negocio se validan en el
+  repositorio; la propiedad custom obligatoria debe probarse también con SQL crudo,
+  no solo mediante una helper que se valide a sí misma.
+- `migration_test.dart` actualiza las expectativas mecánicas de versión actual a 20
+  sin reescribir el sentido histórico de las pruebas 18→19. Añadir una base v19 real
+  o simulada con catálogo, preferencia muscular/descanso, rutina, workout/sets y cola:
+  comprobar `user_version=20`, defaults, checks, datos/rows/payloads conservados y
+  generated v20. Simular migración interrumpida con un subconjunto de columnas ya
+  presentes y `user_version=19`; debe reanudar sin duplicate column ni pérdida.
+- Una base creada directamente como v20 no ejecuta migraciones ni backfill. Adaptar
+  constructores/fixtures solo por las nuevas columnas generadas; catálogo conserva
+  preferencia/90 y custom siempre recibe explícitamente origen, dueño, status y
+  `updated_at` válidos.
+
+#### C. Modelo, validación y operaciones de repositorio
+
+- Añadir un valor de dominio para borrador y validación pura, sin widgets ni drift.
+  El alta genera con `uuid` ya disponible **`custom_<uuid>`** una sola vez; edición
+  conserva ID y `created_at`, y solo permite una fila `origin=custom` del perfil
+  actual. Nunca se convierte una fila de catálogo en custom ni se edita el asset.
+- Obligatorios recortados/no vacíos: nombre, objetivo, equipo y parte del cuerpo.
+  Secundarios son opcionales. Descanso entero 15–300, **90 al crear** y valor actual
+  al editar. Guardar sin imagen es válido. Equipo/parte admiten valores nuevos; el
+  formulario ofrece los existentes como sugerencias, no como whitelist cerrada.
+- Objetivo y secundarios usan el vocabulario reconocido por `kTargetMuscleAliases` y
+  `kMuscleAliases`/lista canónica. Normalizar comparaciones a canónico, conservar el
+  orden elegido y **rechazar** secundarios duplicados o equivalentes al objetivo;
+  no deduplicar silenciosamente ni cambiar el orden. Guardar los secundarios en forma
+  canónica JSON (incluido `[]` si no hay) y derivar
+  `muscle_group = secondaryCanonico[0]`, u objetivo canónico si la lista está vacía.
+  Esta helper será reusable por T-005, pero T-004 no escribe overrides musculares
+  de catálogo ni abre SCR-09.
+- En custom, `target`, `secondary_muscles`, `muscle_group`, `body_part`, `equipment`
+  y `rest_seconds` viven directamente en `exercises`; `gif_path`, `media_id` y
+  `attribution` son nulos y no se crean instrucciones. `created_at` se conserva y
+  `updated_at` cambia en cada edición efectiva, incluidos descanso e imagen.
+- Implementar alta y edición local primero en `CatalogRepository`, con reloj,
+  directorio de documentos y picker/archivo inyectables donde facilite pruebas. La
+  escritura no consulta Supabase ni espera red. Un guardado en curso bloquea el CTA;
+  doble tap no crea dos IDs/filas ni copia dos veces el archivo.
+- Toda lectura pública del repositorio —detalle/lotes/nombres, búsqueda, páginas,
+  opciones y grupos— limita customs al `localUserId` del perfil actual y siempre
+  incluye el maestro. El caché de opciones queda asociado al propietario y se invalida
+  tras alta/edición; no mezcla opciones de otro perfil. Ordenar por nombre **e ID**
+  para páginas estables con nombres repetidos.
+- `initializeCatalogIfEmpty` cuenta solo `origin=catalog` e inserta el asset sin
+  borrar ni sobrescribir customs. Probar custom previo + inicialización, segunda
+  inicialización sin duplicados y conservación exacta del asset.
+
+#### D. Imagen local, picker y estados de media
+
+- El editor recibe galería/cámara mediante un seam inyectable que usa
+  `ImagePicker().pickImage(source: …, maxWidth: 1600, maxHeight: 1600,
+  imageQuality: 85)`. Cancelar no cambia el borrador. Capturar excepciones de permiso,
+  cámara no disponible y plataforma y mostrar mensajes breves en español, sin exponer
+  stack traces ni descartar controladores/selecciones.
+- Leer los bytes del `XFile` y validar antes de sustituir estado: no vacíos,
+  **≤2 MiB (2 × 1024 × 1024)** y formato JPEG/PNG/WebP. Detectar MIME por firma de
+  bytes —no confiar solo en extensión o en un `mimeType` nullable— y rechazar GIF,
+  texto, formato desconocido o bytes corruptos detectables. La compresión del plugin
+  no exime la comprobación del tamaño final. No añadir decodificador ni dependencia.
+- Persistir el archivo validado bajo documentos, en un subdirectorio propio de
+  custom, con nombre derivado del `exerciseId` y extensión coherente con su MIME.
+  `image_path` es la ruta absoluta local; `image_storage_path` es la clave prevista
+  `<localUserId>/<exerciseId>` y nunca esa ruta absoluta. Los bytes permanecen offline
+  al cerrar/reabrir; no se guardan solo en caché temporal del picker.
+- Modelar el cambio como **conservar/reemplazar/quitar**, no como nullable ambiguo:
+  - alta sin imagen y sin operación pendiente: `image_path`, `image_storage_path`,
+    `image_mime_type` nulos y status `none`;
+  - nueva/reemplazada: archivo local + MIME + clave prevista y `pending_upload`;
+  - conservar: no reescribir archivo ni metadata/status;
+  - quitar sin subida previa: limpiar metadata local y pasar a `none`; si existe una
+    clave remota subida, mostrar fallback y conservar la última clave con
+    `pending_delete` para T-006. No borrar el ejercicio ni sus referencias.
+- Escribir primero el archivo nuevo y confirmar después la mutación local; si falla
+  la base, eliminar solo el archivo nuevo y conservar fila/archivo anteriores. Borrar
+  el archivo viejo únicamente tras éxito y cuando sea distinto. Un error de validación,
+  picker o guardado conserva borrador e imagen anterior; no deja una fila apuntando a
+  un archivo que no se pudo persistir.
+- `ExerciseThumb`, vista previa 16:9 y `_localMedia` de ficha eligen `Image.file`
+  para custom y `Image.asset` para catálogo. Ruta nula, archivo ausente o fallo de
+  decodificación muestran el `ThumbFallback` tonal/mancuerna sin excepción. No crear
+  PNG/placeholder nuevo, no atribuir la imagen y no intentar descargarla en T-004.
+- Añadir las descripciones de uso de cámara/galería en `ios/Runner/Info.plist` y
+  `android.permission.CAMERA` en `android/app/src/main/AndroidManifest.xml`. No hace
+  falta micrófono para imagen estática. Permiso denegado/cámara ausente se simula en
+  tests; una prueba de plugin no se presenta como prueba de dispositivo real.
+
+#### E. SCR-08, navegación y edición completa
+
+- Crear `CustomExerciseEditorView` con modo alta/edición, app bar y textos aprobados,
+  vista previa 16:9, «Galería», «Cámara» y «Quitar imagen» cuando proceda; nombre,
+  objetivo simple, secundarios múltiples, equipo/parte con sugerencias editables,
+  descanso y CTA «Guardar ejercicio»/«Guardar cambios».
+- Los errores aparecen junto al campo, conservando todo el borrador y la selección
+  muscular. Cargando imagen muestra progreso dentro de la vista previa sin bloquear
+  el resto; guardando bloquea solo el CTA/acciones que puedan duplicar la mutación.
+  El aviso pendiente/offline no afirma que ya exista réplica remota.
+- Navegar con `MaterialPageRoute` y `RouteSettings.name` exactamente
+  `/catalog/custom/new` y `/catalog/custom/<id>/edit`; no añadir router, deep links ni
+  rutas globales no solicitadas. «Crear ejercicio» es visible en `CatalogView` sin
+  desplazar la búsqueda y mantiene el CTA de entreno libre.
+- La ficha ofrece «Editar ejercicio» solo para custom —puede usar su menú existente—
+  y abre la edición completa. No mostrar borrado, restauración de catálogo ni el
+  editor muscular modal de T-005. Tras guardar, la ficha vuelve a leer/observar la
+  fila por ID para actualizar nombre, músculos, equipo/parte, descanso e imagen.
+- Formulario y acciones tocadas con targets ≥44 dp, semántica de selección/labels,
+  contraste AA y composición usable a 320/375/640/1024 dp con `textScaler` 1.3;
+  contenido centrado hasta 640 dp cuando corresponda, teclado/scroll sin overflow.
+
+#### F. Catálogo, selector, descanso y referencias reactivas
+
+- Catálogo y `ExercisePicker` integran customs en búsqueda ≥2 caracteres, filtros,
+  contador, miniaturas y páginas de **50**. Añadir al selector scroll/control de
+  siguiente página con generación anti-respuestas obsoletas, como ya existe en
+  `CatalogView`; seleccionar devuelve el custom completo por `Navigator.pop`.
+- Altas/ediciones invalidan resultados y opciones sin borrar texto ni filtros. Usar
+  un stream de cambios de `exercises` o recarga al volver con suscripciones canceladas
+  y protección de generación; no depender solo del `setState` del editor. Una mutación
+  externa al editor debe poder observarse en una vista ya montada.
+- **Descanso efectivo:** catálogo mantiene `exercise_preferences.rest_seconds ?? 90`;
+  custom usa `exercises.rest_seconds`. `effectiveRestSeconds`, su watch y
+  `updateRestSeconds` bifurcan por origen: editar custom actualiza su fila y no crea
+  preferencia; editar catálogo no reintroduce escritura legacy. Un custom inexistente
+  o de otro perfil no se muta como si fuera maestro.
+- Adaptar la proyección `WorkoutRepository.watchExercises`, el arranque sin override
+  planificado y `adjustRestTimer` a esa misma regla. La opción C para custom conserva
+  la transacción default+timer, pero escribe el default en `exercises`; para catálogo
+  sigue en preferencias. `workout_sets.rest_seconds` no nulo conserva prioridad y
+  timers, fallback legacy, avisos e `updated_at` de workout/item mantienen T-003.
+- Las FK/referencias existentes por texto no cambian: probar añadir el custom desde
+  selector a rutina, sesión libre e historial, resolver ficha/nombre/thumb y conservar
+  sets/cargas al editar el custom. `watchRoutineCatalog`, `watchExercises` y demás
+  joins existentes reaccionan a la fila. En `RoutineDetailView`/editor, que guardan
+  snapshots, refrescar por ID al volver de ficha sin perder borradores/series.
+- **No hay borrado de personalizados en el editor aprobado.** No añadir botón, método
+  de repositorio, cascade ni acción de menú. Quitar/reemplazar imagen sí está aprobado
+  y no elimina historial. La orden remota de custom antes de referencias es T-006;
+  no improvisar bloqueos o cambios de cola en esta tarea.
+
+#### G. Límite de sincronización y pruebas de cierre
+
+- No modificar `remoteColumns`, `sync_payload.dart`, `sync_engine.dart`, esquema/cola
+  de sync, payloads existentes, `main.dart` para activar réplica, migraciones Supabase,
+  Storage ni Perfil. Guardar custom/imagen/descanso no llama al enqueuer ni crea una
+  mutación remota nueva. Las operaciones preexistentes de rutina/workout conservan su
+  comportamiento, sin ampliarlas con los campos v20.
+- **Dominio:** trim/obligatorios, 14/15/90/300/301, aliases, duplicados/equivalencia,
+  orden y derivación con/sin secundarios; MIME por bytes, 0, exactamente 2 MiB,
+  2 MiB+1 y formatos rechazados.
+- **Repositorio/migración:** alta offline/reapertura, edición completa, ID/formato,
+  propietario/visibilidad, created/updated, conservar/reemplazar/quitar imagen,
+  compensación de archivo, sin red/cola, filtro/caché, páginas de 50 estables y asset
+  intacto. Upgrade e interrupción v20, custom SQL sin dueño rechazado y toda la
+  conservación v19. Comprobar que ningún `image_path` local se serializa a sync.
+- **Editor/widget:** galería y cámara, cancelación, permiso/cámara/IOException, archivo
+  inválido con borrador e imagen anterior intactos, guardado sin imagen, doble tap,
+  edición precargada, rutas nombradas, errores inline, fallback por archivo ausente y
+  reactividad de ficha/catálogo/selector con consulta activa.
+- **Integración:** custom directo en ficha/live/segunda serie/opción C sin preferencia;
+  override planificado prioritario; rutina/workout/historial resuelven referencias y
+  no alteran sets/cargas. Responsive en los cuatro breakpoints y textScaler 1.3,
+  targets/semántica, sin overflow ni `pumpAndSettle` dependiente de imágenes reales.
+- Puerta final obligatoria completa `flutter test --exclude-tags golden` y
+  `flutter analyze`; conservar evidencia de salidas, `git diff --check`, lock sin
+  cambios y hashes/diff de PNG. Sin nuevas dependencias, assets, skips, goldens,
+  commits ni push. T-004 se marca implementada, **no aprobada**, hasta revisión.
+
+**Riesgos concretos:** checks añadidos en orden incompatible o migración interrumpida
+que duplica columnas; custom sin propietario aceptado por SQL; caché que mezcla
+usuarios; custom que bloquea la importación del asset; paginación inestable con nombres
+repetidos; confiar MIME en la extensión; archivo temporal no persistente; reemplazo
+que borra la imagen anterior antes de confirmar; ruta local enviada como Storage key;
+fallback que intenta cargar un asset absoluto; custom que obtiene 90 por preferencia;
+opción C que escribe en la tabla equivocada; doble tap que duplica ID/archivo; vistas
+snapshots que conservan datos obsoletos; borrado custom fuera de alcance que rompe FK/
+historial; y sincronización/Storage adelantados a T-006.
+
+### Registro de implementación — 2026-11-26
+
+- **CA-13:** alta y edición offline generan/conservan `custom_<uuid>`, propietario y
+  `created_at`; validan obligatorios recortados, vocabulario canónico, duplicados y
+  descanso 15–300 con inicial 90. Catálogo y selector integran búsqueda, filtros,
+  contador, páginas estables de 50 y recarga reactiva. La inicialización cuenta solo
+  filas `catalog`, por lo que un custom previo no bloquea ni altera el asset.
+- **CA-14/CA-15:** galería/cámara usan el picker existente con 1600×1600 y calidad 85.
+  JPEG/PNG/WebP se detectan por bytes, con límite de 2 MiB; los archivos se conservan
+  en documentos. Conservar/reemplazar/quitar imagen tiene compensación de archivo y
+  `ThumbFallback` para ausencia, pérdida o fallo de decodificación. Permiso denegado,
+  cámara/plataforma, archivo inválido y guardado fallido conservan borrador e imagen
+  anterior; el guardado en curso impide duplicados.
+- **CA-16:** una única migración drift **19→20** añade origen, propietario, metadata/
+  estado de imagen y `updated_at`, con checks y guardas idempotentes. Se conservan
+  catálogo, preferencias, rutinas, workouts, series, historial y cola, incluida la
+  reanudación desde una migración interrumpida. `test/migration_test.dart`:
+  **23/23 verdes**. La generación final de `build_runner` terminó con salida 0 en
+  56 s y 180 outputs; el runner informó que la opción retirada
+  `--delete-conflicting-outputs` fue ignorada. El generado conserva las invariantes
+  previas de PK/FK y no se editó manualmente.
+- **Descanso y referencias:** custom usa su propia fila en ficha, Live, inicio y
+  opción C; catálogo conserva preferencia/90 y el descanso planificado mantiene
+  prioridad. Las lecturas/escrituras excluyen customs ajenos. Rutinas, workouts e
+  historial resuelven el custom y conservan IDs, sets y cargas al editarlo; editor y
+  detalle recargan por ID al volver de ficha sin reconstruir borradores.
+- **Reactividad y propietario:** el caché de opciones queda asociado a `localUserId`;
+  alta/edición lo invalida mediante `CustomExerciseRepository.onChanged`. Las pruebas
+  rojo→verde cubren cambio de perfil, invalidación, descanso ajeno en Live y recargas
+  de rutinas. `test/custom_exercise_repository_test.dart`: **13/13 verdes**; las dos
+  regresiones individuales de recarga terminaron **1/1** cada una.
+- **Pruebas dirigidas:** lote final de 18 suites de dominio, editor, catálogo,
+  migración, rutinas, workouts, historial, ficha, Live y Train: **264/264 verdes**,
+  salida 0. Evidencia: `/tmp/opencode/hevywork-t004/directed-after-owner-routines.txt`.
+- **Puerta final tras formato:** `flutter test --exclude-tags golden --reporter
+  expanded` → **806/806 verdes, All tests passed!, salida 0**. `flutter analyze` →
+  **No issues found!, salida 0**. Evidencias y códigos:
+  `/tmp/opencode/hevywork-t004/full-gate-test-final.txt`,
+  `full-gate-test-final.exit`, `full-gate-analyze-final.txt` y
+  `full-gate-analyze-final.exit`.
+- **Higiene e integridad:** `dart format --output=none --set-exit-if-changed` sobre
+  los 24 Dart modificados terminó con **0 cambios**; `git diff --check` quedó limpio.
+  Los **91 PNG** del manifiesto conservan sus hashes y `pubspec.lock` mantiene
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`.
+  HEAD permanece en `1e22b4af5967fb585c004ea5aa2eee15766d580d`.
+- **Límites:** sin borrado custom, SCR-09, instrucciones custom, sincronización,
+  Storage, payloads/whitelist, migraciones Supabase, dependencias, assets, skips,
+  goldens, commits/push ni operaciones destructivas. No se probaron permisos en un
+  dispositivo real; se ejercitaron mediante seams inyectados.
+- **Cierre:** CA-13…CA-16 quedan implementados y la puerta está verde. **T-004 queda
+  IMPLEMENTADA — PENDIENTE DE REVISIÓN INDEPENDIENTE**, no aprobada. Decisiones
+  D-124…D-128 y bitácora completa en `memory.md`; sin bloqueos ni preguntas abiertas.
 
 ## T-005 — Editar músculos de cualquier ejercicio y restaurar catálogo
 
@@ -687,9 +1005,11 @@ terminar el esquema.
 - Todos los criterios usan Given/When/Then; no quedan condicionados a Q-006.
 - T-001 modificó la whitelist de perfiles y sus pruebas; T-002 corrigió el chart
   y añadió regresiones; T-003 implementó drift v19, descansos persistentes y timers
-  independientes y está pendiente de revisión. T-004…T-006 no tienen implementación;
-  no se aplicó SQL Supabase ni se adelantaron drift v20/v21.
-- Q-006 está cerrada por D-117 y Q-007 por D-119. **T-001 y T-002 APROBADAS** por
-  revisión. La observación menor de legibilidad de T-002 queda diferida sin reabrirla.
-  **Tarea actual: revisión de T-003 IMPLEMENTADA**, sin autoaprobación ni cambios
-  en CA-09…CA-12. T-004…T-006 se entregan al satisfacer dependencias.
+  independientes. T-004 implementó drift v20, personalizados locales, imagen e
+  integración reactiva; T-005 y T-006 no tienen implementación. No se aplicó SQL
+  Supabase ni se adelantó drift v21.
+- Q-006 está cerrada por D-117 y Q-007 por D-119. **T-001, T-002 y T-003 APROBADAS**
+  por revisión; las limitaciones de evidencia de T-003 no reabren sus CA. La
+  observación menor de legibilidad de T-002 queda diferida sin reabrirla.
+  **T-004 IMPLEMENTADA — PENDIENTE DE REVISIÓN**, con CA-13…CA-16 y puerta completa
+  verdes. Debe superar revisión independiente antes de entregar T-005.

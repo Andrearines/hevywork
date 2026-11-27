@@ -28,6 +28,7 @@ class CatalogRepository {
   final AppDatabase _db;
 
   FilterOptions? _filterOptionsCache;
+  String? _filterOptionsCacheOwner;
 
   CatalogRepository(this._db);
 
@@ -35,8 +36,12 @@ class CatalogRepository {
   /// Lee el asset de metadatos y lo inserta en la base de datos sin red.
   /// Nunca borra ni sobrescribe ejercicios existentes (RF-1 / RF-4).
   Future<void> initializeCatalogIfEmpty() async {
-    final count = await _db.exercises.count().getSingle();
-    if (count > 0) return;
+    final master =
+        await (_db.select(_db.exercises)
+              ..where((t) => t.origin.equals('catalog'))
+              ..limit(1))
+            .getSingleOrNull();
+    if (master != null) return;
 
     final raw = await rootBundle.loadString(assetPath);
     final records = jsonDecode(raw) as List<dynamic>;
@@ -98,41 +103,69 @@ class CatalogRepository {
   }
 
   /// Búsqueda simple de ejercicios
-  Future<List<Exercise>> searchExercises(String query) {
-    return (_db.select(_db.exercises)
-          ..where((t) => t.name.like('%$query%'))
-          ..limit(50))
-        .get();
+  Future<List<Exercise>> searchExercises(String query) async {
+    return (await searchPage(query: query)).exercises;
   }
 
   /// Un ejercicio por su id, para resolver las referencias de las metas
   /// (spec 005).
   Future<Exercise?> exerciseById(String id) async {
-    return (_db.select(
+    final localUserId = await _localUserId();
+    final exercise = await (_db.select(
       _db.exercises,
-    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    )..where((t) => t.id.equals(id) & _visible(localUserId))).getSingleOrNull();
+    if (exercise == null) return null;
+    final preferences = await _preferencesFor([id], localUserId);
+    return _projectExercise(exercise, preferences[id]);
   }
 
   /// Ejercicios por lote de ids (RF-3 de la 014): devuelve solo los pedidos,
   /// tolera ids desconocidos/duplicados con una sola consulta `isIn`.
   Future<Map<String, Exercise>> exercisesByIds(List<String> ids) async {
     if (ids.isEmpty) return {};
+    final localUserId = await _localUserId();
     final uniqueIds = ids.toSet().toList();
     final rows = await (_db.select(
       _db.exercises,
-    )..where((t) => t.id.isIn(uniqueIds))).get();
-    return {for (final row in rows) row.id: row};
+    )..where((t) => t.id.isIn(uniqueIds) & _visible(localUserId))).get();
+    final preferences = await _preferencesFor(uniqueIds, localUserId);
+    return {
+      for (final row in rows)
+        row.id: _projectExercise(row, preferences[row.id]),
+    };
   }
 
   /// Nombre por id de ejercicio, para las tarjetas del dashboard de metas.
   Future<Map<String, String>> exerciseNames() async {
-    final rows = await (_db.selectOnly(
-      _db.exercises,
-    )..addColumns([_db.exercises.id, _db.exercises.name])).get();
+    final localUserId = await _localUserId();
+    final rows =
+        await (_db.selectOnly(_db.exercises)
+              ..addColumns([_db.exercises.id, _db.exercises.name])
+              ..where(_visible(localUserId)))
+            .get();
     return {
       for (final row in rows)
         row.read(_db.exercises.id)!: row.read(_db.exercises.name)!,
     };
+  }
+
+  void invalidateFilterOptions() {
+    _filterOptionsCache = null;
+    _filterOptionsCacheOwner = null;
+  }
+
+  Stream<List<Exercise>> watchVisibleExercises() async* {
+    final localUserId = await _localUserId();
+    final query = _db.select(_db.exercises)
+      ..where((t) => _visible(localUserId))
+      ..orderBy([
+        (t) => OrderingTerm.asc(t.name),
+        (t) => OrderingTerm.asc(t.id),
+      ]);
+    yield* query.watch().map((rows) {
+      _filterOptionsCache = null;
+      return rows;
+    });
   }
 
   /// Búsqueda por nombre (RF-1) y filtros combinados (RF-3): los valores de
@@ -145,7 +178,8 @@ class CatalogRepository {
     int offset = 0,
     int pageSize = 50,
   }) async {
-    final predicate = _searchPredicate(query, filter);
+    final localUserId = await _localUserId();
+    final predicate = _searchPredicate(query, filter, localUserId);
     final count = _db.exercises.id.count();
     final total =
         await (_db.selectOnly(_db.exercises)
@@ -156,23 +190,40 @@ class CatalogRepository {
     final exercises =
         await (_db.select(_db.exercises)
               ..where((t) => predicate)
-              ..orderBy([(t) => OrderingTerm.asc(t.name)])
+              ..orderBy([
+                (t) => OrderingTerm.asc(t.name),
+                (t) => OrderingTerm.asc(t.id),
+              ])
               ..limit(pageSize, offset: offset))
             .get();
-    return (exercises: exercises, total: total);
+    final preferences = await _preferencesFor(
+      exercises.map((exercise) => exercise.id).toList(),
+      localUserId,
+    );
+    return (
+      exercises: [
+        for (final exercise in exercises)
+          _projectExercise(exercise, preferences[exercise.id]),
+      ],
+      total: total,
+    );
   }
 
   /// Valores disponibles por dimensión (RF-3 de la 003), leídos de la base
   /// local; `secondary_muscles` se extrae del JSON de cada fila porque es
   /// una lista por ejercicio.
   Future<FilterOptions> filterOptions() async {
+    final localUserId = await _localUserId();
     final cached = _filterOptionsCache;
-    if (cached != null) return cached;
+    if (cached != null && _filterOptionsCacheOwner == localUserId) {
+      return cached;
+    }
 
     Future<List<String>> distinct(GeneratedColumn<String> column) async {
       final rows =
           await (_db.selectOnly(_db.exercises, distinct: true)
                 ..addColumns([column])
+                ..where(_visible(localUserId))
                 ..orderBy([OrderingTerm.asc(column)]))
               .get();
       return [for (final row in rows) row.read(column)!];
@@ -180,9 +231,11 @@ class CatalogRepository {
 
     final secondary = <String>{};
     final column = _db.exercises.secondaryMuscles;
-    final rows = await (_db.selectOnly(
-      _db.exercises,
-    )..addColumns([column])).get();
+    final rows =
+        await (_db.selectOnly(_db.exercises)
+              ..addColumns([column])
+              ..where(_visible(localUserId)))
+            .get();
     // En `selectOnly` las columnas viajan con su alias calificado
     // (`tabla.columna`), igual que los construye drift internamente.
     final key = '${column.tableName}.${column.name}';
@@ -200,22 +253,34 @@ class CatalogRepository {
       secondaryMuscles: secondary.toList()..sort(),
     );
     _filterOptionsCache = options;
+    _filterOptionsCacheOwner = localUserId;
     return options;
   }
 
   /// Grupos musculares disponibles, para las metas de volumen por músculo
   /// (spec 005, RF-1).
   Future<List<String>> muscleGroups() async {
+    final localUserId = await _localUserId();
     return await (_db.selectOnly(_db.exercises, distinct: true)
           ..addColumns([_db.exercises.muscleGroup])
+          ..where(_visible(localUserId))
           ..orderBy([OrderingTerm.asc(_db.exercises.muscleGroup)]))
         .map((row) => row.read(_db.exercises.muscleGroup)!)
         .get();
   }
 
+  Expression<bool> _visible(String localUserId) {
+    return _db.exercises.origin.equals('catalog') |
+        _db.exercises.localUserId.equals(localUserId);
+  }
+
   /// Predicado común para el contador (RF-4) y la página de resultados.
-  Expression<bool> _searchPredicate(String query, ExerciseFilter filter) {
-    final conditions = <Expression<bool>>[];
+  Expression<bool> _searchPredicate(
+    String query,
+    ExerciseFilter filter,
+    String localUserId,
+  ) {
+    final conditions = <Expression<bool>>[_visible(localUserId)];
 
     final normalized = normalizeSearchText(query);
     if (normalized.isNotEmpty) {
@@ -254,7 +319,6 @@ class CatalogRepository {
       );
     }
 
-    if (conditions.isEmpty) return const Constant(true);
     return conditions.reduce((a, b) => a & b);
   }
 
@@ -270,8 +334,34 @@ class CatalogRepository {
     return profile.localUserId;
   }
 
+  Future<Map<String, ExercisePreference>> _preferencesFor(
+    List<String> exerciseIds,
+    String localUserId,
+  ) async {
+    if (exerciseIds.isEmpty) return {};
+    final rows =
+        await (_db.select(_db.exercisePreferences)..where(
+              (t) =>
+                  t.localUserId.equals(localUserId) &
+                  t.exerciseId.isIn(exerciseIds),
+            ))
+            .get();
+    return {for (final row in rows) row.exerciseId: row};
+  }
+
+  Exercise _projectExercise(Exercise exercise, ExercisePreference? preference) {
+    if (exercise.origin == 'custom') return exercise;
+    return exercise.copyWith(restSeconds: preference?.restSeconds ?? 90);
+  }
+
   Future<int> effectiveRestSeconds(String exerciseId) async {
     final localUserId = await _localUserId();
+    final exercise =
+        await (_db.select(_db.exercises)
+              ..where((t) => t.id.equals(exerciseId) & _visible(localUserId)))
+            .getSingleOrNull();
+    if (exercise == null) return 90;
+    if (exercise.origin == 'custom') return exercise.restSeconds;
     final preference =
         await (_db.select(_db.exercisePreferences)..where(
               (t) =>
@@ -284,14 +374,19 @@ class CatalogRepository {
 
   Stream<int> watchEffectiveRestSeconds(String exerciseId) async* {
     final localUserId = await _localUserId();
-    final query = _db.select(_db.exercisePreferences)
-      ..where(
-        (t) =>
-            t.localUserId.equals(localUserId) & t.exerciseId.equals(exerciseId),
-      );
-    yield* query.watchSingleOrNull().map(
-      (preference) => preference?.restSeconds ?? 90,
-    );
+    final query = _db.select(_db.exercises).join([
+      leftOuterJoin(
+        _db.exercisePreferences,
+        _db.exercisePreferences.exerciseId.equalsExp(_db.exercises.id) &
+            _db.exercisePreferences.localUserId.equals(localUserId),
+      ),
+    ])..where(_db.exercises.id.equals(exerciseId) & _visible(localUserId));
+    yield* query.watchSingleOrNull().map((row) {
+      if (row == null) return 90;
+      final exercise = row.readTable(_db.exercises);
+      if (exercise.origin == 'custom') return exercise.restSeconds;
+      return row.readTableOrNull(_db.exercisePreferences)?.restSeconds ?? 90;
+    });
   }
 
   Future<void> updateRestSeconds(String exerciseId, int seconds) async {
@@ -304,6 +399,25 @@ class CatalogRepository {
     }
     await _db.transaction(() async {
       final localUserId = await _localUserId();
+      final exercise =
+          await (_db.select(_db.exercises)
+                ..where((t) => t.id.equals(exerciseId) & _visible(localUserId)))
+              .getSingle();
+      if (exercise.origin == 'custom') {
+        await (_db.update(_db.exercises)..where(
+              (t) =>
+                  t.id.equals(exerciseId) &
+                  t.origin.equals('custom') &
+                  t.localUserId.equals(localUserId),
+            ))
+            .write(
+              ExercisesCompanion(
+                restSeconds: Value(seconds),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+        return;
+      }
       final existing =
           await (_db.select(_db.exercisePreferences)..where(
                 (t) =>

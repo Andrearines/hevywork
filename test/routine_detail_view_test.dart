@@ -11,6 +11,7 @@ import 'package:hevywork/data/sync/sync_engine.dart';
 import 'package:hevywork/main.dart';
 import 'package:hevywork/ui/unit_system_scope.dart';
 import 'package:hevywork/ui/widgets/exercise_progress_chart.dart';
+import 'package:hevywork/ui/widgets/exercise_thumb.dart';
 import 'package:hevywork/ui/views/exercise_info_view.dart';
 import 'package:hevywork/ui/views/routine_detail_view.dart';
 
@@ -80,16 +81,37 @@ void main() {
         ],
       ),
     ],
-  }) =>
-      routineRepository.createRoutine(
-        name: name,
-        description: description,
-        category: category,
-        level: level,
-        goal: goal,
-        targetDays: targetDays,
-        exercises: exercises,
-      );
+  }) => routineRepository.createRoutine(
+    name: name,
+    description: description,
+    category: category,
+    level: level,
+    goal: goal,
+    targetDays: targetDays,
+    exercises: exercises,
+  );
+
+  Future<void> insertCustom() async {
+    final profile = await localDb.select(localDb.localProfiles).getSingle();
+    await localDb
+        .into(localDb.exercises)
+        .insert(
+          ExercisesCompanion.insert(
+            id: 'custom_routine-detail',
+            name: 'Press propio en rutina',
+            bodyPart: 'chest',
+            equipment: 'barbell',
+            target: 'pectorals',
+            muscleGroup: 'triceps',
+            secondaryMuscles: const Value('["triceps"]'),
+            origin: const Value('custom'),
+            localUserId: Value(profile.localUserId),
+            imageUploadStatus: const Value('none'),
+            updatedAt: Value(DateTime(2026, 11, 26)),
+            restSeconds: const Value(135),
+          ),
+        );
+  }
 
   Future<void> pumpDetail(
     WidgetTester tester, {
@@ -159,7 +181,9 @@ void main() {
     double weightKg,
   ) async {
     final profile = await localDb.select(localDb.localProfiles).getSingle();
-    await localDb.into(localDb.workouts).insert(
+    await localDb
+        .into(localDb.workouts)
+        .insert(
           WorkoutsCompanion.insert(
             id: workoutId,
             localUserId: profile.localUserId,
@@ -168,7 +192,9 @@ void main() {
             status: const Value('finished'),
           ),
         );
-    await localDb.into(localDb.workoutExercises).insert(
+    await localDb
+        .into(localDb.workoutExercises)
+        .insert(
           WorkoutExercisesCompanion.insert(
             id: '$workoutId-bench',
             workoutId: workoutId,
@@ -176,7 +202,9 @@ void main() {
             orderIndex: 1,
           ),
         );
-    await localDb.into(localDb.workoutSets).insert(
+    await localDb
+        .into(localDb.workoutSets)
+        .insert(
           WorkoutSetsCompanion.insert(
             id: '$workoutId-set',
             workoutExerciseId: '$workoutId-bench',
@@ -201,9 +229,9 @@ void main() {
         ),
       ],
     );
-    final item = await (localDb.select(localDb.routineExercises)
-          ..where((row) => row.routineId.equals(routine.id)))
-        .getSingle();
+    final item = await (localDb.select(
+      localDb.routineExercises,
+    )..where((row) => row.routineId.equals(routine.id))).getSingle();
     final sets = await routineRepository.routineSets(item.id);
 
     expect(
@@ -234,8 +262,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('lista cada ejercicio con nombre, objetivo y resumen de series',
-      (tester) async {
+  testWidgets('lista cada ejercicio con nombre, objetivo y resumen de series', (
+    tester,
+  ) async {
     final routine = await createRoutine();
     await pumpDetail(tester, routine: routine);
 
@@ -255,7 +284,9 @@ void main() {
     final routine = await createRoutine();
     await pumpDetail(tester, routine: routine);
 
-    await tester.tap(find.byKey(const Key('routine-detail-exercise-bench-press')));
+    await tester.tap(
+      find.byKey(const Key('routine-detail-exercise-bench-press')),
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     await tester.pump(const Duration(milliseconds: 150));
@@ -266,8 +297,63 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('abrir desde rutina carga el historial real y pinta progresión',
-      (tester) async {
+  testWidgets('volver de la ficha recarga el custom y conserva sus series', (
+    tester,
+  ) async {
+    await insertCustom();
+    final routine = await createRoutine(
+      exercises: const [
+        RoutineExerciseDraft(
+          exerciseId: 'custom_routine-detail',
+          sets: [
+            RoutineSetDraft(reps: 8, rir: 2, weightKg: 52.5, restSeconds: 105),
+          ],
+        ),
+      ],
+    );
+    await pumpDetail(tester, routine: routine);
+    expect(find.byType(ExerciseThumb), findsOneWidget);
+    expect(find.text('Press propio en rutina'), findsOneWidget);
+
+    await tester.tap(
+      find.byKey(const Key('routine-detail-exercise-custom_routine-detail')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 150));
+    expect(find.byType(ExerciseInfoView), findsOneWidget);
+
+    await (localDb.update(
+      localDb.exercises,
+    )..where((row) => row.id.equals('custom_routine-detail'))).write(
+      ExercisesCompanion(
+        name: const Value('Press propio actualizado'),
+        equipment: const Value('dumbbell'),
+        updatedAt: Value(DateTime(2026, 11, 26, 12)),
+      ),
+    );
+    await tester.tap(find.byTooltip('Volver'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pump(const Duration(milliseconds: 150));
+
+    expect(find.text('Press propio actualizado'), findsOneWidget);
+    expect(find.text('Press propio en rutina'), findsNothing);
+    expect(find.textContaining('dumbbell'), findsOneWidget);
+    final item = await localDb.select(localDb.routineExercises).getSingle();
+    final sets = await routineRepository.routineSets(item.id);
+    expect(sets.single.weightKg, 52.5);
+    expect(sets.single.reps, 8);
+    expect(sets.single.rir, 2);
+    expect(sets.single.restSeconds, 105);
+    expect(find.textContaining('52.50 kg'), findsOneWidget);
+    expect(find.textContaining('Descanso 105 s'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('abrir desde rutina carga el historial real y pinta progresión', (
+    tester,
+  ) async {
     final now = DateTime.now();
     await seedFinishedBenchSession(
       'routine-progress-w1',
@@ -289,7 +375,9 @@ void main() {
     );
     await pumpDetail(tester, routine: routine);
 
-    await tester.tap(find.byKey(const Key('routine-detail-exercise-bench-press')));
+    await tester.tap(
+      find.byKey(const Key('routine-detail-exercise-bench-press')),
+    );
     await tester.pumpAndSettle();
 
     final info = tester.widget<ExerciseInfoView>(find.byType(ExerciseInfoView));
@@ -306,11 +394,7 @@ void main() {
   testWidgets('la acción Iniciar invoca el callback (RF-38)', (tester) async {
     var started = 0;
     final routine = await createRoutine();
-    await pumpDetail(
-      tester,
-      routine: routine,
-      onStart: () async => started++,
-    );
+    await pumpDetail(tester, routine: routine, onStart: () async => started++);
 
     await tester.tap(find.byKey(const Key('routine-detail-start')));
     await tester.pump();
@@ -323,11 +407,7 @@ void main() {
   testWidgets('la acción Editar invoca el callback (RF-38)', (tester) async {
     var edited = 0;
     final routine = await createRoutine();
-    await pumpDetail(
-      tester,
-      routine: routine,
-      onEdit: () async => edited++,
-    );
+    await pumpDetail(tester, routine: routine, onEdit: () async => edited++);
 
     await tester.tap(find.byKey(const Key('routine-detail-edit')));
     await tester.pump();

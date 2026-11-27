@@ -1,11 +1,12 @@
 # Plan técnico — Spec 022
 
 **Estado: APROBADO (D-117, 2026-11-23); T-001…T-006 listas según dependencias.**
-**Estado actual:** T-001 y T-002 **APROBADAS**; **T-003 implementada, pendiente de
-revisión**. Q-007 está cerrada por D-119. La observación menor de legibilidad del
-chart queda diferida, fuera de T-003. La planificación no aplicó migraciones ni
-regeneración; la ejecución de T-003 y su única v19 generada, verificaciones y
-límites se conservan en `tasks.md` y `memory.md`.
+**Estado actual:** T-001, T-002 y T-003 **APROBADAS**; **T-004 LISTA para el
+implementador**. Q-007 está cerrada por D-119. La observación menor de legibilidad
+del chart queda diferida, fuera de T-004. La planificación de T-004 no aplicó
+migraciones, regeneración ni producción; la ejecución aprobada de T-003, su única
+v19 generada y las limitaciones de su revisión se conservan en `tasks.md` y
+`memory.md`.
 
 ## 1. Preflight y límites
 
@@ -73,6 +74,20 @@ límite 15–300 s; ambas escrituras se coordinan localmente y los avisos se cla
 - Las referencias de rutinas/workouts usan `exercise_id` en texto; los custom usan
   `custom_<uuid>` y se descargan antes de hidratar referencias.
 - La restauración lee el asset con `kCatalogMusclePatches`, no una fila ya editada.
+
+Lectura vigente para T-004: el selector solo carga 50; el loader se detiene con
+cualquier fila, aunque sea custom; thumb/ficha tratan toda ruta como asset; y ficha/
+Live/inicio/opción C todavía aplican preferencia/90 a todo ejercicio. La v20 filtra
+customs por perfil, importa según filas `catalog`, añade paginación al selector,
+invalida resultados/opciones conservando consulta y usa archivo local/fallback.
+El descanso custom se lee/escribe en su propia fila, incluida la opción C, mientras
+catálogo conserva preferencia/90. No hay borrado custom ni SCR-09 en esta tarea.
+
+El editor nuevo/completo usa un seam de `image_picker` (1600×1600, calidad 85),
+validación de bytes/MIME/tamaño, almacenamiento en documentos y cambio de imagen
+tri-estado conservar/reemplazar/quitar. Rutas nombradas aprobadas mediante
+`MaterialPageRoute.settings`, configuración de permisos del plugin ya declarado y
+pruebas inyectadas. Sin red, Storage, cola nueva, payloads/whitelist ni Supabase.
 
 ### Sincronización actual
 
@@ -200,10 +215,11 @@ generado. En planificación no se ejecuta.
 
 ## 8. Entrega al implementador
 
-Entregar **T-003 al implementador como tarea actual**. T-001 y T-002 ya están
-aprobadas; después seguir T-004 → T-005 → T-006. El orden schema/generated →
-repositorios/dominio → UI/notificaciones, las pruebas y los riesgos vigentes están
-en `tasks.md` §T-003. No se reabren CA-09…CA-12 ni se incorpora trabajo de chart.
+Entregar **T-004 al implementador como tarea actual**. T-001, T-002 y T-003 ya
+están aprobadas; después seguir T-005 → T-006. El orden schema/generated →
+dominio/repositorios/archivos → editor/integraciones, las pruebas y los riesgos
+vigentes están en `tasks.md` §T-004. No se reabren CA-09…CA-16, no se incorpora
+trabajo de chart, borrado custom ni SCR-09 y no se adelanta sincronización de T-006.
 Cada tarea exige sus CA, regresiones, puerta completa no golden + analyze y revisión
 independiente, sin commits/push nuevos.
 

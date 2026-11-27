@@ -135,6 +135,77 @@ class $ExercisesTable extends Exercises
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _originMeta = const VerificationMeta('origin');
+  @override
+  late final GeneratedColumn<String> origin = GeneratedColumn<String>(
+    'origin',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'NOT NULL DEFAULT \'catalog\' CHECK(origin IN (\'catalog\',\'custom\'))',
+    defaultValue: const CustomExpression('\'catalog\''),
+  );
+  static const VerificationMeta _localUserIdMeta = const VerificationMeta(
+    'localUserId',
+  );
+  @override
+  late final GeneratedColumn<String> localUserId = GeneratedColumn<String>(
+    'local_user_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'CHECK((origin = \'custom\' AND local_user_id IS NOT NULL) OR (origin = \'catalog\' AND local_user_id IS NULL))',
+  );
+  static const VerificationMeta _imageStoragePathMeta = const VerificationMeta(
+    'imageStoragePath',
+  );
+  @override
+  late final GeneratedColumn<String> imageStoragePath = GeneratedColumn<String>(
+    'image_storage_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _imageMimeTypeMeta = const VerificationMeta(
+    'imageMimeType',
+  );
+  @override
+  late final GeneratedColumn<String> imageMimeType = GeneratedColumn<String>(
+    'image_mime_type',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    $customConstraints: 'CHECK(image_mime_type IS NULL OR image_mime_type IN (\'image/jpeg\',\'image/png\',\'image/webp\'))',
+  );
+  static const VerificationMeta _imageUploadStatusMeta = const VerificationMeta(
+    'imageUploadStatus',
+  );
+  @override
+  late final GeneratedColumn<String> imageUploadStatus =
+      GeneratedColumn<String>(
+        'image_upload_status',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        $customConstraints: 'CHECK((origin = \'catalog\' AND image_upload_status IS NULL) OR (origin = \'custom\' AND image_upload_status IN (\'none\',\'pending_upload\',\'uploaded\',\'pending_delete\')))',
+      );
+  static const VerificationMeta _updatedAtMeta = const VerificationMeta(
+    'updatedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+    'updated_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    $customConstraints: 'CHECK(origin = \'catalog\' OR updated_at IS NOT NULL)',
+  );
   static const VerificationMeta _restSecondsMeta = const VerificationMeta(
     'restSeconds',
   );
@@ -163,6 +234,12 @@ class $ExercisesTable extends Exercises
     gifPath,
     attribution,
     createdAt,
+    origin,
+    localUserId,
+    imageStoragePath,
+    imageMimeType,
+    imageUploadStatus,
+    updatedAt,
     restSeconds,
   ];
   @override
@@ -267,6 +344,54 @@ class $ExercisesTable extends Exercises
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('origin')) {
+      context.handle(
+        _originMeta,
+        origin.isAcceptableOrUnknown(data['origin']!, _originMeta),
+      );
+    }
+    if (data.containsKey('local_user_id')) {
+      context.handle(
+        _localUserIdMeta,
+        localUserId.isAcceptableOrUnknown(
+          data['local_user_id']!,
+          _localUserIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('image_storage_path')) {
+      context.handle(
+        _imageStoragePathMeta,
+        imageStoragePath.isAcceptableOrUnknown(
+          data['image_storage_path']!,
+          _imageStoragePathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('image_mime_type')) {
+      context.handle(
+        _imageMimeTypeMeta,
+        imageMimeType.isAcceptableOrUnknown(
+          data['image_mime_type']!,
+          _imageMimeTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('image_upload_status')) {
+      context.handle(
+        _imageUploadStatusMeta,
+        imageUploadStatus.isAcceptableOrUnknown(
+          data['image_upload_status']!,
+          _imageUploadStatusMeta,
+        ),
+      );
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(
+        _updatedAtMeta,
+        updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta),
+      );
+    }
     if (data.containsKey('rest_seconds')) {
       context.handle(
         _restSecondsMeta,
@@ -333,6 +458,30 @@ class $ExercisesTable extends Exercises
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       ),
+      origin: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}origin'],
+      )!,
+      localUserId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_user_id'],
+      ),
+      imageStoragePath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_storage_path'],
+      ),
+      imageMimeType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_mime_type'],
+      ),
+      imageUploadStatus: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_upload_status'],
+      ),
+      updatedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}updated_at'],
+      ),
       restSeconds: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}rest_seconds'],
@@ -359,6 +508,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final String? gifPath;
   final String? attribution;
   final DateTime? createdAt;
+  final String origin;
+  final String? localUserId;
+  final String? imageStoragePath;
+  final String? imageMimeType;
+  final String? imageUploadStatus;
+  final DateTime? updatedAt;
   final int restSeconds;
   const Exercise({
     required this.id,
@@ -373,6 +528,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     this.gifPath,
     this.attribution,
     this.createdAt,
+    required this.origin,
+    this.localUserId,
+    this.imageStoragePath,
+    this.imageMimeType,
+    this.imageUploadStatus,
+    this.updatedAt,
     required this.restSeconds,
   });
   @override
@@ -401,6 +562,22 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     }
     if (!nullToAbsent || createdAt != null) {
       map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    map['origin'] = Variable<String>(origin);
+    if (!nullToAbsent || localUserId != null) {
+      map['local_user_id'] = Variable<String>(localUserId);
+    }
+    if (!nullToAbsent || imageStoragePath != null) {
+      map['image_storage_path'] = Variable<String>(imageStoragePath);
+    }
+    if (!nullToAbsent || imageMimeType != null) {
+      map['image_mime_type'] = Variable<String>(imageMimeType);
+    }
+    if (!nullToAbsent || imageUploadStatus != null) {
+      map['image_upload_status'] = Variable<String>(imageUploadStatus);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
     }
     map['rest_seconds'] = Variable<int>(restSeconds);
     return map;
@@ -432,6 +609,22 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       createdAt: createdAt == null && nullToAbsent
           ? const Value.absent()
           : Value(createdAt),
+      origin: Value(origin),
+      localUserId: localUserId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(localUserId),
+      imageStoragePath: imageStoragePath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageStoragePath),
+      imageMimeType: imageMimeType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageMimeType),
+      imageUploadStatus: imageUploadStatus == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUploadStatus),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
       restSeconds: Value(restSeconds),
     );
   }
@@ -454,6 +647,14 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       gifPath: serializer.fromJson<String?>(json['gifPath']),
       attribution: serializer.fromJson<String?>(json['attribution']),
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      origin: serializer.fromJson<String>(json['origin']),
+      localUserId: serializer.fromJson<String?>(json['localUserId']),
+      imageStoragePath: serializer.fromJson<String?>(json['imageStoragePath']),
+      imageMimeType: serializer.fromJson<String?>(json['imageMimeType']),
+      imageUploadStatus: serializer.fromJson<String?>(
+        json['imageUploadStatus'],
+      ),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
       restSeconds: serializer.fromJson<int>(json['restSeconds']),
     );
   }
@@ -473,6 +674,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'gifPath': serializer.toJson<String?>(gifPath),
       'attribution': serializer.toJson<String?>(attribution),
       'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'origin': serializer.toJson<String>(origin),
+      'localUserId': serializer.toJson<String?>(localUserId),
+      'imageStoragePath': serializer.toJson<String?>(imageStoragePath),
+      'imageMimeType': serializer.toJson<String?>(imageMimeType),
+      'imageUploadStatus': serializer.toJson<String?>(imageUploadStatus),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
       'restSeconds': serializer.toJson<int>(restSeconds),
     };
   }
@@ -490,6 +697,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     Value<String?> gifPath = const Value.absent(),
     Value<String?> attribution = const Value.absent(),
     Value<DateTime?> createdAt = const Value.absent(),
+    String? origin,
+    Value<String?> localUserId = const Value.absent(),
+    Value<String?> imageStoragePath = const Value.absent(),
+    Value<String?> imageMimeType = const Value.absent(),
+    Value<String?> imageUploadStatus = const Value.absent(),
+    Value<DateTime?> updatedAt = const Value.absent(),
     int? restSeconds,
   }) => Exercise(
     id: id ?? this.id,
@@ -506,6 +719,18 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     gifPath: gifPath.present ? gifPath.value : this.gifPath,
     attribution: attribution.present ? attribution.value : this.attribution,
     createdAt: createdAt.present ? createdAt.value : this.createdAt,
+    origin: origin ?? this.origin,
+    localUserId: localUserId.present ? localUserId.value : this.localUserId,
+    imageStoragePath: imageStoragePath.present
+        ? imageStoragePath.value
+        : this.imageStoragePath,
+    imageMimeType: imageMimeType.present
+        ? imageMimeType.value
+        : this.imageMimeType,
+    imageUploadStatus: imageUploadStatus.present
+        ? imageUploadStatus.value
+        : this.imageUploadStatus,
+    updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
     restSeconds: restSeconds ?? this.restSeconds,
   );
   Exercise copyWithCompanion(ExercisesCompanion data) {
@@ -528,6 +753,20 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ? data.attribution.value
           : this.attribution,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      origin: data.origin.present ? data.origin.value : this.origin,
+      localUserId: data.localUserId.present
+          ? data.localUserId.value
+          : this.localUserId,
+      imageStoragePath: data.imageStoragePath.present
+          ? data.imageStoragePath.value
+          : this.imageStoragePath,
+      imageMimeType: data.imageMimeType.present
+          ? data.imageMimeType.value
+          : this.imageMimeType,
+      imageUploadStatus: data.imageUploadStatus.present
+          ? data.imageUploadStatus.value
+          : this.imageUploadStatus,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       restSeconds: data.restSeconds.present
           ? data.restSeconds.value
           : this.restSeconds,
@@ -549,6 +788,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('gifPath: $gifPath, ')
           ..write('attribution: $attribution, ')
           ..write('createdAt: $createdAt, ')
+          ..write('origin: $origin, ')
+          ..write('localUserId: $localUserId, ')
+          ..write('imageStoragePath: $imageStoragePath, ')
+          ..write('imageMimeType: $imageMimeType, ')
+          ..write('imageUploadStatus: $imageUploadStatus, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('restSeconds: $restSeconds')
           ..write(')'))
         .toString();
@@ -568,6 +813,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     gifPath,
     attribution,
     createdAt,
+    origin,
+    localUserId,
+    imageStoragePath,
+    imageMimeType,
+    imageUploadStatus,
+    updatedAt,
     restSeconds,
   );
   @override
@@ -586,6 +837,12 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.gifPath == this.gifPath &&
           other.attribution == this.attribution &&
           other.createdAt == this.createdAt &&
+          other.origin == this.origin &&
+          other.localUserId == this.localUserId &&
+          other.imageStoragePath == this.imageStoragePath &&
+          other.imageMimeType == this.imageMimeType &&
+          other.imageUploadStatus == this.imageUploadStatus &&
+          other.updatedAt == this.updatedAt &&
           other.restSeconds == this.restSeconds);
 }
 
@@ -602,6 +859,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String?> gifPath;
   final Value<String?> attribution;
   final Value<DateTime?> createdAt;
+  final Value<String> origin;
+  final Value<String?> localUserId;
+  final Value<String?> imageStoragePath;
+  final Value<String?> imageMimeType;
+  final Value<String?> imageUploadStatus;
+  final Value<DateTime?> updatedAt;
   final Value<int> restSeconds;
   final Value<int> rowid;
   const ExercisesCompanion({
@@ -617,6 +880,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.gifPath = const Value.absent(),
     this.attribution = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.origin = const Value.absent(),
+    this.localUserId = const Value.absent(),
+    this.imageStoragePath = const Value.absent(),
+    this.imageMimeType = const Value.absent(),
+    this.imageUploadStatus = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -633,6 +902,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.gifPath = const Value.absent(),
     this.attribution = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.origin = const Value.absent(),
+    this.localUserId = const Value.absent(),
+    this.imageStoragePath = const Value.absent(),
+    this.imageMimeType = const Value.absent(),
+    this.imageUploadStatus = const Value.absent(),
+    this.updatedAt = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -654,6 +929,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? gifPath,
     Expression<String>? attribution,
     Expression<DateTime>? createdAt,
+    Expression<String>? origin,
+    Expression<String>? localUserId,
+    Expression<String>? imageStoragePath,
+    Expression<String>? imageMimeType,
+    Expression<String>? imageUploadStatus,
+    Expression<DateTime>? updatedAt,
     Expression<int>? restSeconds,
     Expression<int>? rowid,
   }) {
@@ -670,6 +951,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (gifPath != null) 'gif_path': gifPath,
       if (attribution != null) 'attribution': attribution,
       if (createdAt != null) 'created_at': createdAt,
+      if (origin != null) 'origin': origin,
+      if (localUserId != null) 'local_user_id': localUserId,
+      if (imageStoragePath != null) 'image_storage_path': imageStoragePath,
+      if (imageMimeType != null) 'image_mime_type': imageMimeType,
+      if (imageUploadStatus != null) 'image_upload_status': imageUploadStatus,
+      if (updatedAt != null) 'updated_at': updatedAt,
       if (restSeconds != null) 'rest_seconds': restSeconds,
       if (rowid != null) 'rowid': rowid,
     });
@@ -688,6 +975,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String?>? gifPath,
     Value<String?>? attribution,
     Value<DateTime?>? createdAt,
+    Value<String>? origin,
+    Value<String?>? localUserId,
+    Value<String?>? imageStoragePath,
+    Value<String?>? imageMimeType,
+    Value<String?>? imageUploadStatus,
+    Value<DateTime?>? updatedAt,
     Value<int>? restSeconds,
     Value<int>? rowid,
   }) {
@@ -704,6 +997,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       gifPath: gifPath ?? this.gifPath,
       attribution: attribution ?? this.attribution,
       createdAt: createdAt ?? this.createdAt,
+      origin: origin ?? this.origin,
+      localUserId: localUserId ?? this.localUserId,
+      imageStoragePath: imageStoragePath ?? this.imageStoragePath,
+      imageMimeType: imageMimeType ?? this.imageMimeType,
+      imageUploadStatus: imageUploadStatus ?? this.imageUploadStatus,
+      updatedAt: updatedAt ?? this.updatedAt,
       restSeconds: restSeconds ?? this.restSeconds,
       rowid: rowid ?? this.rowid,
     );
@@ -748,6 +1047,24 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (origin.present) {
+      map['origin'] = Variable<String>(origin.value);
+    }
+    if (localUserId.present) {
+      map['local_user_id'] = Variable<String>(localUserId.value);
+    }
+    if (imageStoragePath.present) {
+      map['image_storage_path'] = Variable<String>(imageStoragePath.value);
+    }
+    if (imageMimeType.present) {
+      map['image_mime_type'] = Variable<String>(imageMimeType.value);
+    }
+    if (imageUploadStatus.present) {
+      map['image_upload_status'] = Variable<String>(imageUploadStatus.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     if (restSeconds.present) {
       map['rest_seconds'] = Variable<int>(restSeconds.value);
     }
@@ -772,6 +1089,12 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('gifPath: $gifPath, ')
           ..write('attribution: $attribution, ')
           ..write('createdAt: $createdAt, ')
+          ..write('origin: $origin, ')
+          ..write('localUserId: $localUserId, ')
+          ..write('imageStoragePath: $imageStoragePath, ')
+          ..write('imageMimeType: $imageMimeType, ')
+          ..write('imageUploadStatus: $imageUploadStatus, ')
+          ..write('updatedAt: $updatedAt, ')
           ..write('restSeconds: $restSeconds, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -11333,6 +11656,12 @@ typedef $$ExercisesTableCreateCompanionBuilder = ExercisesCompanion Function({
   Value<String?> gifPath,
   Value<String?> attribution,
   Value<DateTime?> createdAt,
+  Value<String> origin,
+  Value<String?> localUserId,
+  Value<String?> imageStoragePath,
+  Value<String?> imageMimeType,
+  Value<String?> imageUploadStatus,
+  Value<DateTime?> updatedAt,
   Value<int> restSeconds,
   Value<int> rowid,
 });
@@ -11349,6 +11678,12 @@ typedef $$ExercisesTableUpdateCompanionBuilder = ExercisesCompanion Function({
   Value<String?> gifPath,
   Value<String?> attribution,
   Value<DateTime?> createdAt,
+  Value<String> origin,
+  Value<String?> localUserId,
+  Value<String?> imageStoragePath,
+  Value<String?> imageMimeType,
+  Value<String?> imageUploadStatus,
+  Value<DateTime?> updatedAt,
   Value<int> restSeconds,
   Value<int> rowid,
 });
@@ -11513,6 +11848,36 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localUserId => $composableBuilder(
+    column: $table.localUserId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageStoragePath => $composableBuilder(
+    column: $table.imageStoragePath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageMimeType => $composableBuilder(
+    column: $table.imageMimeType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageUploadStatus => $composableBuilder(
+    column: $table.imageUploadStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -11691,6 +12056,36 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get origin => $composableBuilder(
+    column: $table.origin,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localUserId => $composableBuilder(
+    column: $table.localUserId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imageStoragePath => $composableBuilder(
+    column: $table.imageStoragePath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imageMimeType => $composableBuilder(
+    column: $table.imageMimeType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get imageUploadStatus => $composableBuilder(
+    column: $table.imageUploadStatus,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+    column: $table.updatedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get restSeconds => $composableBuilder(
     column: $table.restSeconds,
     builder: (column) => ColumnOrderings(column),
@@ -11747,6 +12142,32 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get origin =>
+      $composableBuilder(column: $table.origin, builder: (column) => column);
+
+  GeneratedColumn<String> get localUserId => $composableBuilder(
+    column: $table.localUserId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get imageStoragePath => $composableBuilder(
+    column: $table.imageStoragePath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get imageMimeType => $composableBuilder(
+    column: $table.imageMimeType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get imageUploadStatus => $composableBuilder(
+    column: $table.imageUploadStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 
   GeneratedColumn<int> get restSeconds => $composableBuilder(
     column: $table.restSeconds,
@@ -11901,6 +12322,12 @@ class $$ExercisesTableTableManager
                 Value<String?> gifPath = const Value.absent(),
                 Value<String?> attribution = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
+                Value<String> origin = const Value.absent(),
+                Value<String?> localUserId = const Value.absent(),
+                Value<String?> imageStoragePath = const Value.absent(),
+                Value<String?> imageMimeType = const Value.absent(),
+                Value<String?> imageUploadStatus = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion(
@@ -11916,6 +12343,12 @@ class $$ExercisesTableTableManager
                 gifPath: gifPath,
                 attribution: attribution,
                 createdAt: createdAt,
+                origin: origin,
+                localUserId: localUserId,
+                imageStoragePath: imageStoragePath,
+                imageMimeType: imageMimeType,
+                imageUploadStatus: imageUploadStatus,
+                updatedAt: updatedAt,
                 restSeconds: restSeconds,
                 rowid: rowid,
               ),
@@ -11933,6 +12366,12 @@ class $$ExercisesTableTableManager
                 Value<String?> gifPath = const Value.absent(),
                 Value<String?> attribution = const Value.absent(),
                 Value<DateTime?> createdAt = const Value.absent(),
+                Value<String> origin = const Value.absent(),
+                Value<String?> localUserId = const Value.absent(),
+                Value<String?> imageStoragePath = const Value.absent(),
+                Value<String?> imageMimeType = const Value.absent(),
+                Value<String?> imageUploadStatus = const Value.absent(),
+                Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ExercisesCompanion.insert(
@@ -11948,6 +12387,12 @@ class $$ExercisesTableTableManager
                 gifPath: gifPath,
                 attribution: attribution,
                 createdAt: createdAt,
+                origin: origin,
+                localUserId: localUserId,
+                imageStoragePath: imageStoragePath,
+                imageMimeType: imageMimeType,
+                imageUploadStatus: imageUploadStatus,
+                updatedAt: updatedAt,
                 restSeconds: restSeconds,
                 rowid: rowid,
               ),

@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Permite fotografiar tus ejercicios personalizados.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Permite elegir imágenes para tus ejercicios personalizados.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -8,8 +8,8 @@ import '../theme/colors.dart';
 import '../unit_system_scope.dart';
 import '../widgets/exercise_thumb.dart';
 import '../widgets/section_header.dart';
-import 'package:hevywork/ui/views/exercise_info_view.dart';
 
+import 'package:hevywork/ui/views/exercise_info_view.dart';
 
 /// Detalle de una rutina de solo lectura (spec 008, RF-38): metadata de
 /// planificación, lista completa de sus ejercicios con la musculatura que
@@ -131,7 +131,8 @@ class _RoutineDetailViewState extends State<RoutineDetailView> {
                 if (_entries.isEmpty)
                   const _EmptyDetail()
                 else
-                  for (final entry in _entries) _ExerciseCard(entry: entry),
+                  for (final entry in _entries)
+                    _ExerciseCard(entry: entry, onExerciseChanged: _load),
               ],
             ),
       bottomNavigationBar: _loading || _entries.isEmpty
@@ -247,8 +248,9 @@ class _MetaChip extends StatelessWidget {
 /// completa del ejercicio.
 class _ExerciseCard extends StatelessWidget {
   final _RoutineEntry entry;
+  final Future<void> Function() onExerciseChanged;
 
-  const _ExerciseCard({required this.entry});
+  const _ExerciseCard({required this.entry, required this.onExerciseChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -338,10 +340,10 @@ class _ExerciseCard extends StatelessWidget {
     );
   }
 
-  void _openExercise(BuildContext context) {
+  Future<void> _openExercise(BuildContext context) async {
     final exercise = entry.exercise;
     if (exercise == null) return;
-    Navigator.of(context).push(
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => ExerciseInfoView(
           exercise: exercise,
@@ -350,6 +352,7 @@ class _ExerciseCard extends StatelessWidget {
         ),
       ),
     );
+    await onExerciseChanged();
   }
 
   /// Objetivo muscular traducido y equipo, en la misma línea que las tarjetas

@@ -8,6 +8,7 @@ import 'app_config.dart';
 import 'data/local/database.dart';
 import 'data/repositories/body_metric_repository.dart';
 import 'data/repositories/catalog_repository.dart';
+import 'data/repositories/custom_exercise_repository.dart';
 import 'data/repositories/fatigue_repository.dart';
 import 'data/repositories/gif_cache.dart';
 import 'data/repositories/goal_repository.dart';
@@ -36,6 +37,7 @@ import 'ui/widgets/hevy_bottom_nav.dart';
 late final AppDatabase localDb;
 late final SyncEngine syncEngine;
 late final CatalogRepository catalogRepository;
+late final CustomExerciseRepository customExerciseRepository;
 late final WorkoutRepository workoutRepository;
 late final RoutineRepository routineRepository;
 late final GoalRepository goalRepository;
@@ -76,6 +78,10 @@ Future<void> main() async {
     onCycleCompleted: () => photoRepository.uploadPending(),
   );
   catalogRepository = CatalogRepository(localDb);
+  customExerciseRepository = CustomExerciseRepository(
+    localDb,
+    onChanged: catalogRepository.invalidateFilterOptions,
+  );
   workoutRepository = WorkoutRepository(
     localDb,
     enqueue: syncEngine.enqueueMutation,
@@ -183,17 +189,15 @@ class _HevyWorkAppState extends State<HevyWorkApp> {
       scaffoldMessengerKey: scaffoldMessengerKey,
       theme: buildAppTheme(),
       builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: MediaQuery.of(context).textScaler.clamp(
-              minScaleFactor: 1.0,
-              maxScaleFactor: 1.3,
-            ),
-          ),
-          child: UnitSystemScope(
-            unitSystem: _unitSystem,
-            child: child ?? const SizedBox.shrink(),
-          ),
+        data: MediaQuery.of(context).copyWith(
+          textScaler: MediaQuery.of(context).textScaler
+              .clamp(minScaleFactor: 1.0, maxScaleFactor: 1.3),
         ),
+        child: UnitSystemScope(
+          unitSystem: _unitSystem,
+          child: child ?? const SizedBox.shrink(),
+        ),
+      ),
       home: const MainNavigator(),
     );
   }

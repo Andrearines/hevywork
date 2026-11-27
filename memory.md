@@ -1,26 +1,37 @@
 # Memory Log — Spec 022
 
-## Estado actual — 022/T-003 implementada, pendiente de revisión (2026-11-25)
+## Estado actual — 022/T-004 implementada, pendiente de revisión (2026-11-26)
 
 - **Slug:** `022-grafico-descansos-y-ejercicios-personalizados`.
 - **Estado de diseño: APROBADO (D-117); Q-006 y Q-007 cerradas.**
-  `tarea_actual: revisión de T-003`. **Agente activo:** implementador de T-003;
-  **última implementación completada:** T-003, pendiente de revisión independiente.
+  `tarea_actual: T-004`, **IMPLEMENTADA — PENDIENTE DE REVISIÓN INDEPENDIENTE**.
+  **Agente activo:** implementador; **última tarea completada:** T-004;
+  **última implementación completada y aprobada:** T-003. T-005 y T-006 no se han
+  iniciado y T-005 sigue bloqueada hasta la aprobación de T-004.
   **T-001 APROBADA**, sin hallazgos bloqueantes/mayores/menores; sus límites de
   evidencia y Supabase real/RLS/Storage/segunda réplica diferidos se conservan.
-  **T-002 APROBADA**, sin bloqueantes ni mayores. Observación menor no bloqueante:
-  la prueba de fechas a 320 dp no ejercita `textScaler` 1.3 ni la escala efectiva
-  de `FittedBox`; se recomienda caracterizar legibilidad según DESIGN §9 después,
-  sin reabrir T-002 ni incorporarlo a T-003. **T-003 está IMPLEMENTADA, NO
-  APROBADA todavía**; T-004…T-006 siguen sin implementar.
-- **Estado Git actual al cerrar esta planificación:** HEAD es
-  `d227ebcbb13355cc4561a9c91b7ae2ec5db27956` (`fix`). Al inicio de la
-  planificación de T-002 era `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`; el
-  reflog registra `commit: fix` y el nuevo commit contiene documentación y la
-  prueba de claim preexistentes. La transición/autoría no es atribuible con la
-  evidencia disponible y no se altera historial. D-119 solo exceptúa conservar el
-  hash histórico `9d62bac…`; no se extiende a `d227ebc…` ni autoriza commits/push
-  futuros. Este planner no ejecutó operaciones Git de escritura.
+  **T-002 APROBADA**, sin bloqueantes ni mayores; su observación menor de chart
+  sigue diferida, fuera de T-004. **T-003 APROBADA**, sin hallazgos bloqueantes,
+  mayores ni menores; CA-09…CA-12 quedan aceptados. El revisor confirmó v19,
+  backfill/checks, opción C transaccional, timers/avisos independientes, fallback,
+  responsive y ausencia de sync anticipado. Sus límites fueron solo lectura,
+  resultados 758/758/analyze declarados por el implementador y diff Git completo no
+  reconstruible; en esa revisión HEAD seguía en `d227ebc…`. T-004 implementa v20,
+  personalizados locales con imagen e integración reactiva; CA-13…CA-16 y la puerta
+  están verdes, pero esto no equivale a aprobación.
+- **Estado Git al inicio de esta planificación de T-004:** HEAD es
+  `1e22b4af5967fb585c004ea5aa2eee15766d580d` (`T4`), la rama está una posición por
+  delante de `origin/2.2.0` (`d227ebc…`) y la worktree estaba limpia. Este HEAD
+  difiere del observado por el revisor; la transición y su autoría no se atribuyen
+  ni se reescriben. D-119 exceptúa únicamente conservar el hash histórico
+  `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`; no valida automáticamente
+  `d227ebc…`/`1e22b4a…` ni autoriza commits/push futuros. Este planner solo edita
+  documentación y no ejecuta operaciones Git de escritura.
+- **Estado Git al cierre de implementación de T-004:** HEAD permanece en
+  `1e22b4af5967fb585c004ea5aa2eee15766d580d`; toda la implementación y el cierre
+  documental están sin commitear. No se ejecutaron commit, push, reset, rebase,
+  revert, clean ni reescritura. `pubspec.lock` y los 91 PNG del manifiesto conservan
+  sus hashes iniciales.
 - El usuario respondió «aprovado» a la pregunta que pedía «Apruebo el diseño 022
   completo» o indicar cambios: se registra como aprobación explícita del DESIGN
   completo, sin cambios, el 2026-11-23. La afirmación anterior de aprobación el
@@ -77,6 +88,30 @@
   legacy reservada/ID 1 y FNV-1a explícito para IDs estables de items. El ticker
   recalcula contra `endsAt`, nunca decrementa segundos; background programa solo
   running futuro y resume cancela las claves gestionadas.
+- **D-124 (T-004):** alta y edición comparten la proyección `exercises` con
+  `origin=custom`, propietario local e ID `custom_<uuid>`. El cambio de imagen es
+  tri-estado —conservar, reemplazar o quitar— y los bytes se validan/persisten en
+  documentos antes de confirmar la fila, con compensación que conserva la imagen
+  anterior si falla el guardado. No hay borrado de personalizados, instrucciones
+  custom, subida, cola nueva ni cambios remotos antes de T-006.
+- **D-125 (T-004):** el descanso custom vive en su propia fila
+  `exercises.rest_seconds`; catálogo conserva `exercise_preferences ?? 90`. La misma
+  bifurcación se aplica a ficha, proyección live, inicio y opción C, sin crear
+  preferencias para custom ni alterar los timers/historial aprobados en T-003.
+- **D-126 (T-004):** las lecturas de catálogo muestran maestro más customs del
+  perfil actual; la inicialización comprueba filas `catalog`, no cualquier custom.
+  Resultados/opciones se invalidan conservando consulta/filtros y las páginas son de
+  50 también en el selector. Las rutas aprobadas se navegan con
+  `MaterialPageRoute.settings.name`, sin router, deep linking ni dependencia nueva.
+- **D-127 (T-004):** `_filterOptionsCache` queda asociado a `localUserId` y se
+  invalida tras alta/edición mediante `CustomExerciseRepository.onChanged`, conectado
+  a `CatalogRepository.invalidateFilterOptions`. Las lecturas/escrituras de descanso
+  y la proyección Live solo admiten catálogo y customs del propietario; un custom
+  ajeno no se lee ni se muta como maestro.
+- **D-128 (T-004):** `RoutineEditorView` distingue los IDs de `routine_exercises`
+  para cargar sets del `exercise_id` usado para hidratar catálogo. Al volver de ficha,
+  editor y detalle recargan el ejercicio por ID sin reconstruir borradores ni tocar
+  sets/cargas; las referencias históricas conservan el mismo `custom_<uuid>`.
 
 ### Evidencia estática y contratos de planificación
 
@@ -669,6 +704,51 @@
 - **CA-09…CA-12 quedan implementados y cubiertos por las pruebas anteriores.**
   T-003 queda **PENDIENTE DE REVISIÓN**, sin autoaprobación. T-004…T-006 no se
   iniciaron. No quedan bloqueos ni preguntas abiertas para el coordinador.
+
+## Revisión y planificación vigente — 022/T-003 aprobada → T-004 (2026-11-25)
+
+### Veredicto recibido de T-003
+
+- El revisor devolvió **APROBADO**, sin hallazgos bloqueantes, mayores ni menores.
+  CA-09…CA-12 quedan aceptados: v19/backfill/checks, opción C transaccional,
+  estados/timers independientes, fallback legacy, notificaciones, responsive y
+  ausencia de sync anticipado. No se reabre producción ni diseño de T-003.
+- Limitaciones conservadas literalmente: revisión en solo lectura; resultados
+  **758/758** no golden y analyze sin incidencias declarados por el implementador;
+  diff Git completo no reconstruible; HEAD observado por el revisor
+  `d227ebcbb13355cc4561a9c91b7ae2ec5db27956`, sin cambios. No se presentan esos
+  resultados como una ejecución nueva del planner.
+- Al inspeccionar el código para T-004, HEAD era
+  `1e22b4af5967fb585c004ea5aa2eee15766d580d` (`T4`), `origin/2.2.0` seguía en
+  `d227ebc…` y la worktree estaba limpia. Se conserva la diferencia sin atribuir
+  transición/autoría, sin reset/rebase ni ampliar la excepción D-119.
+
+### Delimitación técnica de T-004
+
+- Se leyeron spec/CA-13…16, DESIGN SCR-06/07/08, `docs/db.md` v20/media, tablas,
+  migraciones, `CatalogRepository`, `WorkoutRepository`, `CatalogView`,
+  `ExercisePicker`, ficha/thumb, navegación y usos actuales de `image_picker`.
+  También se consultó la documentación vigente del plugin para `pickImage`,
+  compresión y permisos. No se ejecutó producción, build_runner, tests ni analyze.
+- El encargo completo está en `tasks.md` §T-004: único drift 19→20 y generación;
+  custom con dueño/ID estable; validación canónica y descanso directo; alta/edición
+  completa; imagen por bytes en documentos con conservar/reemplazar/quitar; fallback;
+  catálogo/selector con páginas de 50; reactividad; referencias de rutinas/workouts;
+  configuración de permisos del plugin existente; y puerta completa.
+- **Borrado resuelto por contrato:** no forma parte del editor ni de la spec. Solo
+  se permite quitar/reemplazar imagen. No hay editor muscular de catálogo/SCR-09,
+  instrucciones custom, subida, cola/payload/whitelist nuevo ni Supabase antes de
+  T-005/T-006 según corresponda.
+- Riesgos principales registrados: checks/interrupción v20, mezcla de propietarios,
+  loader bloqueado por custom, MIME/extensión, pérdida de imagen anterior, ruta local
+  remota, descanso/opción C en tabla equivocada, páginas inestables, doble guardado,
+  snapshots obsoletos y sync anticipado.
+- `tarea_actual: T-004`; preguntas abiertas/bloqueos: **ninguno**. Al finalizar se
+  exige implementación completa, puerta no golden + analyze y revisión independiente;
+  esta planificación no la declara aprobada.
+- Archivos de planificación actualizados: `memory.md`, `docs/db.md`,
+  `docs/specs/README.md` y `spec.md`, `plan.md`, `tasks.md` de la 022. DESIGN y los
+  contratos funcionales no cambiaron. No se tocó código de producción ni pruebas.
 
 ## Bitácora de implementación — 021/T-001 (2026-11-18)
 
@@ -1339,3 +1419,101 @@ cero. Todo ello quedó cumplido y verificado; ya no está pendiente.)*
   ya documentado en `test/exercise_info_view_test.dart:239` «muscleLabel
   fallthrough»). El parche aumenta las filas afectadas (`brachialis`
   14 → 148, `grip muscles` 1 → 31); candidato a una tarea propia.
+
+## Bitácora de implementación — 022/T-004 (2026-11-26)
+
+### Esquema v20 y dominio local
+
+- Se añadió una única migración drift **19→20** sobre `exercises`: `origin`,
+  `local_user_id`, `image_storage_path`, `image_mime_type`, `image_upload_status` y
+  `updated_at`, con defaults/checks y guardas idempotentes. No hay v21, SQL remoto ni
+  backfill custom. La actualización conserva catálogo, preferencias, rutinas,
+  workouts, sets, historial y cola; una migración interrumpida se reanuda sin
+  duplicar columnas y SQL crudo rechaza custom sin propietario.
+- Se restauraron las invariantes previas que una generación incoherente había
+  perdido: `Exercises.primaryKey => {id}` y la FK/nombres de `ExerciseInstructions`.
+  El generado v20 final es coherente con esas invariantes y no se editó manualmente.
+  `dart run build_runner build --delete-conflicting-outputs` terminó en su ejecución
+  final con salida 0, 56 s y 180 outputs; el runner avisó que la opción retirada fue
+  ignorada. Evidencia: `/tmp/opencode/hevywork-t004/build-runner-final.txt`.
+- El dominio valida obligatorios recortados, 15/90/300 y rechazos 14/301, aliases y
+  equivalencias musculares sin reordenar ni deduplicar silenciosamente. Deriva
+  `muscle_group` del primer secundario u objetivo. La imagen reconoce JPEG/PNG/WebP
+  por firma, admite exactamente 2 MiB y rechaza vacío, un byte adicional y formatos
+  no soportados/truncados.
+
+### Alta, edición, imagen e integración
+
+- `CustomExerciseRepository` crea `custom_<uuid>` offline, conserva ID/`created_at`
+  al editar y limita las operaciones al propietario. El CTA bloquea guardados
+  simultáneos. `CatalogRepository` integra customs propios en detalle, búsqueda,
+  filtros, opciones y páginas nombre+ID de 50; `initializeCatalogIfEmpty` cuenta solo
+  catálogo y nunca sobrescribe customs ni asset.
+- El editor ofrece alta/edición completa, galería/cámara con 1600×1600/calidad 85,
+  vista previa y errores en español. Los bytes válidos se escriben en documentos con
+  extensión MIME coherente. Conservar/reemplazar/quitar distingue `none`,
+  `pending_upload`, `uploaded` y `pending_delete`; un fallo de base elimina solo el
+  archivo nuevo y conserva fila/archivo anteriores. No existe borrado de ejercicio.
+- `ExerciseThumb`, editor y ficha usan `Image.file` para custom y conservan
+  `Image.asset`/GIF para catálogo; archivo ausente o decodificación fallida muestran
+  `ThumbFallback`. Android/iOS reciben solo la configuración de cámara/galería del
+  plugin ya declarado. Los permisos y errores se prueban mediante seams, no se afirma
+  una prueba en dispositivo real.
+- Catálogo y `ExercisePicker` recargan altas/ediciones y mutaciones externas sin
+  perder consulta/filtros; el selector pagina y devuelve el custom completo. La ficha
+  permite editar solo customs y refresca por ID. Editor/detalle de rutina recargan
+  referencias sin perder borradores, sets o cargas; workouts e historial conservan
+  los mismos IDs.
+- El descanso custom se lee/escribe en `exercises.rest_seconds` en ficha, Live,
+  arranque y opción C; catálogo mantiene preferencia/90 y el rest planificado conserva
+  prioridad. Customs ajenos quedan excluidos de lecturas y mutaciones. Las decisiones
+  quedan registradas en **D-124…D-128**.
+
+### Regresiones y evidencias
+
+- Rojos iniciales/conservados: dominio, contrato de media/thumb, propietario y
+  referencias de rutinas. En particular, `red-owner-references.txt` y
+  `red-routine-references.txt` preceden a sus correcciones; las recargas individuales
+  verdes están en `green-routine-detail-reload.txt` y
+  `green-routine-editor-reload.txt`, ambas **1/1**.
+- `test/migration_test.dart`: **23/23 verdes**, salida 0
+  (`migration-after-schema-restore-2.txt`). `test/custom_exercise_repository_test.dart`:
+  **13/13 verdes** (`green-owner-references.txt`), incluidos caché por perfil,
+  invalidación, descanso ajeno, opción C y conservación de referencias/cargas.
+- Lote dirigido final de 18 suites —dominio, editor, catálogo, migración, rutinas,
+  workouts, historial, ficha, Live y Train—: **264/264 verdes**, salida 0
+  (`directed-after-owner-routines.txt`). Una expectativa de prueba se corrigió de
+  `52.5 kg` a `52.50 kg` tras confirmar el texto renderizado; no implicó cambiar
+  producción ni relajar una regla funcional.
+- Tras el primer pase verde, el chequeo de formato marcó 9 archivos. Se aplicó
+  `dart format` solo a los Dart modificados de T-004 y se repitió toda la puerta.
+  `flutter test --exclude-tags golden --reporter expanded` final: **806/806 verdes,
+  All tests passed!, salida 0**. `flutter analyze` final: **No issues found!, salida
+  0**. Evidencias: `full-gate-test-final.txt`, `full-gate-test-final.exit`,
+  `full-gate-analyze-final.txt` y `full-gate-analyze-final.exit` bajo
+  `/tmp/opencode/hevywork-t004/`.
+- `dart format --output=none --set-exit-if-changed` sobre 24 archivos: **0 cambios**.
+  `git diff --check`: limpio. Los **91 PNG** verificados contra
+  `/tmp/opencode/hevywork-t004-png-initial.sha256` conservan sus hashes; no hay PNG en
+  el diff. `pubspec.lock` mantiene
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487` y no aparece
+  en el diff. Tampoco aparecen sync, payloads/whitelist, migraciones Supabase ni
+  dependencias.
+
+### Archivos y cierre
+
+- Producción: esquema/tabla/generado drift; `catalog_repository.dart`,
+  `custom_exercise_repository.dart`, `workout_repository.dart`; dominio
+  `custom_exercise.dart` y `custom_exercise_image.dart`; `main.dart` solo para
+  invalidación; catálogo, editor custom, ficha, editor/detalle de rutina, picker y
+  thumb; manifiestos Android/iOS.
+- Pruebas: migración, editor/detalle de rutina y las nuevas suites de dominio,
+  repositorio, editor, integración de catálogo y contrato T-004. Coordinación:
+  `memory.md`, `tasks.md` y `docs/db.md`.
+- HEAD permanece en `1e22b4af5967fb585c004ea5aa2eee15766d580d`. Sin commits, push,
+  operaciones destructivas, dependencias, assets, skips, goldens, borrado custom,
+  SCR-09, sync/Storage ni inicio de T-005/T-006.
+- **Resultado:** CA-13…CA-16 implementados y puerta completa verde. **T-004 queda
+  IMPLEMENTADA — PENDIENTE DE REVISIÓN INDEPENDIENTE**, no aprobada. No hay bloqueos
+  ni preguntas abiertas para el coordinador; el siguiente paso es revisar T-004, no
+  iniciar otra tarea.

@@ -7,6 +7,7 @@ import '../../data/repositories/catalog_repository.dart';
 import '../../domain/exercise_filter.dart';
 import '../../main.dart';
 import '../theme/colors.dart';
+import '../views/custom_exercise_editor_view.dart';
 import 'exercise_filter_bar.dart';
 import 'exercise_thumb.dart';
 
@@ -21,12 +22,16 @@ class ExercisePicker extends StatefulWidget {
 
 class _ExercisePickerState extends State<ExercisePicker> {
   final TextEditingController _searchCtrl = TextEditingController();
+  final ScrollController _scrollCtrl = ScrollController();
   Timer? _searchDebounce;
+  StreamSubscription<List<Exercise>>? _catalogSubscription;
   ExerciseFilter _filter = const ExerciseFilter();
   FilterOptions? _options;
   List<Exercise> _results = const [];
   int _total = 0;
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = false;
   int _generation = 0;
 
   /// RF-1 de la 003: solo filtra por texto con ≥ 2 caracteres.
@@ -36,6 +41,7 @@ class _ExercisePickerState extends State<ExercisePicker> {
   @override
   void initState() {
     super.initState();
+    _scrollCtrl.addListener(_onScroll);
     _init();
   }
 
@@ -44,11 +50,20 @@ class _ExercisePickerState extends State<ExercisePicker> {
     if (ready != null) await ready;
     if (!mounted) return;
     await Future.wait([_reload(), _loadOptions()]);
+    _catalogSubscription = catalogRepository.watchVisibleExercises().listen((
+      _,
+    ) {
+      if (!mounted) return;
+      unawaited(_reload());
+      unawaited(_loadOptions());
+    });
   }
 
   @override
   void dispose() {
+    _catalogSubscription?.cancel();
     _searchDebounce?.cancel();
+    _scrollCtrl.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -61,7 +76,10 @@ class _ExercisePickerState extends State<ExercisePicker> {
 
   Future<void> _reload() async {
     final generation = ++_generation;
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _loadingMore = false;
+    });
     final page = await catalogRepository.searchPage(
       query: _effectiveQuery,
       filter: _filter,
@@ -70,8 +88,51 @@ class _ExercisePickerState extends State<ExercisePicker> {
     setState(() {
       _results = page.exercises;
       _total = page.total;
+      _hasMore = page.total > page.exercises.length;
       _loading = false;
     });
+  }
+
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore || !_hasMore) return;
+    final generation = _generation;
+    setState(() => _loadingMore = true);
+    final page = await catalogRepository.searchPage(
+      query: _effectiveQuery,
+      filter: _filter,
+      offset: _results.length,
+    );
+    if (!mounted) return;
+    if (generation != _generation) {
+      setState(() => _loadingMore = false);
+      return;
+    }
+    setState(() {
+      _results = [..._results, ...page.exercises];
+      _total = page.total;
+      _hasMore = page.total > _results.length;
+      _loadingMore = false;
+    });
+  }
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    final position = _scrollCtrl.position;
+    if (position.extentAfter <= position.maxScrollExtent * 0.2) {
+      unawaited(_loadMore());
+    }
+  }
+
+  Future<void> _createCustom() async {
+    final created = await Navigator.push<Exercise>(
+      context,
+      MaterialPageRoute(
+        settings: const RouteSettings(name: '/catalog/custom/new'),
+        builder: (_) =>
+            CustomExerciseEditorView(repository: customExerciseRepository),
+      ),
+    );
+    if (created != null && mounted) Navigator.pop(context, created);
   }
 
   void _clearFilters() {
@@ -91,7 +152,9 @@ class _ExercisePickerState extends State<ExercisePicker> {
     final options = _options;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.75,
         child: Column(
@@ -115,9 +178,16 @@ class _ExercisePickerState extends State<ExercisePicker> {
                   Expanded(
                     child: Text(
                       'Añadir ejercicio',
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(color: kOnSurface),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: kOnSurface,
+                      ),
                     ),
+                  ),
+                  IconButton(
+                    key: const Key('picker-create-custom'),
+                    onPressed: _createCustom,
+                    tooltip: 'Crear ejercicio',
+                    icon: const Icon(Icons.add, color: kOnSurfaceVariant),
                   ),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
@@ -188,8 +258,23 @@ class _ExercisePickerState extends State<ExercisePicker> {
       );
     }
     return ListView.builder(
-      itemCount: _results.length,
+      controller: _scrollCtrl,
+      itemCount: _results.length + 1,
       itemBuilder: (context, index) {
+        if (index == _results.length) {
+          return _loadingMore
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                )
+              : const SizedBox(height: 16);
+        }
         final exercise = _results[index];
         return InkWell(
           onTap: () => Navigator.pop(context, exercise),
@@ -226,11 +311,7 @@ class _ExercisePickerState extends State<ExercisePicker> {
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: kOutline,
-                  size: 20,
-                ),
+                const Icon(Icons.chevron_right, color: kOutline, size: 20),
               ],
             ),
           ),

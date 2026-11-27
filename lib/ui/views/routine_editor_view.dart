@@ -27,6 +27,7 @@ const Map<String, String> _setTypeLabels = {
 class RoutineEditorView extends StatefulWidget {
   /// Rutina a editar; null crea una nueva.
   final Routine? routine;
+
   /// Repositorio para hidratarExercise por ids (spec 014, RF-3).
   final CatalogRepository catalogRepository;
 
@@ -34,8 +35,8 @@ class RoutineEditorView extends StatefulWidget {
     super.key,
     this.routine,
     CatalogRepository? catalogRepository,
-  }) : catalogRepository = catalogRepository ??
-        CatalogRepository(AppDatabase());
+  }) : catalogRepository =
+           catalogRepository ?? CatalogRepository(AppDatabase());
 
   @override
   State<RoutineEditorView> createState() => _RoutineEditorViewState();
@@ -61,14 +62,14 @@ class _DraftSet {
     int reps = 10,
     int rir = 2,
     int? restSeconds,
-  })  : kgCtrl = TextEditingController(
-          text: weightKg == 0 ? '' : formatWeightKg(weightKg, unitSystem),
-        ),
-        repsCtrl = TextEditingController(text: '$reps'),
-        rirCtrl = TextEditingController(text: '$rir'),
-        restCtrl = TextEditingController(
-          text: restSeconds == null ? '' : '$restSeconds',
-        );
+  }) : kgCtrl = TextEditingController(
+         text: weightKg == 0 ? '' : formatWeightKg(weightKg, unitSystem),
+       ),
+       repsCtrl = TextEditingController(text: '$reps'),
+       rirCtrl = TextEditingController(text: '$rir'),
+       restCtrl = TextEditingController(
+         text: restSeconds == null ? '' : '$restSeconds',
+       );
 
   void dispose() {
     kgCtrl.dispose();
@@ -78,25 +79,24 @@ class _DraftSet {
   }
 
   RoutineSetDraft toDraft() => RoutineSetDraft(
-        id: id,
-        setType: setType,
-        weightKg: toKg(
-          double.tryParse(kgCtrl.text.trim().replaceAll(',', '.')) ?? 0,
-          unitSystem,
-        ),
-        reps: int.tryParse(repsCtrl.text.trim()) ?? 0,
-        rir: int.tryParse(rirCtrl.text.trim()) ?? 0,
-        restSeconds: int.tryParse(restCtrl.text.trim()),
-      );
-
+    id: id,
+    setType: setType,
+    weightKg: toKg(
+      double.tryParse(kgCtrl.text.trim().replaceAll(',', '.')) ?? 0,
+      unitSystem,
+    ),
+    reps: int.tryParse(repsCtrl.text.trim()) ?? 0,
+    rir: int.tryParse(rirCtrl.text.trim()) ?? 0,
+    restSeconds: int.tryParse(restCtrl.text.trim()),
+  );
 }
 
 class _DraftExercise {
   final String key;
   String? id;
   final String exerciseId;
-  final String name;
-  final Exercise? exercise;
+  String name;
+  Exercise? exercise;
   final List<_DraftSet> sets;
   bool autoProgress;
 
@@ -117,11 +117,11 @@ class _DraftExercise {
   }
 
   RoutineExerciseDraft toDraft() => RoutineExerciseDraft(
-        id: id,
-        exerciseId: exerciseId,
-        sets: [for (final set in sets) set.toDraft()],
-        autoProgress: autoProgress,
-      );
+    id: id,
+    exerciseId: exerciseId,
+    sets: [for (final set in sets) set.toDraft()],
+    autoProgress: autoProgress,
+  );
 }
 
 class _RoutineEditorViewState extends State<RoutineEditorView> {
@@ -152,7 +152,8 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
       _level = routine.level;
       _goal = routine.goal;
       _targetDays = routine.targetDays;
-      _planningOpen = routine.category != null ||
+      _planningOpen =
+          routine.category != null ||
           routine.level != null ||
           routine.goal != null ||
           routine.targetDays != null;
@@ -192,14 +193,20 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
 
   Future<void> _loadExercises(String routineId) async {
     final entries = await routineRepository.routineExercises(routineId);
-    final exerciseIds = <String>{for (final row in entries) row.item.id};
+    final exerciseIds = <String>{
+      for (final row in entries) row.item.exerciseId,
+    };
     // Hydrate Exercise objects from catalog (RF-3 / spec 014).
-    final catalogExercises = await widget.catalogRepository.exercisesByIds(exerciseIds.toList());
+    final catalogExercises = await widget.catalogRepository.exercisesByIds(
+      exerciseIds.toList(),
+    );
     final exerciseMap = <String, Exercise>{};
     for (final e in catalogExercises.values) {
       exerciseMap[e.id] = e;
     }
-    final rows = await routineRepository.routineSetsBatch(exerciseIds.toList());
+    final rows = await routineRepository.routineSetsBatch(
+      entries.map((row) => row.item.id),
+    );
     final draftSets = <String, List<_DraftSet>>{};
     for (final set in rows) {
       (draftSets[set.routineExerciseId] ??= []).add(
@@ -219,16 +226,16 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
     for (final row in entries) {
       final item = row.item;
       final stored = draftSets[item.id] ?? [];
-      final sets = stored.isEmpty
-          ? _legacySets(item)
-          : stored;
-      final exercise = exerciseMap[item.id];
+      final sets = stored.isEmpty ? _legacySets(item) : stored;
+      final exercise = exerciseMap[item.exerciseId];
       drafts.add(
         _DraftExercise(
           key: item.id,
           id: item.id,
           exerciseId: item.exerciseId,
-          name: exercise?.name ?? (row.exercise?.name ?? 'Ejercicio no disponible'),
+          name:
+              exercise?.name ??
+              (row.exercise?.name ?? 'Ejercicio no disponible'),
           exercise: exercise,
           sets: sets,
           autoProgress: item.autoProgress,
@@ -277,8 +284,9 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
     );
     if (selected == null || !mounted) return;
     // Hydrate the selected exercise from the catalog (RF-3 / spec 014).
-    final catalogExercise =
-        (await widget.catalogRepository.exercisesByIds([selected.id])).values.firstOrNull;
+    final catalogExercise = (await widget.catalogRepository.exercisesByIds([
+      selected.id,
+    ])).values.firstOrNull;
     setState(() {
       _drafts.add(
         _DraftExercise(
@@ -296,6 +304,29 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
     });
   }
 
+  Future<void> _openExercise(_DraftExercise draft) async {
+    final exercise = draft.exercise;
+    if (exercise == null) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ExerciseInfoView(
+          exercise: exercise,
+          database: localDb,
+          workoutRepository: workoutRepository,
+        ),
+      ),
+    );
+    if (!mounted || !_drafts.contains(draft)) return;
+    final refreshed = (await widget.catalogRepository.exercisesByIds([
+      draft.exerciseId,
+    ]))[draft.exerciseId];
+    if (refreshed == null || !mounted || !_drafts.contains(draft)) return;
+    setState(() {
+      draft.name = refreshed.name;
+      draft.exercise = refreshed;
+    });
+  }
+
   void _removeDraft(_DraftExercise draft) {
     _drafts.removeWhere((d) => d.key == draft.key);
     draft.dispose();
@@ -304,7 +335,9 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
 
   void _addSet(_DraftExercise draft) {
     setState(() {
-      draft.sets.add(_DraftSet(key: 'set-${_setSeq++}', unitSystem: _unitSystem));
+      draft.sets.add(
+        _DraftSet(key: 'set-${_setSeq++}', unitSystem: _unitSystem),
+      );
     });
   }
 
@@ -345,7 +378,8 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
         final rest = set.restCtrl.text.trim().isEmpty
             ? null
             : int.tryParse(set.restCtrl.text.trim());
-        final invalid = reps == null ||
+        final invalid =
+            reps == null ||
             reps < 1 ||
             rir == null ||
             rir < 0 ||
@@ -507,32 +541,31 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
       List<String> options,
       String? selected,
       ValueChanged<String?> onSelected,
-    ) =>
-        Padding(
-          padding: const EdgeInsets.only(top: 8),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              SizedBox(
-                width: 84,
-                child: Text(
-                  label,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: kOnSurfaceVariant,
-                  ),
-                ),
+    ) => Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: 84,
+            child: Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: kOnSurfaceVariant,
               ),
-              for (final option in options)
-                _MetaChip(
-                  label: option,
-                  selected: selected == option,
-                  onTap: () => onSelected(selected == option ? null : option),
-                ),
-            ],
+            ),
           ),
-        );
+          for (final option in options)
+            _MetaChip(
+              label: option,
+              selected: selected == option,
+              onTap: () => onSelected(selected == option ? null : option),
+            ),
+        ],
+      ),
+    );
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -602,10 +635,10 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
                       onPressed: _targetDays == null
                           ? null
                           : () => setState(
-                                () => _targetDays = _targetDays! > 1
-                                    ? _targetDays! - 1
-                                    : null,
-                              ),
+                              () => _targetDays = _targetDays! > 1
+                                  ? _targetDays! - 1
+                                  : null,
+                            ),
                       icon: const Icon(Icons.remove),
                     ),
                   ),
@@ -628,9 +661,8 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
                       padding: EdgeInsets.zero,
                       iconSize: 18,
                       tooltip: 'Añadir un día',
-                      onPressed: () => setState(
-                        () => _targetDays = (_targetDays ?? 0) + 1,
-                      ),
+                      onPressed: () =>
+                          setState(() => _targetDays = (_targetDays ?? 0) + 1),
                       icon: const Icon(Icons.add),
                     ),
                   ),
@@ -656,9 +688,8 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
         child: ValueListenableBuilder<TextEditingValue>(
           valueListenable: _nameCtrl,
           builder: (context, value, _) {
-            final canSave = value.text.trim().isNotEmpty &&
-                _drafts.isNotEmpty &&
-                !_busy;
+            final canSave =
+                value.text.trim().isNotEmpty && _drafts.isNotEmpty && !_busy;
             return ElevatedButton(
               onPressed: canSave ? _save : null,
               child: _busy
@@ -688,119 +719,116 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
     return RepaintBoundary(
       key: key,
       child: Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: kSurfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: kSurfaceContainerHighest),
-      ),
-      child: Column(
-        children: [
-          // Thumbnail at the top of the tile
-          Container(
-            width: double.infinity,
-            height: 80,
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: kSurfaceContainerHighest)),
-            ),
-            child: Center(
-              child: draft.exercise != null
-                  ? Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        GestureDetector(
-                          onTap: () => Navigator.push(
-                            context,
-                            MaterialPageRoute<void>(
-                              builder: (_) => ExerciseInfoView(
-                                exercise: draft.exercise!,
-                                database: localDb,
-                                workoutRepository: workoutRepository,
-                              ),
-                            ),
-                          ),
-                          child: ExerciseThumb(
-                            exercise: draft.exercise!,
-                            size: 44,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        ExerciseChips(exercise: draft.exercise!),
-                      ],
-                    )
-                  : const ThumbFallback(),
-            ),
-          ),
-          Row(
-            children: [
-              ReorderableDragStartListener(
-                index: index,
-                child: const Icon(
-                  Icons.drag_handle,
-                  size: 20,
-                  color: kOnSurfaceVariant,
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(
+          color: kSurfaceContainer,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: kSurfaceContainerHighest),
+        ),
+        child: Column(
+          children: [
+            // Thumbnail at the top of the tile
+            Container(
+              width: double.infinity,
+              height: 80,
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: kSurfaceContainerHighest),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  draft.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyLarge?.copyWith(
+              child: Center(
+                child: draft.exercise != null
+                    ? Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () => _openExercise(draft),
+                            child: ExerciseThumb(
+                              exercise: draft.exercise!,
+                              size: 44,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          ExerciseChips(exercise: draft.exercise!),
+                        ],
+                      )
+                    : const ThumbFallback(),
+              ),
+            ),
+            Row(
+              children: [
+                ReorderableDragStartListener(
+                  index: index,
+                  child: const Icon(
+                    Icons.drag_handle,
+                    size: 20,
+                    color: kOnSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    draft.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: kOnSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _removeDraft(draft),
+                  tooltip: 'Quitar ejercicio',
+                  icon: const Icon(
+                    Icons.close,
+                    size: 20,
+                    color: kOnSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            _setHeader(theme),
+            for (var i = 0; i < draft.sets.length; i++)
+              _setRow(draft, draft.sets[i], i),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: Key('draft-add-set-${draft.key}'),
+                onPressed: () => _addSet(draft),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Añadir serie'),
+              ),
+            ),
+            Material(
+              color: Colors.transparent,
+              child: SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                title: Text(
+                  'Progresión automática',
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: kOnSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-              IconButton(
-                onPressed: () => _removeDraft(draft),
-                tooltip: 'Quitar ejercicio',
-                icon: const Icon(Icons.close, size: 20, color: kOnSurfaceVariant),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          _setHeader(theme),
-          for (var i = 0; i < draft.sets.length; i++)
-            _setRow(draft, draft.sets[i], i),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              key: Key('draft-add-set-${draft.key}'),
-              onPressed: () => _addSet(draft),
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Añadir serie'),
-            ),
-          ),
-          Material(
-            color: Colors.transparent,
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text(
-                'Progresión automática',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: kOnSurface,
-                  fontWeight: FontWeight.w600,
+                subtitle: Text(
+                  'Sugerir +${formatDisplay(displayWeightKg(kDefaultProgressionIncrementKg, _unitSystem))} '
+                  '${weightUnitOf(_unitSystem)} si cumples el objetivo',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: kOnSurfaceVariant,
+                  ),
                 ),
+                value: draft.autoProgress,
+                onChanged: (value) =>
+                    setState(() => draft.autoProgress = value),
               ),
-              subtitle: Text(
-                'Sugerir +${formatDisplay(displayWeightKg(kDefaultProgressionIncrementKg, _unitSystem))} '
-                '${weightUnitOf(_unitSystem)} si cumples el objetivo',
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: kOnSurfaceVariant,
-                ),
-              ),
-              value: draft.autoProgress,
-              onChanged: (value) =>
-                  setState(() => draft.autoProgress = value),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _setHeader(ThemeData theme) {
@@ -828,7 +856,9 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
             child: Text('REPS', textAlign: TextAlign.center, style: style),
           ),
           const SizedBox(width: 4),
-          Expanded(child: Text('RIR', textAlign: TextAlign.center, style: style)),
+          Expanded(
+            child: Text('RIR', textAlign: TextAlign.center, style: style),
+          ),
           const SizedBox(width: 4),
           Expanded(
             child: Text('DESC', textAlign: TextAlign.center, style: style),
@@ -914,8 +944,9 @@ class _RoutineEditorViewState extends State<RoutineEditorView> {
             width: 28,
             child: IconButton(
               key: Key('draft-remove-set-${set.key}'),
-              onPressed:
-                  draft.sets.length <= 1 ? null : () => _removeSet(draft, set),
+              onPressed: draft.sets.length <= 1
+                  ? null
+                  : () => _removeSet(draft, set),
               tooltip: 'Quitar serie',
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
@@ -1006,9 +1037,8 @@ class _MetaChip extends StatelessWidget {
           ),
           child: Text(
             label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: selected ? kOnSurface : kOnSurfaceVariant,
-                ),
+            style: Theme.of(context).textTheme.labelSmall
+                ?.copyWith(color: selected ? kOnSurface : kOnSurfaceVariant),
           ),
         ),
       ),

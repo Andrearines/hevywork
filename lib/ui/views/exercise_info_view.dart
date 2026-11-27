@@ -6,28 +6,33 @@ import 'package:flutter/material.dart';
 
 import '../../data/local/database.dart';
 import '../../data/repositories/catalog_repository.dart';
+import '../../data/repositories/custom_exercise_repository.dart';
 import '../../data/repositories/workout_repository.dart';
 import '../../domain/exercise_stats.dart';
 import '../../domain/media.dart';
 import '../../domain/units.dart';
 import '../../domain/weight_progress.dart';
+import '../../main.dart' show customExerciseRepository;
 import '../../app/theme/palette.dart' as palette;
 import '../unit_system_scope.dart';
 import '../widgets/chart_enums.dart';
 import '../widgets/exercise_thumb.dart';
 import '../widgets/muscle_map.dart';
 import '../widgets/exercise_progress_chart.dart' as chart_widget;
+import 'custom_exercise_editor_view.dart';
 
 class ExerciseInfoView extends StatefulWidget {
   final Exercise exercise;
   final AppDatabase? database;
   final WorkoutRepository? workoutRepository;
+  final CustomExerciseRepository? customExerciseRepository;
 
   const ExerciseInfoView({
     super.key,
     required this.exercise,
     this.database,
     this.workoutRepository,
+    this.customExerciseRepository,
   });
 
   @override
@@ -35,6 +40,7 @@ class ExerciseInfoView extends StatefulWidget {
 }
 
 class _ExerciseInfoViewState extends State<ExerciseInfoView> {
+  late Exercise _exercise;
   Map<String, List<String>> _steps = const {};
   String _language = 'es';
   late int _restSeconds;
@@ -58,6 +64,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   @override
   void initState() {
     super.initState();
+    _exercise = widget.exercise;
     _restSeconds = widget.database == null ? widget.exercise.restSeconds : 90;
     _catalogRepository = widget.database == null
         ? null
@@ -129,7 +136,7 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
 
   @override
   Widget build(BuildContext context) {
-    final exercise = widget.exercise;
+    final exercise = _exercise;
     final kpis = _historyLoaded
         ? exerciseKpis(_analyticsHistory)
         : ExerciseKpis.empty;
@@ -185,12 +192,21 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
                           onPressed: () {},
                           color: palette.kOnSurfaceVariant,
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.more_vert, size: 22),
-                          tooltip: 'Más opciones',
-                          onPressed: () {},
-                          color: palette.kOnSurfaceVariant,
-                        ),
+                        if (exercise.origin == 'custom')
+                          IconButton(
+                            key: const Key('custom-edit'),
+                            icon: const Icon(Icons.edit_outlined, size: 22),
+                            tooltip: 'Editar ejercicio',
+                            onPressed: _editCustom,
+                            color: palette.kOnSurfaceVariant,
+                          )
+                        else
+                          IconButton(
+                            icon: const Icon(Icons.more_vert, size: 22),
+                            tooltip: 'Más opciones',
+                            onPressed: () {},
+                            color: palette.kOnSurfaceVariant,
+                          ),
                       ],
                     ),
                   ),
@@ -302,11 +318,37 @@ class _ExerciseInfoViewState extends State<ExerciseInfoView> {
   Widget _localMedia(Exercise exercise) {
     final imagePath = exercise.imagePath;
     if (imagePath == null) return const ThumbFallback(radius: 16);
+    if (exercise.origin == 'custom') {
+      return Image.file(
+        File(imagePath),
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => const ThumbFallback(radius: 16),
+      );
+    }
     return Image.asset(
       thumbAsset(imagePath),
       fit: BoxFit.contain,
       errorBuilder: (_, _, _) => const ThumbFallback(radius: 16),
     );
+  }
+
+  Future<void> _editCustom() async {
+    final updated = await Navigator.push<Exercise>(
+      context,
+      MaterialPageRoute(
+        settings: RouteSettings(name: '/catalog/custom/${_exercise.id}/edit'),
+        builder: (_) => CustomExerciseEditorView(
+          repository:
+              widget.customExerciseRepository ?? customExerciseRepository,
+          exercise: _exercise,
+        ),
+      ),
+    );
+    if (updated == null || !mounted) return;
+    setState(() {
+      _exercise = updated;
+      _restSeconds = updated.restSeconds;
+    });
   }
 
   Widget _buildIdentityBadgesWithTitle(Exercise exercise) {

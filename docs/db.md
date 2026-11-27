@@ -3,16 +3,19 @@
 ## Estado general
 
 - **Local vigente:** drift SQLite en `lib/data/local/database.dart`,
-  `schemaVersion = 19`, implementado en T-003 y pendiente de revisión. Antes de 022
-  era v18; las versiones aprobadas v20 (T-004) y v21 (T-006) siguen sin aplicar.
+  `schemaVersion = 20`. La v19 está implementada y aprobada por revisión en T-003;
+  la v20 está implementada en T-004 y pendiente de revisión independiente. Antes de
+  022 era v18; la versión aprobada v21 (T-006) sigue sin aplicar.
 - **Remoto:** Supabase Postgres/Storage; cambios solo mediante migraciones en
   `supabase/migrations/`, una por tarea cuando aplique.
 - **Réplica/cola:** SQLite es réplica de trabajo offline; Supabase es fuente de
   verdad compartida. Toda escritura local es inmediata y toda tabla remota de
   usuario tiene `user_id` + RLS.
 - **Unidades:** pesos en kg en base; conversión a lb solo al mostrar.
-- **Ejecución:** T-003 aplicó únicamente 18→19 y generó el código drift; no hay
-  migración Supabase, v20/v21 ni propagación remota de las nuevas columnas todavía.
+- **Ejecución:** T-003 aplicó 18→19 y T-004 aplicó 19→20, ambas con su código drift
+  generado. No hay migración Supabase, v21 ni propagación remota de las columnas
+  nuevas; la réplica de personalizados, preferencias, timers e imágenes corresponde
+  a T-006.
 
 ## Relación con specs previas
 
@@ -111,7 +114,7 @@ personalizados. Se añaden:
 | Columna | Tipo | Uso |
 |---|---|---|
 | `origin` | texto, default `catalog` | `catalog` o `custom`. |
-| `local_user_id` | texto UUID nullable | `NULL` para catálogo compartido; obligatorio por validación para `custom`. |
+| `local_user_id` | texto UUID nullable | `NULL` para catálogo compartido; obligatorio por check SQL para `custom`. |
 | `image_storage_path` | texto nullable | Última/ruta prevista de Storage; nunca se confunde con `image_path` local. |
 | `image_mime_type` | texto nullable | `image/jpeg`, `image/png` o `image/webp`. |
 | `image_upload_status` | texto nullable | Custom: `none`, `pending_upload`, `uploaded`, `pending_delete`; catálogo: `NULL`. |
@@ -134,6 +137,14 @@ instrucciones custom en esta spec.
 
 La búsqueda/paginación opera sobre la misma proyección con páginas de 50. El asset
 nunca se reescribe al crear/editar un custom.
+
+**Estado de implementación T-004 (2026-11-26):** la migración 19→20, sus checks e
+idempotencia y el generado v20 están implementados. Las pruebas de migración pasan
+23/23 y la puerta completa no golden pasa 806/806 con `flutter analyze` sin
+incidencias. La visibilidad limita customs al propietario; el descanso custom vive en
+`exercises.rest_seconds` y las rutas locales no se añaden a payloads. Esta ejecución
+está **pendiente de revisión independiente**, no aprobada, y no activa sincronización
+ni Storage.
 
 ## 4. Personalizados remotos — T-006
 

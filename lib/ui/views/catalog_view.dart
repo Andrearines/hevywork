@@ -9,6 +9,7 @@ import '../../main.dart';
 import '../theme/colors.dart';
 import '../widgets/exercise_filter_bar.dart';
 import '../widgets/exercise_thumb.dart';
+import 'custom_exercise_editor_view.dart';
 import 'exercise_info_view.dart';
 import 'live_workout_view.dart';
 
@@ -26,6 +27,7 @@ class _CatalogViewState extends State<CatalogView> {
   final ScrollController _scrollCtrl = ScrollController();
   Timer? _searchDebounce;
   late final Stream<Workout?> _activeWorkout;
+  StreamSubscription<List<Exercise>>? _catalogSubscription;
 
   ExerciseFilter _filter = const ExerciseFilter();
   FilterOptions? _options;
@@ -55,10 +57,18 @@ class _CatalogViewState extends State<CatalogView> {
     if (ready != null) await ready;
     if (!mounted) return;
     await Future.wait([_reload(), _loadOptions()]);
+    _catalogSubscription = catalogRepository.watchVisibleExercises().listen((
+      _,
+    ) {
+      if (!mounted) return;
+      unawaited(_reload());
+      unawaited(_loadOptions());
+    });
   }
 
   @override
   void dispose() {
+    _catalogSubscription?.cancel();
     _searchDebounce?.cancel();
     _scrollCtrl.dispose();
     _searchCtrl.dispose();
@@ -137,14 +147,23 @@ class _CatalogViewState extends State<CatalogView> {
     _searchDebounce = Timer(const Duration(milliseconds: 250), _reload);
   }
 
+  Future<void> _createCustom() async {
+    await Navigator.push<Exercise>(
+      context,
+      MaterialPageRoute(
+        settings: const RouteSettings(name: '/catalog/custom/new'),
+        builder: (_) =>
+            CustomExerciseEditorView(repository: customExerciseRepository),
+      ),
+    );
+  }
+
   Future<void> _startOrResume(Workout? active) async {
     final workout = active ?? await workoutRepository.startWorkout();
     if (!mounted) return;
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => LiveWorkoutView(workoutId: workout.id),
-      ),
+      MaterialPageRoute(builder: (_) => LiveWorkoutView(workoutId: workout.id)),
     );
   }
 
@@ -161,10 +180,9 @@ class _CatalogViewState extends State<CatalogView> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed:
-                      snapshot.connectionState == ConnectionState.waiting
-                          ? null
-                          : () => _startOrResume(active),
+                  onPressed: snapshot.connectionState == ConnectionState.waiting
+                      ? null
+                      : () => _startOrResume(active),
                   child: Text(
                     active == null
                         ? 'Iniciar Entreno Libre'
@@ -174,6 +192,19 @@ class _CatalogViewState extends State<CatalogView> {
               ),
             );
           },
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              key: const Key('catalog-create-custom'),
+              onPressed: _createCustom,
+              icon: const Icon(Icons.add),
+              label: const Text('Crear ejercicio'),
+            ),
+          ),
         ),
         Padding(
           padding: const EdgeInsets.all(16.0),
@@ -291,7 +322,8 @@ class _CatalogViewState extends State<CatalogView> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '${ex.target} · ${ex.equipment}',
+                        '${ex.target} · ${ex.equipment}'
+                        '${ex.origin == 'custom' ? ' · Personalizado' : ''}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -302,11 +334,7 @@ class _CatalogViewState extends State<CatalogView> {
                     ],
                   ),
                 ),
-                const Icon(
-                  Icons.chevron_right,
-                  color: kOutline,
-                  size: 20,
-                ),
+                const Icon(Icons.chevron_right, color: kOutline, size: 20),
               ],
             ),
           ),

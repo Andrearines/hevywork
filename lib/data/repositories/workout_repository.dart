@@ -156,7 +156,10 @@ class WorkoutRepository {
                   ),
             ),
           ])
-          ..where(_db.workoutExercises.workoutId.equals(workoutId))
+          ..where(
+            _db.workoutExercises.workoutId.equals(workoutId) &
+                _visibleExercise(profile.localUserId),
+          )
           ..orderBy([OrderingTerm.asc(_db.workoutExercises.orderIndex)]);
 
     yield* query.watch().map(
@@ -167,11 +170,12 @@ class WorkoutRepository {
             exercise: row
                 .readTable(_db.exercises)
                 .copyWith(
-                  restSeconds:
-                      row
-                          .readTableOrNull(_db.exercisePreferences)
-                          ?.restSeconds ??
-                      90,
+                  restSeconds: row.readTable(_db.exercises).origin == 'custom'
+                      ? row.readTable(_db.exercises).restSeconds
+                      : row
+                                .readTableOrNull(_db.exercisePreferences)
+                                ?.restSeconds ??
+                            90,
                 ),
           ),
       ],
@@ -997,6 +1001,22 @@ class WorkoutRepository {
     return profile.localUserId;
   }
 
+  Expression<bool> _visibleExercise(String localUserId) {
+    return _db.exercises.origin.equals('catalog') |
+        _db.exercises.localUserId.equals(localUserId);
+  }
+
+  Future<int> _defaultRestSeconds(String localUserId, String exerciseId) async {
+    final exercise =
+        await (_db.select(_db.exercises)..where(
+              (t) => t.id.equals(exerciseId) & _visibleExercise(localUserId),
+            ))
+            .getSingle();
+    if (exercise.origin == 'custom') return exercise.restSeconds;
+    final preference = await _restPreference(localUserId, exerciseId);
+    return preference?.restSeconds ?? 90;
+  }
+
   Future<RestTimer> startRestTimer({
     required String workoutExerciseId,
     int? plannedRestSeconds,
@@ -1008,8 +1028,7 @@ class WorkoutRepository {
       var seconds = plannedRestSeconds;
       if (seconds == null) {
         final localUserId = await _localUserId();
-        final preference = await _restPreference(localUserId, item.exerciseId);
-        seconds = preference?.restSeconds ?? 90;
+        seconds = await _defaultRestSeconds(localUserId, item.exerciseId);
       }
       seconds = seconds.clamp(15, 300);
       timer = const RestTimer().start(now, Duration(seconds: seconds));
@@ -1095,8 +1114,19 @@ class WorkoutRepository {
     await _db.transaction(() async {
       final item = await _exerciseItem(workoutExerciseId);
       final localUserId = await _localUserId();
-      final preference = await _restPreference(localUserId, item.exerciseId);
-      final oldDefault = preference?.restSeconds ?? 90;
+      final exercise =
+          await (_db.select(_db.exercises)..where(
+                (t) =>
+                    t.id.equals(item.exerciseId) &
+                    _visibleExercise(localUserId),
+              ))
+              .getSingle();
+      final preference = exercise.origin == 'custom'
+          ? null
+          : await _restPreference(localUserId, item.exerciseId);
+      final oldDefault = exercise.origin == 'custom'
+          ? exercise.restSeconds
+          : preference?.restSeconds ?? 90;
       adjustment = _restOfExercise(item).adjustWithDefault(
         oldDefaultSeconds: oldDefault,
         requestedDeltaSeconds: requestedDeltaSeconds,
@@ -1106,7 +1136,20 @@ class WorkoutRepository {
       if (phase != RestTimerPhase.running && phase != RestTimerPhase.paused) {
         return;
       }
-      if (preference == null) {
+      if (exercise.origin == 'custom') {
+        await (_db.update(_db.exercises)..where(
+              (t) =>
+                  t.id.equals(exercise.id) &
+                  t.origin.equals('custom') &
+                  t.localUserId.equals(localUserId),
+            ))
+            .write(
+              ExercisesCompanion(
+                restSeconds: Value(adjustment.defaultSeconds),
+                updatedAt: Value(now),
+              ),
+            );
+      } else if (preference == null) {
         await _db
             .into(_db.exercisePreferences)
             .insert(
