@@ -1,13 +1,14 @@
 # Memory Log — Spec 022
 
-## Estado actual — 022/T-004 implementada, pendiente de revisión (2026-11-26)
+## Estado actual — 022/T-004 implementada, pendiente de revisión final (2026-11-27)
 
 - **Slug:** `022-grafico-descansos-y-ejercicios-personalizados`.
-- **Estado de diseño: APROBADO (D-117); Q-006 y Q-007 cerradas.**
-  `tarea_actual: T-004`, **IMPLEMENTADA — PENDIENTE DE REVISIÓN INDEPENDIENTE**.
-  **Agente activo:** implementador; **última tarea completada:** T-004;
-  **última implementación completada y aprobada:** T-003. T-005 y T-006 no se han
-  iniciado y T-005 sigue bloqueada hasta la aprobación de T-004.
+- **Estado de diseño: APROBADO (D-117); Q-006, Q-007 y Q-008 cerradas por D-117,
+  D-119 y D-135, respectivamente.** `tarea_actual: T-004`, **IMPLEMENTADA —
+  PENDIENTE DE REVISIÓN FINAL INDEPENDIENTE**. **Agente activo:** revisor final
+  independiente; el cierre documental del implementador posterior a D-135 está
+  completado. **Última implementación completada y aprobada:** T-003. T-005 y T-006
+  no se han iniciado y T-005 sigue bloqueada hasta la aprobación expresa de T-004.
   **T-001 APROBADA**, sin hallazgos bloqueantes/mayores/menores; sus límites de
   evidencia y Supabase real/RLS/Storage/segunda réplica diferidos se conservan.
   **T-002 APROBADA**, sin bloqueantes ni mayores; su observación menor de chart
@@ -16,9 +17,15 @@
   backfill/checks, opción C transaccional, timers/avisos independientes, fallback,
   responsive y ausencia de sync anticipado. Sus límites fueron solo lectura,
   resultados 758/758/analyze declarados por el implementador y diff Git completo no
-  reconstruible; en esa revisión HEAD seguía en `d227ebc…`. T-004 implementa v20,
-  personalizados locales con imagen e integración reactiva; CA-13…CA-16 y la puerta
-  están verdes, pero esto no equivale a aprobación.
+  reconstruible; en esa revisión HEAD seguía en `d227ebc…`.
+- **T-004:** implementa v20, personalizados locales con imagen e integración
+  reactiva. Las iteraciones correctoras 1 y 2 conservan CA-13…CA-16 y corrigen todos
+  los defectos técnicos revisados. El último revisor confirmó que no quedan hallazgos
+  técnicos nuevos bloqueantes, mayores ni menores; su único rechazo restante era
+  Q-008. D-135 cierra esa cuestión de proceso, **no aprueba T-004 ni sustituye la
+  revisión final**. La puerta declarada es **862/862 no golden** y `flutter analyze`
+  con **0 incidencias**, con evidencias en `/tmp/opencode/hevywork-t004-iter2/`;
+  este planner no la reejecutó.
 - **Estado Git al inicio de esta planificación de T-004:** HEAD es
   `1e22b4af5967fb585c004ea5aa2eee15766d580d` (`T4`), la rama está una posición por
   delante de `origin/2.2.0` (`d227ebc…`) y la worktree estaba limpia. Este HEAD
@@ -27,11 +34,27 @@
   `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`; no valida automáticamente
   `d227ebc…`/`1e22b4a…` ni autoriza commits/push futuros. Este planner solo edita
   documentación y no ejecuta operaciones Git de escritura.
-- **Estado Git al cierre de implementación de T-004:** HEAD permanece en
-  `1e22b4af5967fb585c004ea5aa2eee15766d580d`; toda la implementación y el cierre
-  documental están sin commitear. No se ejecutaron commit, push, reset, rebase,
-  revert, clean ni reescritura. `pubspec.lock` y los 91 PNG del manifiesto conservan
-  sus hashes iniciales.
+- **Estado Git declarado al cierre anterior de T-004 (histórico superado):** se
+  registró que HEAD permanecía en `1e22b4af5967fb585c004ea5aa2eee15766d580d`; toda
+  la implementación y el cierre documental estaban sin commitear. Se declaró que no
+  se ejecutaron commit, push, reset, rebase, revert, clean ni reescritura y que
+  `pubspec.lock` y los 91 PNG del manifiesto conservaban sus hashes iniciales.
+- **Estado Git observado en la iteración correctora 1 (2026-11-27):** al inicio HEAD
+  y `origin/2.2.0` ya eran `9c2ec8a2c6f019177996658009d85a7260e098eb`, con worktree
+  limpia; el reflog previo registra commit `T4` y `update by push`. No se atribuye
+  autoría ni se reescribe. Este implementador no ejecutó commit, push, reset, rebase,
+  revert ni clean; los cambios correctores y documentales permanecen sin commitear.
+  `pubspec.lock` y los 105 PNG del manifiesto de esta iteración conservan sus hashes.
+  En ese momento, la discrepancia de proceso quedaba abierta en Q-008; su cierre
+  posterior consta en D-135.
+- **Estado Git vigente informado al cerrar Q-008 (2026-11-27):** HEAD y
+  `origin/2.2.0` se conservan en `9c2ec8a2c6f019177996658009d85a7260e098eb` (`T4`).
+  D-135 autoriza exclusivamente conservar como válidos ese commit y su push ya
+  existentes; D-119 no los cubría. No se atribuye autoría ni se autoriza otro
+  commit/push, reset, revert, rebase, clean o cualquier reescritura. Esta actualización
+  no ejecutó operaciones Git ni cambió HEAD/origin. Los 105 PNG y `pubspec.lock`
+  conservan los hashes declarados por la iteración correctora 2; las correcciones y la
+  documentación posterior no quedan autorizadas a convertirse en otro commit.
 - El usuario respondió «aprovado» a la pregunta que pedía «Apruebo el diseño 022
   completo» o indicar cambios: se registra como aprobación explícita del DESIGN
   completo, sin cambios, el 2026-11-23. La afirmación anterior de aprobación el
@@ -112,6 +135,49 @@
   para cargar sets del `exercise_id` usado para hidratar catálogo. Al volver de ficha,
   editor y detalle recargan el ejercicio por ID sin reconstruir borradores ni tocar
   sets/cargas; las referencias históricas conservan el mismo `custom_<uuid>`.
+- **D-129 (T-004, iteración correctora 1):** v20 incorpora `image_has_remote`,
+  booleano local nullable, para distinguir de forma durable una primera subida
+  pendiente de un reemplazo con objeto remoto conocido. Reemplazar una imagen subida
+  conserva el bit y la clave; retirar ese reemplazo produce `pending_delete`, mientras
+  retirar una primera imagen nunca subida produce `none` sin clave. `uploaded` o
+  `pending_delete` legacy sin bit se consideran remotos conocidos. No se crea v21, no
+  se serializa el bit y no se activa sync/Storage.
+- **D-130 (T-004, iteración correctora 1):** `canonicalTargetMuscle` y
+  `canonicalSecondaryMuscle` aceptan aliases e identidad canónica. Dominio, fatiga,
+  roles/mapa y enfoque consumen esa canonicalización; `pectoralis_major` es empuje y,
+  sin secundarios, `muscle_group` es el objetivo canónico. Se conservan el vocabulario
+  de `target`, el orden elegido y el rechazo de duplicados/equivalencias.
+- **D-131 (T-004, iteración correctora 1):** la validación de imagen es asíncrona:
+  tamaño/firma, decodificación real del primer frame con `ui.instantiateImageCodec`,
+  dimensiones positivas y liberación de imagen/codec. RIFF WebP declara longitud
+  exacta. No se añade decodificador ni dependencia; picker conserva 1600×1600/calidad
+  85, límite de 2 MiB y mensajes españoles.
+- **D-132 (T-004, iteración correctora 2):** `beforeOpen` repara una v20 intermedia
+  real sin elevar versión. Es no-op si falta la tabla o si el esquema ya es correcto;
+  añade solo `image_has_remote` cuando el CHECK ya es válido y usa `TableMigration`
+  cuando debe sustituir el CHECK antiguo. Durante esa reconstrucción, un custom legacy
+  con status NULL pasa a `none` para conservar la fila y cumplir el invariante; datos,
+  catálogo, referencias y cola se preservan. Una reapertura correcta no reescribe DDL
+  ni `rootpage`.
+- **D-133 (T-004, iteración correctora 2):** todo objetivo válido sin secundarios debe
+  producir un `muscle_group` no vacío. Para `cardiovascular system`, que no tiene zona
+  muscular canónica, se conserva ese mismo valor filtrable y fatiga/roles/mapa lo
+  omiten; no se inventa una región. La identidad canónica completa se normaliza al
+  vocabulario de objetivo, incluidos `trapezius→traps`, `rhomboids→upper back` y
+  `obliques→serratus anterior`, con rechazo de desconocidos.
+- **D-134 (T-004, iteración correctora 2):** las pruebas widget que guardan imágenes
+  reales no usan una espera fija para decretar el guardado. Alternan ciclos reales y
+  `pump` hasta observar la inserción en SQLite o la salida del estado de progreso por
+  error; las aserciones de bytes, MIME y estado permanecen intactas. Es una corrección
+  del harness asíncrono, no un cambio de producción, un timeout nuevo ni una relajación.
+- **D-135 (T-004, proceso; cierra Q-008):** el usuario respondió **«si ya pasalo»**
+  a la pregunta explícita de autorizar conservar como válidos el commit ya existente
+  `9c2ec8a2c6f019177996658009d85a7260e098eb` (`T4`) y su push ya realizado a
+  `origin/2.2.0`, manteniendo prohibidos commits/push nuevos sin permiso. La excepción
+  se limita exclusivamente a ese hash y ese push existente. D-119 solo cubría
+  `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` y no regularizaba esta transición.
+  D-135 no atribuye autoría ni habilita otro commit/push, reset, revert, rebase,
+  clean o reescritura; tampoco aprueba T-004 ni inicia T-005/T-006.
 
 ### Evidencia estática y contratos de planificación
 
@@ -144,6 +210,14 @@
   únicamente `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` y documentar la excepción.
   No se revierte ni oculta el estado; siguen prohibidos commits/push nuevos sin
   permiso y cualquier reescritura. La revisión final posterior aprobó T-001.
+- **Q-008 (proceso): CERRADA por D-135 el 2026-11-27.** Al comenzar la iteración
+  correctora 1, HEAD y `origin/2.2.0` ya estaban en
+  `9c2ec8a2c6f019177996658009d85a7260e098eb` y el reflog registraba commit/push no
+  atribuidos, pese a la prohibición y al HEAD antes declarado. D-119 no cubría esa
+  transición. La respuesta explícita «si ya pasalo» autoriza ahora conservar como
+  válidos únicamente ese commit (`T4`) y su push ya existente. No se atribuye autoría,
+  no se repite ninguna operación Git y siguen prohibidos otros commits/push sin
+  permiso y toda reescritura. El cierre de Q-008 no equivale a aprobar T-004.
 - No hay Q adicional para síntomas de sync en esta fase. Si T-001 no reproduce un
   rojo ni obtiene evidencia remota, devolverá el bloqueo concreto sin declarar el
   arreglo.
@@ -1517,3 +1591,223 @@ cero. Todo ello quedó cumplido y verificado; ya no está pendiente.)*
   IMPLEMENTADA — PENDIENTE DE REVISIÓN INDEPENDIENTE**, no aprobada. No hay bloqueos
   ni preguntas abiertas para el coordinador; el siguiente paso es revisar T-004, no
   iniciar otra tarea.
+
+## Bitácora — 022/T-004, iteración correctora 1 (2026-11-27)
+
+### Corrección de los seis hallazgos
+
+- Se conservaron T-001…T-003, el trabajo válido de T-004 y D-124…D-128. No se
+  iniciaron T-005/T-006 ni se amplió alcance a borrado custom, SCR-09, sync, Storage,
+  payload/whitelist, Supabase, dependencias o goldens.
+- `custom_exercise_image.dart` dejó de aceptar una imagen solo por cabecera. La
+  validación async decodifica un frame real con las APIs Flutter/Dart existentes,
+  comprueba dimensiones y libera recursos; WebP RIFF exige longitud exacta. Los
+  fixtures JPEG/PNG/WebP mínimos viven en base64 en `test/custom_image_fixtures.dart`.
+  Editor y repositorio comparten el mismo boundary antes de reemplazar archivo/fila.
+- `custom_exercise.dart` y `muscle_fatigue.dart` canonicalizan aliases e identidades
+  canónicas de forma idempotente. Fatiga, roles/mapa y `focusOfExercise` reconocen los
+  valores persistidos; `pectoralis_major` se clasifica como empuje. Se corrigió además
+  la derivación contractual sin secundarios: `muscle_group` usa el objetivo canónico,
+  no su alias de filtro.
+- `image_has_remote` se añadió como metadata local de la misma migración v20, según
+  D-129. Una retirada después de reemplazar una imagen ya subida conserva
+  `image_storage_path` y `pending_delete`; una primera imagen pendiente nunca subida
+  vuelve a `none`. El CHECK de `exercises` rechaza status NULL en custom tanto por SQL
+  crudo como por drift. Solo existe 19→20 y el generado v20 fue reconstruido, sin v21.
+- Los errores de equivalencia/duplicados se enrutan a Objetivo/Secundarios junto a sus
+  campos y el editor muestra «Se sincronizará cuando haya conexión». Se conservan
+  borrador, selección e imagen anterior en validación o escritura fallida. Cámara
+  válida, cancelación, permiso/cámara/IOException y guardado real se ejercitan con
+  seams inyectados; no se afirma prueba en dispositivo físico.
+- Las consultas activas de catálogo/selector con mutación externa ya pasaban 2/2 como
+  caracterización previa, por lo que no recibieron un fix innecesario. Se añadieron
+  reapertura real de SQLite con bytes en documentos, segunda inicialización del asset
+  con custom previo, estados replace/retirada y SQL status NULL para cerrar la matriz.
+
+### Evidencias rojo→verde y puerta
+
+- Rojos confirmados antes de cada fix: dominio/músculos 55 verdes/4 fallos
+  (`red-domain-muscles.txt`), derivación canónica sin secundarios 0/2
+  (`red-canonical-muscle-group.txt`), repositorio 13 verdes/5 fallos
+  (`red-repository.txt`), SQL NULL 0/1 (`red-schema-null.txt`) y editor 0 verdes/3
+  fallos en imagen/errores inline (`red-editor-validation.txt`). El aviso ausente
+  quedó capturado en `red-editor.txt`; su harness rojo fue interrumpido y no se
+  presenta como una ejecución limpia.
+- Verdes dirigidos: repositorio 19/19, editor 18/18, migración 24/24 y lote final de
+  ocho suites 133/133 (`directed-after-format.txt`). La prueba aislada de reapertura
+  pasó 1/1 sin avisos de drift tras corregir el harness para no mantener dos bases
+  abiertas. Evidencias y códigos `.exit` bajo `/tmp/opencode/hevywork-t004-iter1/`.
+- `dart run build_runner build --delete-conflicting-outputs`: salida 0, 202 outputs,
+  33 s (`build-runner.txt`). El generado conserva v20 y las invariantes previas.
+- Puerta final `flutter test --exclude-tags golden --reporter expanded`:
+  **826/826 verdes, All tests passed!, salida 0** (`full-gate-test.txt`).
+  `flutter analyze`: **No issues found!, salida 0** (`full-gate-analyze.txt`).
+  No hay tests omitidos ni relajados.
+- `dart format --output=none --set-exit-if-changed` sobre los 17 Dart modificados:
+  **0 cambios**; `git diff --check`: limpio. Para evitar ruido ajeno, la regresión de
+  fatiga se movió a la suite custom ya modificada y `muscle_fatigue_test.dart` quedó
+  idéntico a HEAD; no se perdió ninguna aserción.
+- Los 105 PNG de `png-before.sha256` y `png-after.sha256` conservan cantidad/hashes;
+  no hay PNG en el diff. `pubspec.lock` mantiene
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`.
+
+### Archivos, Git y cierre
+
+- Producción corregida: tabla/base/generado drift v20, repositorio custom, dominio de
+  custom/imagen/fatiga/enfoque y editor custom. Pruebas: fixtures de imagen, dominio,
+  repositorio, editor, integración de catálogo, migración, enfoque y contrato T-004.
+  Documentación: `docs/db.md`, `tasks.md` y esta memoria.
+- HEAD y `origin/2.2.0` permanecen en
+  `9c2ec8a2c6f019177996658009d85a7260e098eb`; no hubo mutaciones Git en esta
+  iteración. La transición previa registrada en reflog y su contradicción con la
+  regla/HEAD anterior se reportan como Q-008, sin atribuir autoría ni reescribirla.
+- **Resultado:** los seis hallazgos están corregidos con regresiones verdes y la
+  puerta completa es 826/826. **T-004 sigue RECHAZADA hasta una nueva revisión
+  independiente**; esta implementación no se autoaprueba. T-005/T-006 permanecen
+  bloqueadas y el siguiente paso técnico es revisar esta iteración.
+
+## Bitácora — 022/T-004, iteración correctora 2 (2026-11-27)
+
+### Reparación de los tres hallazgos
+
+- Se conservaron las correcciones anteriores y D-124…D-131. No se modificaron sync,
+  Storage, payloads/whitelist, Supabase, dependencias, borrado custom, SCR-09 ni
+  goldens; T-005/T-006 no se iniciaron.
+- `database.dart` incorpora en `beforeOpen` la reparación idempotente D-132 para bases
+  que ya tienen `user_version=20` pero conservan el primer esquema v20. No depende de
+  que `onUpgrade` se ejecute. Detecta ausencia de tabla, columna y CHECK; solo escribe
+  cuando hace falta, conserva filas/cola y normaliza a `none` los NULL customs legacy
+  durante la reconstrucción necesaria. `schemaVersion` sigue en 20 y no existe v21.
+- La nueva prueba de migración crea el DDL intermedio real mediante un ejecutor crudo,
+  mantiene el pragma en 20 y verifica antes la ausencia de bit/CHECK corregido. Después
+  abre con `AppDatabase`, comprueba tres ejercicios conservados (catálogo y dos
+  customs), metadata, fechas/descanso, cola, status legacy reparado, rechazo SQL de
+  NULL, claves foráneas y versión. Cierra y reabre comparando SQL/`rootpage` para
+  demostrar que la base ya correcta no se reconstruye.
+- `custom_exercise.dart` elimina el null check para todo objetivo válido sin
+  secundarios. Cardio conserva un grupo filtrable sin adquirir zona de fatiga. El
+  vocabulario acepta los 15 valores canónicos reconocidos por `kTargetMuscleAliases`,
+  incluidos los tres antes rechazados, y los convierte idempotentemente al vocabulario
+  de `customExerciseTargets`; valores arbitrarios siguen rechazados.
+- Los barridos no se limitan a los ejemplos: 15 regresiones individuales recorren todos
+  los canónicos y 20 recorren todos los objetivos válidos con fatiga cruda, roles y
+  niveles. Repositorio guarda realmente cada uno de los 20 sin secundarios, lee la fila
+  persistida y vuelve a ejercitar fatiga con sus valores almacenados.
+
+### Rojo→verde, incidencias de harness y verificación
+
+- Rojo de dominio: **40 verdes/4 fallos** (`red-domain.txt`): `trapezius`, `rhomboids`,
+  `obliques` y el null check de cardio. Rojo de persistencia exhaustiva: **0/1** por
+  cardio (`red-repository-targets.txt`). Rojo de v20 intermedia real: el status legacy
+  seguía NULL tras abrir (`red-intermediate-v20.txt`), con las precondiciones de
+  pragma/esquema ya verificadas. Verdes finales: dominio **44/44**, repositorio
+  exhaustivo 1/1 y suite completa **20/20**, migración intermedia 1/1 y suite completa
+  **25/25**.
+- La primera suite de migración tras el fix detectó además una apertura legacy sin
+  tabla: 24 verdes/1 fallo `No element`. La reparación quedó como no-op cuando
+  `exercises` aún no existe y la repetición terminó 25/25. No se relajó esa prueba.
+- El lote dirigido inicial sin filtro ejecutó accidentalmente un golden y terminó
+  292 verdes/1 fallo ambiental; no se actualizó ningún PNG. Se repitió con la puerta
+  correcta `--exclude-tags golden`: **291/291**, salida 0 (`directed-no-golden.txt`).
+- Una primera puerta completa encontró 861 verdes/1 fallo en galería porque el helper
+  esperaba 100 ms fijos. La reproducción aislada y la instrumentación demostraron
+  `saving=true`, cero errores y aparición posterior de la fila; el producto no estaba
+  rechazando la imagen. Se retiró toda instrumentación y el helper final espera la
+  inserción consultando SQLite entre ciclos reales, o sale si la UI deja de guardar
+  por error. Editor final **18/18** (`green-editor-condition-wait.txt`), sin skips,
+  timeouts de test nuevos ni cambios de producción.
+- `dart run build_runner build --delete-conflicting-outputs`: salida 0. El SHA-256 de
+  `database.g.dart` es idéntico antes/después (`generated-before.sha256`,
+  `generated-after.sha256`), por lo que el generado v20 permanece coherente.
+- Puerta final desde el código definitivo `flutter test --exclude-tags golden
+  --reporter expanded`: **862/862 verdes, All tests passed!, salida 0**
+  (`full-no-golden.txt`, `full-no-golden.exit`). `flutter analyze`: **No issues found!,
+  salida 0** (`analyze-final.txt`). Una ejecución previa fue cortada por el límite del
+  comando de herramienta y otra dejó el fallo asíncrono ya explicado; ninguna se
+  presenta como puerta válida.
+- `dart format --output=none --set-exit-if-changed` sobre los 17 Dart modificados:
+  **0 cambios**. `git diff --check`: limpio; no hay líneas nuevas con `skip: true`.
+  Los 105 PNG de `png-before.sha256`/`png-after.sha256` conservan cantidad y hashes;
+  `pubspec.lock` mantiene
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`.
+
+### Archivos y cierre
+
+- Producción de esta iteración: `lib/data/local/database.dart` y
+  `lib/domain/custom_exercise.dart`. Pruebas: `test/migration_test.dart`,
+  `test/custom_exercise_draft_test.dart`, `test/custom_exercise_repository_test.dart`
+  y sincronización asíncrona en `test/custom_exercise_editor_view_test.dart`.
+  Documentación: `docs/db.md`, `tasks.md` y esta memoria. El resto del diff corresponde
+  a la iteración anterior conservada.
+- HEAD y `origin/2.2.0` permanecen en
+  `9c2ec8a2c6f019177996658009d85a7260e098eb`; no hubo mutaciones Git. Todas las
+  correcciones/documentación siguen sin commitear. Q-008 permanece abierta y separada,
+  sin autorización para cambiar reglas o historial.
+- **Resultado:** los tres nuevos hallazgos están corregidos con regresiones verdes y
+  la puerta completa es 862/862. **T-004 sigue RECHAZADA hasta una nueva revisión
+  independiente**; esta implementación no se autoaprueba. T-005/T-006 permanecen
+  bloqueadas y el siguiente paso técnico es revisar esta iteración.
+
+## Revisión técnica y cierre de Q-008 — 022/T-004 (2026-11-27)
+
+### Resultado del último revisor
+
+- El revisor confirmó que **todos los defectos técnicos de T-004 están corregidos**,
+  sin nuevos hallazgos bloqueantes, mayores ni menores. Su único rechazo restante era
+  la cuestión de proceso **Q-008**; no solicitó otra iteración correctora funcional.
+- La puerta declarada por el implementador sigue siendo **862/862 pruebas no golden**
+  y `flutter analyze` con **0 incidencias**. Evidencias:
+  `/tmp/opencode/hevywork-t004-iter2/`, incluidos `full-no-golden.txt`,
+  `full-no-golden.exit` y `analyze-final.txt`. Esta planificación no reejecutó ni
+  reabrió esa puerta.
+
+### Autorización explícita D-135
+
+- La respuesta del usuario **«si ya pasalo»** cierra Q-008 y autoriza conservar como
+  válidos exclusivamente el commit `9c2ec8a2c6f019177996658009d85a7260e098eb`
+  (`T4`) y su push ya existente a `origin/2.2.0`. D-119 no cubría este hash ni este
+  push; su excepción sigue limitada al hash histórico de T-001.
+- HEAD y `origin/2.2.0` actuales se conservan en el hash autorizado. No se atribuye
+  autoría ni se ejecutaron operaciones Git. La excepción no habilita ningún otro
+  commit/push sin permiso ni reset, revert, rebase, clean o reescritura.
+
+### Estado exacto para cierre y revisión final
+
+- Devolver **T-004 al implementador únicamente para su cierre posterior a D-135**,
+  conservando el código y las pruebas de la iteración correctora 2. Después debe
+  someterse a **revisión final independiente** para obtener un nuevo veredicto.
+- Hasta ese veredicto, el estado normativo es **T-004 IMPLEMENTADA — PENDIENTE DE
+  REVISIÓN FINAL**, no aprobada. D-135 no cambia CA-13…CA-16 ni los resultados
+  técnicos, y no autoaprueba la tarea.
+- **T-005 y T-006 permanecen sin iniciar y bloqueadas.** El cierre de Q-008 no crea
+  trabajo de producción, migraciones, sincronización ni una nueva tarea.
+- Esta actualización solo modificó documentación de planificación/memoria/spec; no
+  ejecutó producción, suite completa, analyze, build_runner ni operaciones Git.
+
+## Cierre de implementación posterior a D-135 — 022/T-004 (2026-11-27)
+
+- Se revisaron y armonizaron `spec.md`, `plan.md`, `tasks.md`, `docs/db.md`,
+  `docs/specs/README.md` y esta memoria. Las reglas NFR y el estado corriente reconocen
+  ahora tanto D-119 como D-135 sin ampliar sus excepciones; las entradas históricas de
+  rechazo se conservan y el único siguiente paso vigente es la revisión final.
+- **D-135/Q-008:** Q-008 permanece **CERRADA**. La autorización se limita a conservar
+  el commit `9c2ec8a2c6f019177996658009d85a7260e098eb` (`T4`) y su push ya existente a
+  `origin/2.2.0`. No se atribuye autoría ni se autoriza otro commit/push, reset, revert,
+  rebase, clean o reescritura. No se añadió ninguna decisión o pregunta nueva.
+- No se modificó producción ni pruebas. Los manifiestos SHA-256 anterior/posterior de
+  los **209 archivos** de `lib/` y `test/` son idénticos; `pubspec.lock` conserva
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`. Evidencias de
+  integridad: `/tmp/opencode/hevywork-t004-cierre-d135/`.
+- **No se repitió la puerta** porque este cierre solo cambió Markdown después del último
+  cambio Dart validado. Se consultaron, sin reejecutar, las evidencias previas:
+  `flutter test --exclude-tags golden --reporter expanded` → **862/862, All tests
+  passed!, salida 0**, y `flutter analyze` → **0 incidencias**, en
+  `/tmp/opencode/hevywork-t004-iter2/` (`full-no-golden.txt`, `full-no-golden.exit` y
+  `analyze-final.txt`). No se ejecutó build_runner ni se modificaron PNG.
+- La inspección Git fue de solo lectura: HEAD y `origin/2.2.0` siguen en el hash
+  autorizado, sin archivos staged. Este cierre no ejecutó operaciones Git de escritura;
+  correcciones y documentación posterior permanecen sin commitear.
+- **Estado final de este encargo:** T-004 está **IMPLEMENTADA — PENDIENTE DE REVISIÓN
+  FINAL INDEPENDIENTE**, lista para revisión y no aprobada por este implementador.
+  T-005/T-006 no se iniciaron. No quedan bloqueos ni preguntas abiertas introducidos por
+  el cierre documental.

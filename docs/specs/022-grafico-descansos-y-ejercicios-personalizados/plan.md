@@ -1,20 +1,22 @@
 # Plan técnico — Spec 022
 
 **Estado: APROBADO (D-117, 2026-11-23); T-001…T-006 listas según dependencias.**
-**Estado actual:** T-001, T-002 y T-003 **APROBADAS**; **T-004 LISTA para el
-implementador**. Q-007 está cerrada por D-119. La observación menor de legibilidad
-del chart queda diferida, fuera de T-004. La planificación de T-004 no aplicó
-migraciones, regeneración ni producción; la ejecución aprobada de T-003, su única
-v19 generada y las limitaciones de su revisión se conservan en `tasks.md` y
-`memory.md`.
+**Estado actual:** T-001, T-002 y T-003 **APROBADAS**; **T-004 IMPLEMENTADA —
+PENDIENTE DE REVISIÓN FINAL**. Q-007 y Q-008 están cerradas por D-119 y D-135. El
+último revisor no encontró defectos técnicos restantes ni nuevos hallazgos; D-135
+resuelve únicamente la excepción de proceso y no aprueba la tarea. La puerta declarada
+es 862/862 no golden y analyze 0, conservada en `tasks.md` y `memory.md`. T-005 y
+T-006 permanecen bloqueadas y sin iniciar. Esta actualización no ejecutó producción,
+migraciones, regeneración, pruebas ni operaciones Git.
 
 ## 1. Preflight y límites
 
 - Proyecto móvil Flutter con backend Supabase: réplica local drift, cola de subida
   y Storage. No se crean carpetas `app/`, `api/` ni `web/`.
-- `schemaVersion` al planificar: 18; vigente tras T-003: 19; destino tras la
-  secuencia: 21. `image_picker` ya está declarado; no se añaden dependencias ni se
-  modifica `pubspec.lock`.
+- `schemaVersion` al planificar: 18; vigente tras T-003: 19; vigente actual tras la
+  implementación de T-004: **20**, todavía pendiente de revisión final. Destino tras
+  la secuencia: 21, sin aplicar hasta T-006. `image_picker` ya está declarado; no se
+  añaden dependencias ni se modifica `pubspec.lock`.
 - La 021 está cerrada; no se tocan sus criterios ni sus archivos.
 - Al inicio había cambios preexistentes en `docs/DESIGN.md` y `pubspec.lock`. Solo
   se actualizó la sección 022 del primero; el lock se preservó.
@@ -213,15 +215,19 @@ generado. En planificación no se ejecuta.
 | Migraciones incompatibles | Versiones por tarea, tests de upgrade y una sola migración T-006. |
 | Tocar 021, lock, PNG o trabajo ajeno | Diff acotado y revisión inicial/final. |
 
-## 8. Entrega al implementador
+## 8. Entrega a revisión final
 
-Entregar **T-004 al implementador como tarea actual**. T-001, T-002 y T-003 ya
-están aprobadas; después seguir T-005 → T-006. El orden schema/generated →
-dominio/repositorios/archivos → editor/integraciones, las pruebas y los riesgos
-vigentes están en `tasks.md` §T-004. No se reabren CA-09…CA-16, no se incorpora
-trabajo de chart, borrado custom ni SCR-09 y no se adelanta sincronización de T-006.
-Cada tarea exige sus CA, regresiones, puerta completa no golden + analyze y revisión
-independiente, sin commits/push nuevos.
+El **cierre documental del implementador posterior a D-135 está completado**;
+corresponde someter T-004 a **revisión final independiente**. El último revisor ya
+confirmó corregidos todos los defectos técnicos, sin nuevos hallazgos; no se abre otra
+iteración funcional. La puerta declarada es 862/862 no golden y analyze 0, con
+evidencias en `/tmp/opencode/hevywork-t004-iter2/`.
+
+Hasta el nuevo veredicto, T-004 está **IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL**,
+no aprobada. T-005 y T-006 permanecen bloqueadas y sin iniciar. No se reabren
+CA-13…CA-16, no se incorpora trabajo de chart, borrado custom, SCR-09 ni
+sincronización de T-006. Se mantienen prohibidos commits/push nuevos sin permiso y
+cualquier reescritura; D-135 es solo la excepción documental del hash existente.
 
 ## 9. Refinamiento de proceso T-001 — Q-007/D-119
 
@@ -241,3 +247,21 @@ sin permiso en T-001…T-006. La excepción no alteró CA-01…CA-03 ni ningún 
 técnico. La revisión final posterior devolvió **APROBADO** para T-001, sin
 hallazgos bloqueantes/mayores/menores; sus límites no bloqueantes constan en
 `tasks.md` y `memory.md`.
+
+## 10. Cierre de proceso T-004 — Q-008/D-135
+
+El último revisor confirmó que todos los defectos técnicos de T-004 están corregidos,
+sin nuevos hallazgos bloqueantes/mayores/menores. Su único rechazo restante era
+Q-008: HEAD y `origin/2.2.0` ya contenían un commit/push que **D-119 no cubría**.
+
+La respuesta explícita del usuario **«si ya pasalo»** autoriza mediante **D-135**
+conservar como válidos exclusivamente el commit
+`9c2ec8a2c6f019177996658009d85a7260e098eb` (`T4`) y su push ya existente a
+`origin/2.2.0`. Se conservan HEAD/origin actuales, sin atribuir autoría ni ejecutar
+operaciones Git. La excepción no habilita otros commits/push sin permiso ni reset,
+revert, rebase, clean o reescritura, y no autoriza commitear el trabajo posterior.
+
+D-135 cierra Q-008 pero **no aprueba T-004**. El cierre documental del implementador
+posterior a D-135 está completado; el siguiente paso es una nueva revisión final
+independiente. Hasta ese veredicto, T-004 permanece implementada pendiente de revisión
+final; T-005/T-006 no se inician.

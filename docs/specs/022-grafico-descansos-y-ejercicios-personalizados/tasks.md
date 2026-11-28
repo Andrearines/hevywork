@@ -1,17 +1,22 @@
 # Tareas — Spec 022
 
-**Estado global: T-001, T-002 y T-003 APROBADAS; T-004 IMPLEMENTADA —
-PENDIENTE DE REVISIÓN (2026-11-26).** Q-007/D-119 sigue cerrada. T-005 y T-006
-no están implementadas; T-004 debe superar revisión independiente antes de entregar
-T-005. La observación menor de legibilidad del chart queda diferida y no forma parte
-de T-004.
+**Estado global: T-001, T-002 y T-003 APROBADAS; T-004 IMPLEMENTADA — PENDIENTE
+DE REVISIÓN FINAL (2026-11-27).** Q-007/D-119 y Q-008/D-135 están cerradas. El
+último revisor confirmó corregidos todos los defectos técnicos de T-004, sin nuevos
+hallazgos bloqueantes/mayores/menores; Q-008 era su único rechazo restante. El cierre
+documental del implementador posterior a D-135 está completado; T-004 debe superar la
+revisión final independiente antes de entregar T-005. T-005 y T-006 no están
+implementadas ni iniciadas. La observación menor de legibilidad del chart queda
+diferida y no forma parte de T-004.
 
 Orden recomendado: T-001 → T-002 → T-003 → T-004 → T-005 → T-006.
 T-002 es técnicamente independiente de T-001; las demás dependencias son
 obligatorias. Los contratos congelados están en `docs/db.md`. Cada tarea exige sus
 CA, revisión independiente y la puerta completa `flutter test --exclude-tags
 golden` + `flutter analyze`, sin PNG, dependencias ni commits/push nuevos sin
-permiso. La única excepción es conservar el hash ya existente/publicado de D-119.
+permiso. Las únicas excepciones son conservar los commits/push ya existentes
+expresamente delimitados por D-119 y D-135; ninguna habilita nuevas operaciones Git
+ni reescritura.
 
 ## T-001 — Diagnosticar y corregir la sincronización actual con evidencia
 
@@ -566,9 +571,12 @@ terminar el esquema.
 
 ## T-004 — Crear personalizados locales con imagen e integrarlos en catálogo
 
-- **Estado:** **IMPLEMENTADA — PENDIENTE DE REVISIÓN (2026-11-26)**; T-003 está
-  aprobada. CA-13…CA-16 y la puerta completa están implementados; no se declara
-  aprobación unilateral ni se inicia T-005.
+- **Estado:** **IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL (2026-11-27)**; T-003
+  está aprobada. El último revisor confirmó corregidos todos los defectos técnicos,
+  sin nuevos hallazgos bloqueantes/mayores/menores; su único rechazo restante era
+  Q-008, cerrada por D-135. El cierre documental del implementador posterior a D-135
+  está completado; debe obtenerse un nuevo veredicto final independiente, sin declarar
+  aprobación ni iniciar T-005.
 - **Trazabilidad:** US-03, FR-05/FR-06/FR-13/FR-14/FR-17,
   SCR-06/SCR-07/SCR-08; NFR-01…NFR-06.
 - **Dependencias:** T-003 y contratos v19/v20 de `docs/db.md`. No requiere T-001
@@ -895,6 +903,168 @@ historial; y sincronización/Storage adelantados a T-006.
   IMPLEMENTADA — PENDIENTE DE REVISIÓN INDEPENDIENTE**, no aprobada. Decisiones
   D-124…D-128 y bitácora completa en `memory.md`; sin bloqueos ni preguntas abiertas.
 
+### Iteración correctora 1 tras RECHAZADO — 2026-11-27
+
+- **Alcance conservado:** se mantiene el trabajo válido de CA-13…CA-16 y las
+  decisiones D-124…D-128; no se iniciaron T-005/T-006. Las seis observaciones de la
+  revisión se abordaron sin commits, push, reset, rebase, revert ni clean.
+- **Imagen realmente decodificable:** `validateCustomImageBytes` es asíncrono y usa
+  `ui.instantiateImageCodec`/`getNextFrame` antes de escribir o sustituir bytes.
+  Conserva JPEG/PNG/WebP, 1600×1600, calidad 85, límite de 2 MiB y mensajes en
+  español. Los fixtures base64 contienen imágenes mínimas reales; estructuras con
+  firma válida pero truncadas, sin IDAT/payload o con CRC inválido se rechazan en
+  dominio, guardado y editor sin perder borrador, selección ni imagen anterior.
+- **Canonicalización:** aliases y valores canónicos son idempotentes en objetivo,
+  secundarios, fatiga/mapa y `focusOfExercise`; `pectoralis_major` se clasifica como
+  empuje. Sin secundarios, `muscle_group` conserva el objetivo canónico. Las pruebas
+  rojas iniciales terminaron con 55 verdes/4 fallos en dominio-músculos y dos fallos
+  adicionales fijaron la derivación canónica sin secundarios antes de corregirla.
+- **Media y esquema:** `image_has_remote` es metadata booleana local añadida dentro de
+  la misma v20 (D-129), no una v21 ni un campo remoto. Hace durable la existencia de
+  un objeto ya subido durante un reemplazo pendiente: replace→retirada conserva clave
+  y `pending_delete`; retirar una primera imagen nunca subida vuelve a `none`. El
+  CHECK de v20 exige `image_upload_status IS NOT NULL` para todo custom, por SQL y
+  drift. El generado se reconstruyó con salida 0, 202 outputs y 33 s.
+- **Editor:** Objetivo y Secundarios muestran sus errores junto al campo y se añadió el
+  aviso exacto «Se sincronizará cuando haya conexión». Cámara válida, cancelación,
+  permiso/cámara/IOException, conservación al guardar y transiciones de imagen están
+  cubiertos mediante seams inyectados; no se afirma verificación en dispositivo real.
+- **Reactividad y matriz:** las dos pruebas de mutación externa con consulta activa
+  pasaron 2/2 como caracterización previa, sin requerir fix. Se completaron reapertura
+  real de SQLite con bytes en documentos, segunda inicialización del asset con custom
+  previo, estados de subida y rechazo SQL de status NULL.
+- **Rojo→verde:** repositorio partió de 13 verdes/5 fallos; editor, de 0 verdes/3
+  fallos en imagen inválida/errores inline; el SQL NULL también falló antes del CHECK.
+  Tras los fixes: repositorio 19/19, editor 18/18, migración 24/24 y lote dirigido
+  final 133/133. Evidencias bajo `/tmp/opencode/hevywork-t004-iter1/`, incluidos
+  `red-*.txt`, `green-*.txt`, `directed-after-format.txt` y sus códigos de salida.
+- **Puerta final:** `flutter test --exclude-tags golden --reporter expanded` →
+  **826/826 verdes, All tests passed!, salida 0** (`full-gate-test.txt`). `flutter
+  analyze` → **No issues found!, salida 0** (`full-gate-analyze.txt`). El chequeo de
+  formato sobre 17 Dart terminó con 0 cambios y `git diff --check` quedó limpio.
+- **Integridad:** los 105 PNG del manifiesto inicial conservan hashes y cantidad; no
+  hay PNG nuevos ni en diff. `pubspec.lock` mantiene
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`. No se añadieron
+  dependencias, assets, skips, goldens, borrado custom, SCR-09, sync/Storage,
+  payload/whitelist ni SQL Supabase.
+- **Estado Git y proceso:** al inicio/cierre de esta iteración HEAD y `origin/2.2.0`
+  son `9c2ec8a2c6f019177996658009d85a7260e098eb`; la worktree estaba limpia al inicio
+  y los cambios correctores quedan sin commitear. El reflog previo registra commit/push
+  no atribuidos que contradicen el HEAD antes declarado y la regla de proceso. Queda
+  registrado como **Q-008**, sin autoautorizar otra transición ni reescribir historia.
+- **Cierre:** los seis hallazgos quedan implementados con regresiones verdes. **T-004
+  continúa RECHAZADA hasta superar una nueva revisión independiente**; esta iteración
+  no la autoaprueba. T-005/T-006 siguen bloqueadas. Decisiones D-129…D-131 y bitácora
+  completa en `memory.md`.
+
+### Iteración correctora 2 tras nuevo RECHAZADO — 2026-11-27
+
+- **Alcance conservado:** se mantienen las correcciones aceptadas estáticamente y
+  D-124…D-131. Solo se corrigieron los tres nuevos hallazgos y la sincronización de
+  una prueba existente necesaria para la puerta; no se iniciaron T-005/T-006 ni se
+  tocó Q-008, el historial, sync/Storage, payloads, dependencias o goldens.
+- **v20 intermedia real (D-132):** `beforeOpen` ejecuta una reparación compatible
+  después de `onCreate`/`onUpgrade`, incluso cuando la primera implementación ya dejó
+  `user_version=20`. Si la tabla aún no existe o si columna y CHECK ya son correctos,
+  no escribe. Si solo falta `image_has_remote`, añade esa columna; si el CHECK es
+  antiguo, reconstruye `exercises` con `TableMigration`, añade el bit cuando falte y
+  normaliza el status NULL heredado de customs a `none` para conservar esas filas al
+  activar el invariante. No se creó v21 ni otra línea de esquema.
+- **Regresión de apertura:** la prueba construye mediante SQL el esquema real de la
+  primera v20, sin `image_has_remote` y con el CHECK antiguo, y fija `PRAGMA
+  user_version=20` sin rebajarlo. Conserva una fila de catálogo, dos customs, clave/
+  estado remoto, descanso, fechas y cola; después exige columna, CHECK no nulo,
+  rechazo SQL de NULL, `foreign_key_check` vacío y reapertura idempotente. La segunda
+  apertura conserva DDL y `rootpage`, demostrando que una base correcta no se vuelve a
+  reconstruir. El rojo previo dejaba el status heredado en NULL; migración final:
+  **25/25**.
+- **Objetivos completos (D-133):** sin secundarios, cardio conserva `cardiovascular
+  system` como `muscle_group` filtrable/no vacío, pero sigue sin zona en fatiga, roles
+  ni mapa. `trapezius`, `rhomboids` y `obliques` se normalizan a `traps`, `upper back`
+  y `serratus anterior`; el barrido comprueba los **15 canónicos reconocidos** y su
+  idempotencia, sin aceptar desconocidos. Otro barrido recorre los **20 objetivos
+  válidos**, valida fatiga y persiste cada uno en repositorio comprobando
+  `muscle_group`. Rojos previos: dominio 40 verdes/4 fallos y persistencia 0/1 por el
+  null check de cardio. Finales: dominio **44/44**, repositorio **20/20**.
+- **Harness de imagen:** la primera puerta completa detectó que la espera fija de
+  100 ms podía consultar la base antes de terminar la doble decodificación/guardado.
+  La instrumentación mostró `saving=true`, ausencia de errores y aparición posterior
+  de la fila. Las pruebas de galería/cámara ahora alternan ciclos `runAsync` y `pump`
+  hasta observar la inserción o un error de UI, sin delays usados como condición de
+  éxito, skips, relajación ni cambios de producción. Editor final: **18/18**.
+- **Verificación dirigida y completa:** el lote de 19 suites de dominio, repositorio,
+  editor, migración, fatiga, rutinas, catálogo y contrato T-004 terminó **291/291**
+  con goldens excluidos. La puerta final desde el código definitivo,
+  `flutter test --exclude-tags golden --reporter expanded`, terminó **862/862 verdes,
+  All tests passed!, salida 0**. `flutter analyze`: **No issues found!, salida 0**.
+  Evidencias bajo `/tmp/opencode/hevywork-t004-iter2/`, incluidos `red-*.txt`,
+  `green-*.txt`, `directed-no-golden.txt`, `full-no-golden.txt` y códigos `.exit`.
+- **Generado e higiene:** `build_runner` terminó con salida 0 y el SHA-256 de
+  `database.g.dart` fue idéntico antes/después, confirmando coherencia sin una nueva
+  versión. El chequeo de formato sobre 17 Dart terminó con **0 cambios**; `git diff
+  --check` quedó limpio y no se añadieron tests con `skip: true`.
+- **Integridad y proceso:** los **105 PNG** conservan cantidad/hashes y `pubspec.lock`
+  mantiene `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`.
+  HEAD y `origin/2.2.0` permanecen en
+  `9c2ec8a2c6f019177996658009d85a7260e098eb`; no hubo mutaciones Git y todas las
+  correcciones/documentación siguen sin commitear. **Q-008 continúa abierta y
+  separada**, sin atribución ni autorización nueva.
+- **Cierre:** los tres hallazgos están implementados con regresiones verdes. **T-004
+  continúa RECHAZADA hasta superar otra revisión independiente**; esta iteración no la
+  autoaprueba. T-005/T-006 siguen bloqueadas. Decisiones D-132…D-134 y bitácora
+  completa en `memory.md`.
+
+### Revisión técnica posterior y cierre de Q-008/D-135 — 2026-11-27
+
+- **Resultado técnico del último revisor:** todos los defectos de T-004 están
+  corregidos, sin nuevos hallazgos bloqueantes, mayores ni menores. El único rechazo
+  restante era **Q-008**, de proceso Git; no se solicita otra corrección funcional.
+- **Puerta declarada, no reejecutada por esta planificación:** `flutter test
+  --exclude-tags golden` → **862/862 verdes**; `flutter analyze` → **0 incidencias**.
+  Evidencias en `/tmp/opencode/hevywork-t004-iter2/`, incluidos `full-no-golden.txt`,
+  `full-no-golden.exit` y `analyze-final.txt`.
+- **D-135 cierra Q-008:** la respuesta explícita del usuario **«si ya pasalo»**
+  autoriza conservar como válidos únicamente el commit ya existente
+  `9c2ec8a2c6f019177996658009d85a7260e098eb` (`T4`) y su push ya realizado a
+  `origin/2.2.0`. **D-119 no cubría este commit ni este push.**
+- HEAD y `origin/2.2.0` actuales se conservan en ese hash, sin atribuir autoría ni
+  ejecutar operaciones Git. La excepción no habilita ningún otro commit/push sin
+  permiso ni reset, revert, rebase, clean o reescritura. Las correcciones y la
+  documentación posterior no quedan autorizadas a formar otro commit.
+- **Estado para el coordinador:** devolver T-004 al implementador para su cierre
+  posterior a D-135 y después a revisión final independiente. Hasta el nuevo
+  veredicto, **T-004 está IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL**, no aprobada.
+  D-135 no altera CA-13…CA-16 ni equivale a aceptación técnica final.
+- **T-005 y T-006 no se inician.** Esta actualización fue exclusivamente documental:
+  sin producción, suite completa, analyze, build_runner ni operaciones Git.
+
+### Cierre de implementación posterior a D-135 — 2026-11-27
+
+- Se revisó la coherencia de `spec.md`, `plan.md`, `docs/db.md`, `docs/specs/README.md`,
+  `memory.md` y este archivo. D-135 queda limitada a conservar el commit/push existente
+  `9c2ec8a2c6f019177996658009d85a7260e098eb`; Q-008 permanece cerrada. Ni la decisión
+  ni el cierre de la pregunta autorizan nuevas operaciones Git, reescritura o aprobación
+  unilateral.
+- No se modificó producción ni pruebas. Un manifiesto SHA-256 de los **209 archivos**
+  presentes en `lib/` y `test/`, tomado antes y después del cierre, es idéntico;
+  `pubspec.lock` conserva
+  `f3f5f644ad10c729c8d4bb812582cb85d19d8c349121853be0f3ecc4bb9ac487`. Los manifiestos
+  están en `/tmp/opencode/hevywork-t004-cierre-d135/`.
+- **Puerta previa conservada, no reejecutada:** se consultaron las evidencias de la
+  iteración correctora 2. `flutter test --exclude-tags golden --reporter expanded`
+  terminó **862/862, All tests passed!, salida 0** (`full-no-golden.txt` y `.exit`) y
+  `flutter analyze` terminó con **0 incidencias** (`analyze-final.txt`), bajo
+  `/tmp/opencode/hevywork-t004-iter2/`. Desde esa puerta solo cambió documentación;
+  este cierre no ejecutó tests, analyze, build_runner ni generó PNG.
+- La inspección Git fue exclusivamente de lectura: HEAD y `origin/2.2.0` permanecen en
+  `9c2ec8a2c6f019177996658009d85a7260e098eb`, sin archivos staged. No se ejecutó
+  commit, push, reset, revert, rebase, clean ni reescritura; las correcciones y la
+  documentación posterior continúan sin commitear.
+- **Resultado:** T-004 queda **IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL
+  INDEPENDIENTE**, lista para esa revisión y no aprobada por el implementador.
+  T-005/T-006 permanecen bloqueadas y sin iniciar. No hay nuevas decisiones, preguntas
+  abiertas ni bloqueos técnicos declarados en este cierre documental.
+
 ## T-005 — Editar músculos de cualquier ejercicio y restaurar catálogo
 
 - **Estado:** LISTA — requiere T-004 aprobada.
@@ -992,7 +1162,7 @@ historial; y sincronización/Storage adelantados a T-006.
 | NFR-03 | T-001/CA-04, T-003/migración v19, T-004/CA-16, T-006/CA-23; T-005 sin migración |
 | NFR-04 | T-002/CA-06/08, T-003/CA-12, T-004/CA-13…15, T-005/CA-17…19, T-006/CA-23 |
 | NFR-05 | Puerta obligatoria al cierre de cada tarea; hashes/diff de PNG |
-| NFR-06 | Revisión inicial/final de cada tarea; 021 y trabajo ajeno intactos; sin commits/push nuevos sin permiso. D-119 exceptúa solo conservar `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` en T-001 |
+| NFR-06 | Revisión inicial/final de cada tarea; 021 y trabajo ajeno intactos; sin commits/push nuevos sin permiso ni reescritura. D-119 exceptúa solo `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` en T-001; D-135 exceptúa solo conservar el commit/push existente `9c2ec8a2c6f019177996658009d85a7260e098eb` en T-004 |
 | NFR-07 | T-003/CA-10…12 y T-006/CA-20…22 con reloj/latencia controlados |
 | NFR-08 | T-001/CA-01…03 y T-006/CA-21…22 con dos réplicas/cola pendiente |
 
@@ -1008,8 +1178,13 @@ historial; y sincronización/Storage adelantados a T-006.
   independientes. T-004 implementó drift v20, personalizados locales, imagen e
   integración reactiva; T-005 y T-006 no tienen implementación. No se aplicó SQL
   Supabase ni se adelantó drift v21.
-- Q-006 está cerrada por D-117 y Q-007 por D-119. **T-001, T-002 y T-003 APROBADAS**
-  por revisión; las limitaciones de evidencia de T-003 no reabren sus CA. La
-  observación menor de legibilidad de T-002 queda diferida sin reabrirla.
-  **T-004 IMPLEMENTADA — PENDIENTE DE REVISIÓN**, con CA-13…CA-16 y puerta completa
-  verdes. Debe superar revisión independiente antes de entregar T-005.
+- Q-006 está cerrada por D-117, Q-007 por D-119 y Q-008 por D-135. D-135 se limita
+  a conservar el commit/push existente `9c2ec8a2c6f019177996658009d85a7260e098eb`;
+  no autoriza otros commits/push ni reescritura y no estaba cubierto por D-119.
+- **T-001, T-002 y T-003 APROBADAS** por revisión; las limitaciones de evidencia de
+  T-003 no reabren sus CA. La observación menor de legibilidad de T-002 queda diferida.
+  El último revisor confirmó corregidos todos los defectos técnicos de T-004, sin
+  nuevos hallazgos; su único rechazo restante era Q-008. **T-004 IMPLEMENTADA —
+  PENDIENTE DE REVISIÓN FINAL**, con puerta declarada 862/862 no golden y analyze 0.
+  El cierre documental del implementador está completado; debe superar la revisión
+  final independiente antes de entregar T-005.

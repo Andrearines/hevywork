@@ -12,6 +12,9 @@ import 'package:hevywork/data/repositories/routine_repository.dart';
 import 'package:hevywork/data/repositories/workout_repository.dart';
 import 'package:hevywork/domain/custom_exercise.dart';
 import 'package:hevywork/domain/custom_exercise_image.dart';
+import 'package:hevywork/domain/muscle_fatigue.dart';
+
+import 'custom_image_fixtures.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,16 +24,7 @@ void main() {
   late CustomExerciseRepository repository;
   late CatalogRepository catalog;
   late String localUserId;
-  final jpeg = Uint8List.fromList(const [
-    0xff,
-    0xd8,
-    0xff,
-    0xe0,
-    0x01,
-    0x02,
-    0xff,
-    0xd9,
-  ]);
+  final jpeg = validJpegImageBytes();
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -107,6 +101,50 @@ void main() {
       expect(await db.select(db.syncQueue).get(), isEmpty);
       expect(await db.select(db.exercisePreferences).get(), isEmpty);
       expect(await catalog.effectiveRestSeconds(created.id), 90);
+    },
+  );
+
+  test(
+    'guarda todos los objetivos válidos sin secundarios y sin romper fatiga',
+    () async {
+      for (var i = 0; i < customExerciseTargets.length; i++) {
+        final target = customExerciseTargets[i];
+        final input = draft().copyWith(
+          name: 'Objetivo $i',
+          target: target,
+          secondaryMuscles: const [],
+        );
+        final valid = input.validate();
+        final created = await repository.createCustomExercise(draft: input);
+        final stored = await catalog.exerciseById(created.id);
+
+        expect(stored, isNotNull, reason: target);
+        expect(stored!.target, valid.target, reason: target);
+        expect(stored.muscleGroup, valid.muscleGroup, reason: target);
+        expect(stored.muscleGroup.trim(), isNotEmpty, reason: target);
+        expect(jsonDecode(stored.secondaryMuscles!), isEmpty, reason: target);
+        final raw = rawMuscleFatigue(
+          now: created.createdAt,
+          sets: [
+            (
+              endedAt: created.createdAt!,
+              volume: 1000,
+              setType: 'normal',
+              target: stored.target,
+              secondaryMuscles: const [],
+            ),
+          ],
+        );
+        if (target == 'cardiovascular system') {
+          expect(raw, isEmpty);
+        } else {
+          expect(raw[stored.muscleGroup], 1000, reason: target);
+        }
+      }
+      expect(
+        await db.select(db.exercises).get(),
+        hasLength(customExerciseTargets.length),
+      );
     },
   );
 
@@ -425,6 +463,7 @@ void main() {
       imageBytes: jpeg,
     );
     final originalPath = created.imagePath!;
+    expect(created.imageHasRemote, isFalse);
     expect(File(originalPath).readAsBytesSync(), jpeg);
     expect(originalPath, contains(documents.path));
 
@@ -441,6 +480,7 @@ void main() {
       imageBytes: jpeg,
     );
     expect(replaced.imagePath, isNot(originalPath));
+    expect(replaced.imageHasRemote, isFalse);
     expect(File(replaced.imagePath!).existsSync(), isTrue);
     expect(File(originalPath).existsSync(), isFalse);
 
@@ -450,6 +490,10 @@ void main() {
       removeImage: true,
     );
     expect(removed.imagePath, isNull);
+    expect(removed.imageStoragePath, isNull);
+    expect(removed.imageMimeType, isNull);
+    expect(removed.imageUploadStatus, 'none');
+    expect(removed.imageHasRemote, isFalse);
     expect(File(replaced.imagePath!).existsSync(), isFalse);
   });
 
@@ -475,6 +519,170 @@ void main() {
       expect(current!.name, 'Press propio');
       expect(current.imagePath, oldPath);
       expect(File(oldPath).existsSync(), isTrue);
+    },
+  );
+
+  test(
+    'reemplazar y retirar una imagen subida conserva pending_delete',
+    () async {
+      final created = await repository.createCustomExercise(
+        draft: draft(),
+        imageBytes: jpeg,
+      );
+      await (db.update(
+        db.exercises,
+      )..where((row) => row.id.equals(created.id))).write(
+        const ExercisesCompanion(imageUploadStatus: Value('uploaded')),
+      );
+      final storagePath = created.imageStoragePath!;
+
+      final replaced = await repository.updateCustomExercise(
+        id: created.id,
+        draft: draft(),
+        imageBytes: validPngImageBytes(),
+      );
+      expect(replaced.imageUploadStatus, 'pending_upload');
+      expect(replaced.imageStoragePath, storagePath);
+      expect(replaced.imageHasRemote, isTrue);
+      expect(replaced.imageMimeType, 'image/png');
+      expect(File(replaced.imagePath!).existsSync(), isTrue);
+
+      final removed = await repository.updateCustomExercise(
+        id: created.id,
+        draft: draft(),
+        removeImage: true,
+      );
+      expect(removed.imageUploadStatus, 'pending_delete');
+      expect(removed.imageStoragePath, storagePath);
+      expect(removed.imageHasRemote, isTrue);
+      expect(removed.imagePath, isNull);
+      expect(removed.imageMimeType, isNull);
+      expect(File(replaced.imagePath!).existsSync(), isFalse);
+    },
+  );
+
+  test(
+    'uploaded y pending_delete conservan su clave al retirar y reemplazar',
+    () async {
+      final created = await repository.createCustomExercise(
+        draft: draft(),
+        imageBytes: jpeg,
+      );
+      await (db.update(
+        db.exercises,
+      )..where((row) => row.id.equals(created.id))).write(
+        const ExercisesCompanion(imageUploadStatus: Value('uploaded')),
+      );
+      final storagePath = created.imageStoragePath!;
+
+      final removedUploaded = await repository.updateCustomExercise(
+        id: created.id,
+        draft: draft(),
+        removeImage: true,
+      );
+      expect(removedUploaded.imageUploadStatus, 'pending_delete');
+      expect(removedUploaded.imageStoragePath, storagePath);
+
+      final replaced = await repository.updateCustomExercise(
+        id: created.id,
+        draft: draft(),
+        imageBytes: validPngImageBytes(),
+      );
+      expect(replaced.imageUploadStatus, 'pending_upload');
+      expect(replaced.imageStoragePath, storagePath);
+
+      final removedAgain = await repository.updateCustomExercise(
+        id: created.id,
+        draft: draft(),
+        removeImage: true,
+      );
+      expect(removedAgain.imageUploadStatus, 'pending_delete');
+      expect(removedAgain.imageStoragePath, storagePath);
+    },
+  );
+
+  for (final entry in <String, Uint8List Function()>{
+    'JPEG estructuralmente corrupto': () =>
+        Uint8List.fromList(const [0xff, 0xd8, 0xff, 0xe0, 0xff, 0xd9]),
+    'PNG sin IDAT': () {
+      final png = validPngImageBytes();
+      return Uint8List.fromList([
+        ...png.take(33),
+        ...png.skip(png.length - 12),
+      ]);
+    },
+    'WebP sin payload': () => Uint8List.fromList(const [
+      0x52,
+      0x49,
+      0x46,
+      0x46,
+      0x04,
+      0x00,
+      0x00,
+      0x00,
+      0x57,
+      0x45,
+      0x42,
+      0x50,
+      0x56,
+      0x50,
+      0x38,
+      0x20,
+    ]),
+  }.entries) {
+    test('${entry.key} no reemplaza la imagen anterior al guardar', () async {
+      final created = await repository.createCustomExercise(
+        draft: draft(),
+        imageBytes: jpeg,
+      );
+      final oldPath = created.imagePath!;
+
+      await expectLater(
+        repository.updateCustomExercise(
+          id: created.id,
+          draft: draft().copyWith(name: 'No debe guardarse'),
+          imageBytes: entry.value(),
+        ),
+        throwsA(isA<CustomImageValidationException>()),
+      );
+
+      final current = await catalog.exerciseById(created.id);
+      expect(current!.name, 'Press propio');
+      expect(current.imagePath, oldPath);
+      expect(current.imageUploadStatus, 'pending_upload');
+      expect(File(oldPath).readAsBytesSync(), jpeg);
+    });
+  }
+
+  test(
+    'el alta offline conserva la fila y los bytes tras reabrir SQLite',
+    () async {
+      await db.close();
+      final databaseFile = File('${documents.path}/reopen.sqlite');
+      db = AppDatabase(NativeDatabase(databaseFile));
+      catalog = CatalogRepository(db);
+      repository = CustomExerciseRepository(
+        db,
+        documentsDir: () async => documents,
+      );
+      localUserId = (await db.select(db.localProfiles).getSingle()).localUserId;
+      final created = await repository.createCustomExercise(
+        draft: draft(),
+        imageBytes: jpeg,
+      );
+      final imagePath = created.imagePath!;
+      await db.close();
+
+      db = AppDatabase(NativeDatabase(databaseFile));
+      catalog = CatalogRepository(db);
+      final reopened = await catalog.exerciseById(created.id);
+      expect(reopened, isNotNull);
+      expect(reopened!.name, 'Press propio');
+      expect(reopened.imagePath, imagePath);
+      expect(reopened.imageUploadStatus, 'pending_upload');
+      expect(reopened.imageHasRemote, isFalse);
+      expect(File(imagePath).readAsBytesSync(), jpeg);
+      expect(await db.select(db.syncQueue).get(), isEmpty);
     },
   );
 

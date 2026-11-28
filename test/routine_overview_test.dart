@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hevywork/domain/custom_exercise.dart';
 import 'package:hevywork/domain/routine_overview.dart';
 
 void main() {
@@ -45,15 +46,40 @@ void main() {
       );
     });
 
+    test('clasifica muscle_group canónico derivado sin usar el fallback', () {
+      final derived = const CustomExerciseDraft(
+        name: 'Apertura propia',
+        bodyPart: 'chest',
+        equipment: 'band',
+        target: 'lats',
+        secondaryMuscles: ['pectoralis_major'],
+        restSeconds: 90,
+      ).validate();
+
+      expect(derived.muscleGroup, 'pectoralis_major');
+      expect(
+        focusOfExercise(
+          muscleGroup: derived.muscleGroup,
+          target: derived.target,
+        ),
+        SessionFocus.push,
+      );
+      expect(
+        focusOfExercise(muscleGroup: 'latissimus_dorsi', target: 'pectorals'),
+        SessionFocus.pull,
+      );
+      expect(
+        focusOfExercise(muscleGroup: 'lower_back', target: 'pectorals'),
+        SessionFocus.pull,
+      );
+    });
+
     test('usa el objetivo como respaldo y Core para lo desconocido', () {
       expect(
         focusOfExercise(muscleGroup: 'desconocido', target: 'quads'),
         SessionFocus.legs,
       );
-      expect(
-        focusOfExercise(muscleGroup: 'desconocido'),
-        SessionFocus.core,
-      );
+      expect(focusOfExercise(muscleGroup: 'desconocido'), SessionFocus.core);
     });
   });
 

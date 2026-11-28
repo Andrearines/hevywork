@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 const int customExerciseImageMaxBytes = 2 * 1024 * 1024;
 
@@ -17,24 +18,48 @@ typedef ValidatedCustomImage = ({
   String mimeType,
 });
 
-ValidatedCustomImage validateCustomImageBytes(Uint8List bytes) {
+Future<ValidatedCustomImage> validateCustomImageBytes(Uint8List bytes) async {
   if (bytes.length > customExerciseImageMaxBytes) {
     throw const CustomImageValidationException(
       'La imagen no puede superar 2 MB',
     );
   }
+  final ValidatedCustomImage? image;
   if (_isJpeg(bytes)) {
-    return (bytes: bytes, extension: 'jpg', mimeType: 'image/jpeg');
+    image = (bytes: bytes, extension: 'jpg', mimeType: 'image/jpeg');
+  } else if (_isPng(bytes)) {
+    image = (bytes: bytes, extension: 'png', mimeType: 'image/png');
+  } else if (_isWebp(bytes)) {
+    image = (bytes: bytes, extension: 'webp', mimeType: 'image/webp');
+  } else {
+    image = null;
   }
-  if (_isPng(bytes)) {
-    return (bytes: bytes, extension: 'png', mimeType: 'image/png');
+  if (image == null) {
+    throw const CustomImageValidationException(
+      'Elige una imagen JPEG, PNG o WebP válida',
+    );
   }
-  if (_isWebp(bytes)) {
-    return (bytes: bytes, extension: 'webp', mimeType: 'image/webp');
+
+  try {
+    final codec = await ui.instantiateImageCodec(bytes);
+    try {
+      final frame = await codec.getNextFrame();
+      try {
+        if (frame.image.width <= 0 || frame.image.height <= 0) {
+          throw const FormatException();
+        }
+      } finally {
+        frame.image.dispose();
+      }
+    } finally {
+      codec.dispose();
+    }
+  } catch (_) {
+    throw const CustomImageValidationException(
+      'Elige una imagen JPEG, PNG o WebP válida',
+    );
   }
-  throw const CustomImageValidationException(
-    'Elige una imagen JPEG, PNG o WebP válida',
-  );
+  return image;
 }
 
 bool _isJpeg(Uint8List bytes) {
@@ -71,7 +96,7 @@ bool _isWebp(Uint8List bytes) {
   }
   final declaredLength =
       bytes[4] | (bytes[5] << 8) | (bytes[6] << 16) | (bytes[7] << 24);
-  if (declaredLength + 8 > bytes.length) return false;
+  if (declaredLength + 8 != bytes.length) return false;
   return bytes[12] == 0x56 &&
       bytes[13] == 0x50 &&
       bytes[14] == 0x38 &&

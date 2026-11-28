@@ -1,10 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/app/theme/app_theme.dart';
 import 'package:hevywork/data/local/database.dart';
@@ -13,17 +12,15 @@ import 'package:hevywork/domain/custom_exercise.dart';
 import 'package:hevywork/ui/views/custom_exercise_editor_view.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'custom_image_fixtures.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late AppDatabase db;
   late Directory documents;
   late CustomExerciseRepository repository;
-  final imageBytes = Uint8List.fromList(
-    base64Decode(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
-    ),
-  );
+  final imageBytes = validPngImageBytes();
 
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
@@ -97,10 +94,38 @@ void main() {
     await enter(tester, const Key('custom-rest'), '135');
   }
 
-  Future<void> save(WidgetTester tester) async {
+  Future<void> save(WidgetTester tester, {bool realAsync = false}) async {
     await tester.ensureVisible(find.byKey(const Key('custom-save')));
+    if (realAsync) {
+      bool saving() {
+        final button = find.byKey(const Key('custom-save'));
+        return button.evaluate().isNotEmpty &&
+            tester.widget<ElevatedButton>(button).onPressed == null;
+      }
+
+      await tester.runAsync(() async {
+        await tester.tap(find.byKey(const Key('custom-save')));
+        await tester.pump();
+      });
+      while ((await db.select(db.exercises).get()).isEmpty && saving()) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+      }
+      await tester.pump();
+      return;
+    }
     await tester.tap(find.byKey(const Key('custom-save')));
     await tester.pumpAndSettle();
+  }
+
+  Future<void> settlePicker(WidgetTester tester) async {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   testWidgets('valida obligatorios y conserva el borrador', (tester) async {
@@ -126,6 +151,7 @@ void main() {
           .text,
       '90',
     );
+    expect(find.text('Se sincronizará cuando haya conexión'), findsOneWidget);
     await fillValid(tester);
     await save(tester);
 
@@ -140,25 +166,101 @@ void main() {
     expect(await db.select(db.syncQueue).get(), isEmpty);
   });
 
-  testWidgets('guarda una imagen elegida en el repositorio local', (
+  testWidgets('guarda una imagen de galería real en el repositorio local', (
     tester,
   ) async {
-    final recording = _RecordingRepository(db, documents);
     await pumpEditor(
       tester,
-      customRepository: recording,
       pickImage: (_) async => XFile.fromData(imageBytes, mimeType: 'image/png'),
     );
     await fillValid(tester);
     await tester.ensureVisible(find.byKey(const Key('custom-image-gallery')));
     await tester.tap(find.byKey(const Key('custom-image-gallery')));
-    await tester.pumpAndSettle();
+    await settlePicker(tester);
     expect(find.byType(Image), findsOneWidget);
-    await save(tester);
+    await save(tester, realAsync: true);
 
-    expect(recording.imageBytes, imageBytes);
-    expect(recording.draft?.name, 'Press propio');
-    expect(recording.draft?.restSeconds, 135);
+    final saved = await db.select(db.exercises).getSingle();
+    expect(saved.name, 'Press propio');
+    expect(saved.restSeconds, 135);
+    expect(saved.imageMimeType, 'image/png');
+    expect(saved.imageUploadStatus, 'pending_upload');
+    expect(File(saved.imagePath!).readAsBytesSync(), imageBytes);
+  });
+
+  testWidgets('guarda una captura WebP válida desde cámara', (tester) async {
+    ImageSource? selectedSource;
+    final webp = validWebpImageBytes();
+    await pumpEditor(
+      tester,
+      pickImage: (source) async {
+        selectedSource = source;
+        return XFile.fromData(webp, mimeType: 'image/webp');
+      },
+    );
+    await fillValid(tester);
+    await tester.ensureVisible(find.byKey(const Key('custom-image-camera')));
+    await tester.tap(find.byKey(const Key('custom-image-camera')));
+    await settlePicker(tester);
+    await save(tester, realAsync: true);
+
+    final saved = await db.select(db.exercises).getSingle();
+    expect(selectedSource, ImageSource.camera);
+    expect(saved.imageMimeType, 'image/webp');
+    expect(saved.imageUploadStatus, 'pending_upload');
+    expect(File(saved.imagePath!).readAsBytesSync(), webp);
+  });
+
+  testWidgets('cancelar el picker conserva el borrador sin imagen nueva', (
+    tester,
+  ) async {
+    await pumpEditor(tester, pickImage: (_) async => null);
+    await enter(tester, const Key('custom-name'), 'Borrador conservado');
+    await tester.ensureVisible(find.byKey(const Key('custom-image-gallery')));
+    await tester.tap(find.byKey(const Key('custom-image-gallery')));
+    await settlePicker(tester);
+
+    expect(find.text('Borrador conservado'), findsOneWidget);
+    expect(find.byKey(const Key('custom-image-error')), findsNothing);
+    expect(find.byKey(const Key('custom-image-remove')), findsNothing);
+  });
+
+  testWidgets('cámara no disponible conserva el borrador', (tester) async {
+    await pumpEditor(
+      tester,
+      pickImage: (_) async =>
+          throw PlatformException(code: 'camera_unavailable'),
+    );
+    await enter(tester, const Key('custom-name'), 'Borrador de cámara');
+    await tester.ensureVisible(find.byKey(const Key('custom-image-camera')));
+    await tester.tap(find.byKey(const Key('custom-image-camera')));
+    await settlePicker(tester);
+
+    expect(find.byKey(const Key('custom-image-error')), findsOneWidget);
+    expect(find.text('Borrador de cámara'), findsOneWidget);
+    expect(await db.select(db.exercises).get(), isEmpty);
+  });
+
+  testWidgets('IOException al leer conserva el borrador y la selección', (
+    tester,
+  ) async {
+    final missing =
+        '/tmp/opencode/hevywork-t004-iter1/missing-editor-image.jpg';
+    await pumpEditor(tester, pickImage: (_) async => XFile(missing));
+    await fillValid(tester);
+    await tester.ensureVisible(find.byKey(const Key('custom-image-gallery')));
+    await tester.tap(find.byKey(const Key('custom-image-gallery')));
+    await settlePicker(tester);
+
+    expect(find.byKey(const Key('custom-image-error')), findsOneWidget);
+    expect(find.text('Press propio'), findsOneWidget);
+    expect(
+      tester
+          .widget<FilterChip>(find.byKey(const Key('custom-secondary-triceps')))
+          .selected,
+      isTrue,
+    );
+    expect(await db.select(db.exercises).get(), isEmpty);
   });
 
   testWidgets('permiso denegado muestra error y no pierde campos ni imagen', (
@@ -171,7 +273,7 @@ void main() {
     await enter(tester, const Key('custom-name'), 'Mi borrador');
     await tester.ensureVisible(find.byKey(const Key('custom-image-camera')));
     await tester.tap(find.byKey(const Key('custom-image-camera')));
-    await tester.pumpAndSettle();
+    await settlePicker(tester);
 
     expect(find.byKey(const Key('custom-image-error')), findsOneWidget);
     expect(find.text('Mi borrador'), findsOneWidget);
@@ -203,13 +305,116 @@ void main() {
     expect(saved.restSeconds, 120);
   });
 
+  testWidgets(
+    'archivo inválido conserva borrador e imagen anterior al guardar',
+    (tester) async {
+      final created = await tester.runAsync(
+        () => repository.createCustomExercise(
+          draft: const CustomExerciseDraft(
+            name: 'Original',
+            bodyPart: 'chest',
+            equipment: 'barbell',
+            target: 'pectorals',
+            secondaryMuscles: ['triceps'],
+            restSeconds: 120,
+          ),
+          imageBytes: imageBytes,
+        ),
+      );
+      final oldPath = created!.imagePath!;
+      final corrupt = Uint8List.fromList(const [
+        0xff,
+        0xd8,
+        0xff,
+        0xe0,
+        0xff,
+        0xd9,
+      ]);
+      await pumpEditor(
+        tester,
+        exercise: created,
+        pickImage: (_) async => XFile.fromData(corrupt),
+      );
+      await enter(tester, const Key('custom-name'), 'Borrador conservado');
+      await tester.ensureVisible(find.byKey(const Key('custom-image-gallery')));
+      await tester.tap(find.byKey(const Key('custom-image-gallery')));
+      await settlePicker(tester);
+
+      expect(
+        find.text('Elige una imagen JPEG, PNG o WebP válida'),
+        findsOneWidget,
+      );
+      await save(tester);
+      final saved = await db.select(db.exercises).getSingle();
+      expect(saved.name, 'Borrador conservado');
+      expect(saved.imagePath, oldPath);
+      expect(saved.imageUploadStatus, 'pending_upload');
+      expect(File(oldPath).readAsBytesSync(), imageBytes);
+    },
+  );
+
+  testWidgets(
+    'equivalencia con el objetivo muestra error junto a secundarios',
+    (tester) async {
+      await pumpEditor(tester);
+      await fillValid(tester);
+      await tester.ensureVisible(
+        find.byKey(const Key('custom-secondary-chest')),
+      );
+      await tester.tap(find.byKey(const Key('custom-secondary-chest')));
+      await save(tester);
+
+      expect(find.byKey(const Key('custom-secondary-error')), findsOneWidget);
+      expect(find.byKey(const Key('custom-save-error')), findsNothing);
+      expect(
+        find.text('No repitas el objetivo ni los músculos secundarios'),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<FilterChip>(find.byKey(const Key('custom-secondary-chest')))
+            .selected,
+        isTrue,
+      );
+      expect(find.text('Press propio'), findsOneWidget);
+      expect(find.text('135'), findsOneWidget);
+      expect(await db.select(db.exercises).get(), isEmpty);
+    },
+  );
+
+  testWidgets(
+    'duplicados canónicos muestran error inline y conservan selección',
+    (tester) async {
+      await pumpEditor(tester);
+      await fillValid(tester);
+      await chooseTarget(tester, 'lats');
+      for (final muscle in ['chest', 'pectoralis_major']) {
+        await tester.ensureVisible(find.byKey(Key('custom-secondary-$muscle')));
+        await tester.tap(find.byKey(Key('custom-secondary-$muscle')));
+      }
+      await save(tester);
+
+      expect(find.byKey(const Key('custom-secondary-error')), findsOneWidget);
+      expect(find.byKey(const Key('custom-save-error')), findsNothing);
+      for (final muscle in ['chest', 'pectoralis_major']) {
+        expect(
+          tester
+              .widget<FilterChip>(find.byKey(Key('custom-secondary-$muscle')))
+              .selected,
+          isTrue,
+        );
+      }
+      expect(await db.select(db.exercises).get(), isEmpty);
+    },
+  );
+
   testWidgets('permite quitar una imagen recién elegida', (tester) async {
     await pumpEditor(
       tester,
       pickImage: (_) async => XFile.fromData(imageBytes, mimeType: 'image/png'),
     );
     await tester.tap(find.byKey(const Key('custom-image-gallery')));
-    await tester.pumpAndSettle();
+    await settlePicker(tester);
     expect(find.byKey(const Key('custom-image-remove')), findsOneWidget);
     await tester.tap(find.byKey(const Key('custom-image-remove')));
     await tester.pump();
@@ -261,56 +466,6 @@ void main() {
       await tester.pump();
       expect(tester.takeException(), isNull);
     });
-  }
-}
-
-class _RecordingRepository extends CustomExerciseRepository {
-  CustomExerciseDraft? draft;
-  Uint8List? imageBytes;
-  String? updatedId;
-  bool removeImage = false;
-
-  _RecordingRepository(super.db, Directory documents)
-    : super(documentsDir: () async => documents);
-
-  @override
-  Future<Exercise> createCustomExercise({
-    required CustomExerciseDraft draft,
-    Uint8List? imageBytes,
-  }) async {
-    this.draft = draft;
-    this.imageBytes = imageBytes;
-    return _exercise('custom_recording', draft);
-  }
-
-  @override
-  Future<Exercise> updateCustomExercise({
-    required String id,
-    required CustomExerciseDraft draft,
-    Uint8List? imageBytes,
-    bool removeImage = false,
-  }) async {
-    updatedId = id;
-    this.draft = draft;
-    this.imageBytes = imageBytes;
-    this.removeImage = removeImage;
-    return _exercise(id, draft);
-  }
-
-  Exercise _exercise(String id, CustomExerciseDraft draft) {
-    final valid = draft.validate();
-    return Exercise(
-      id: id,
-      name: valid.name,
-      bodyPart: valid.bodyPart,
-      equipment: valid.equipment,
-      target: valid.target,
-      muscleGroup: valid.muscleGroup,
-      origin: 'custom',
-      imageUploadStatus: 'none',
-      updatedAt: DateTime(2026, 11, 26),
-      restSeconds: valid.restSeconds,
-    );
   }
 }
 

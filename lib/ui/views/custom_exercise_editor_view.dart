@@ -51,6 +51,7 @@ class _CustomExerciseEditorViewState extends State<CustomExerciseEditorView> {
   String? _bodyPartError;
   String? _equipmentError;
   String? _targetError;
+  String? _secondaryError;
   String? _restError;
 
   bool get _editing => widget.exercise != null;
@@ -104,7 +105,7 @@ class _CustomExerciseEditorViewState extends State<CustomExerciseEditorView> {
         return;
       }
       final bytes = await file.readAsBytes();
-      final valid = validateCustomImageBytes(bytes);
+      final valid = await validateCustomImageBytes(bytes);
       if (!mounted) return;
       setState(() {
         _newImageBytes = valid.bytes;
@@ -147,6 +148,7 @@ class _CustomExerciseEditorViewState extends State<CustomExerciseEditorView> {
           ? 'Escribe el equipo'
           : null;
       _targetError = _target == null ? 'Selecciona el músculo objetivo' : null;
+      _secondaryError = null;
       _restError = rest == null || rest < 15 || rest > 300
           ? 'Usa un descanso entre 15 y 300 segundos'
           : null;
@@ -188,7 +190,18 @@ class _CustomExerciseEditorViewState extends State<CustomExerciseEditorView> {
     } on CustomExerciseValidationException catch (error) {
       if (!mounted) return;
       setState(() {
-        _saveError = error.message;
+        if (error.message == 'Selecciona un músculo objetivo conocido') {
+          _targetError = error.message;
+          _saveError = null;
+        } else if (error.message ==
+                'Selecciona músculos secundarios conocidos' ||
+            error.message ==
+                'No repitas el objetivo ni los músculos secundarios') {
+          _secondaryError = error.message;
+          _saveError = null;
+        } else {
+          _saveError = error.message;
+        }
         _saving = false;
       });
     } catch (_) {
@@ -223,6 +236,13 @@ class _CustomExerciseEditorViewState extends State<CustomExerciseEditorView> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildImageSection(),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Se sincronizará cuando haya conexión',
+                    key: const Key('custom-pending-notice'),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
                   const SizedBox(height: 24),
                   TextFormField(
                     key: const Key('custom-name'),
@@ -274,11 +294,21 @@ class _CustomExerciseEditorViewState extends State<CustomExerciseEditorView> {
                             } else {
                               _secondaryMuscles.remove(muscle);
                             }
+                            _secondaryError = null;
                             _saveError = null;
                           }),
                         ),
                     ],
                   ),
+                  if (_secondaryError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        _secondaryError!,
+                        key: const Key('custom-secondary-error'),
+                        style: const TextStyle(color: palette.kError),
+                      ),
+                    ),
                   const SizedBox(height: 20),
                   _buildSuggestionField(
                     fieldKey: const Key('custom-body-part'),

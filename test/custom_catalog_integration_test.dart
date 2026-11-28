@@ -62,6 +62,28 @@ void main() {
     await enter(tester, const Key('custom-equipment'), 'barbell');
   }
 
+  Future<Exercise> insertExternal(String id, String name) async {
+    final localUserId =
+        (await db.select(db.localProfiles).getSingle()).localUserId;
+    return db
+        .into(db.exercises)
+        .insertReturning(
+          ExercisesCompanion.insert(
+            id: id,
+            name: name,
+            bodyPart: 'chest',
+            equipment: 'barbell',
+            target: 'pectorals',
+            muscleGroup: 'triceps',
+            secondaryMuscles: const Value('["triceps"]'),
+            origin: const Value('custom'),
+            localUserId: Value(localUserId),
+            imageUploadStatus: const Value('none'),
+            updatedAt: Value(DateTime(2026, 11, 27)),
+          ),
+        );
+  }
+
   testWidgets('catálogo crea, recarga conservando búsqueda y edita por ruta', (
     tester,
   ) async {
@@ -158,6 +180,62 @@ void main() {
       await tester.pumpAndSettle();
     }
     expect(find.text('Ejercicio 54'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('catálogo observa una mutación externa con consulta activa', (
+    tester,
+  ) async {
+    await insertExternal('custom_external_catalog', 'Press inicial');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: const Scaffold(body: CatalogView()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Press');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text('Press inicial'), findsOneWidget);
+
+    await (db.update(db.exercises)
+          ..where((row) => row.id.equals('custom_external_catalog')))
+        .write(const ExercisesCompanion(name: Value('Press externo')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press externo'), findsOneWidget);
+    expect(find.text('Press inicial'), findsNothing);
+    expect(find.text('Press'), findsOneWidget);
+    expect(find.text('1 resultados'), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('selector observa una mutación externa con consulta activa', (
+    tester,
+  ) async {
+    await insertExternal('custom_external_picker', 'Press inicial');
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: buildAppTheme(),
+        home: const Scaffold(body: ExercisePicker()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Press');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.text('Press inicial'), findsOneWidget);
+
+    await (db.update(db.exercises)
+          ..where((row) => row.id.equals('custom_external_picker')))
+        .write(const ExercisesCompanion(name: Value('Press externo')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Press externo'), findsOneWidget);
+    expect(find.text('Press inicial'), findsNothing);
+    expect(find.text('Press'), findsOneWidget);
+    expect(find.text('1 resultados'), findsOneWidget);
     await unmount(tester);
   });
 

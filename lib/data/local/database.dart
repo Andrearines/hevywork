@@ -248,9 +248,11 @@ class AppDatabase extends _$AppDatabase {
         await _addColumnIfMissing(m, exercises, exercises.imageStoragePath);
         await _addColumnIfMissing(m, exercises, exercises.imageMimeType);
         await _addColumnIfMissing(m, exercises, exercises.imageUploadStatus);
+        await _addColumnIfMissing(m, exercises, exercises.imageHasRemote);
         await _addColumnIfMissing(m, exercises, exercises.updatedAt);
       }
     },
+    beforeOpen: (details) => _repairIntermediateV20Schema(),
   );
 
   /// Crea [table] solo si no existe ya (ver comentario en `onUpgrade`).
@@ -277,6 +279,40 @@ class AppDatabase extends _$AppDatabase {
         .get();
     if (info.any((row) => row.read<String>('name') == column.$name)) return;
     await m.addColumn(table, column);
+  }
+
+  Future<void> _repairIntermediateV20Schema() async {
+    final schema = await customSelect(
+      "SELECT sql FROM sqlite_master "
+      "WHERE type = 'table' AND name = 'exercises'",
+    ).getSingleOrNull();
+    if (schema == null) return;
+    final columns = await customSelect("PRAGMA table_info('exercises')").get();
+    final hasRemoteColumn = columns.any(
+      (row) => row.read<String>('name') == 'image_has_remote',
+    );
+    final hasCorrectStatusCheck = schema
+        .read<String>('sql')
+        .contains('image_upload_status IS NOT NULL');
+    if (hasRemoteColumn && hasCorrectStatusCheck) return;
+
+    final m = createMigrator();
+    if (hasCorrectStatusCheck) {
+      await _addColumnIfMissing(m, exercises, exercises.imageHasRemote);
+      return;
+    }
+    await m.alterTable(
+      TableMigration(
+        exercises,
+        newColumns: [if (!hasRemoteColumn) exercises.imageHasRemote],
+        columnTransformer: {
+          exercises.imageUploadStatus: const CustomExpression(
+            "CASE WHEN origin = 'custom' AND image_upload_status IS NULL "
+            "THEN 'none' ELSE image_upload_status END",
+          ),
+        },
+      ),
+    );
   }
 
   Future<void> _createSchema(Migrator m) async {

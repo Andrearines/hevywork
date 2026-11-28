@@ -27,7 +27,7 @@ class CustomExerciseRepository {
     final valid = draft.validate();
     final image = imageBytes == null
         ? null
-        : validateCustomImageBytes(imageBytes);
+        : await validateCustomImageBytes(imageBytes);
     final profile = await _profile();
     final id = 'custom_${const Uuid().v4()}';
     final now = DateTime.now();
@@ -59,6 +59,7 @@ class CustomExerciseRepository {
               imageUploadStatus: Value(
                 image == null ? 'none' : 'pending_upload',
               ),
+              imageHasRemote: const Value(false),
               updatedAt: Value(now),
               restSeconds: Value(valid.restSeconds),
             ),
@@ -83,7 +84,7 @@ class CustomExerciseRepository {
     final valid = draft.validate();
     final image = imageBytes == null
         ? null
-        : validateCustomImageBytes(imageBytes);
+        : await validateCustomImageBytes(imageBytes);
     final profile = await _profile();
     final current =
         await (_db.select(_db.exercises)..where(
@@ -100,9 +101,10 @@ class CustomExerciseRepository {
     final nextImagePath = removeImage
         ? null
         : newImagePath ?? current.imagePath;
-    final hasUploadedImage =
+    final hasRemoteImage =
         current.imageStoragePath != null &&
-        (current.imageUploadStatus == 'uploaded' ||
+        (current.imageHasRemote == true ||
+            current.imageUploadStatus == 'uploaded' ||
             current.imageUploadStatus == 'pending_delete');
     late final List<Exercise> updated;
     try {
@@ -130,9 +132,7 @@ class CustomExerciseRepository {
                               '${profile.localUserId}/$id',
                         )
                       : removeImage
-                      ? Value(
-                          hasUploadedImage ? current.imageStoragePath : null,
-                        )
+                      ? Value(hasRemoteImage ? current.imageStoragePath : null)
                       : const Value.absent(),
                   imageMimeType: image != null
                       ? Value(image.mimeType)
@@ -142,7 +142,10 @@ class CustomExerciseRepository {
                   imageUploadStatus: image != null
                       ? const Value('pending_upload')
                       : removeImage
-                      ? Value(hasUploadedImage ? 'pending_delete' : 'none')
+                      ? Value(hasRemoteImage ? 'pending_delete' : 'none')
+                      : const Value.absent(),
+                  imageHasRemote: image != null || removeImage
+                      ? Value(hasRemoteImage)
                       : const Value.absent(),
                   restSeconds: Value(valid.restSeconds),
                   updatedAt: Value(DateTime.now()),

@@ -72,10 +72,16 @@ void main() {
     await insertCustom();
 
     await repository.initializeCatalogIfEmpty();
+    await repository.initializeCatalogIfEmpty();
 
     final rows = await db.select(db.exercises).get();
     expect(rows, hasLength(1325));
-    expect(rows.where((row) => row.id.startsWith('custom_')), hasLength(1));
+    expect(rows.where((row) => row.origin == 'catalog'), hasLength(1324));
+    final custom = rows.singleWhere((row) => row.id.startsWith('custom_'));
+    expect(custom.name, 'Mi press');
+    expect(custom.restSeconds, 135);
+    expect(custom.localUserId, isNotNull);
+    expect(custom.secondaryMuscles, '["triceps"]');
   });
 
   testWidgets('la miniatura custom usa un archivo local', (tester) async {

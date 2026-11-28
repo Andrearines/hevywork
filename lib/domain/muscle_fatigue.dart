@@ -87,6 +87,18 @@ const Map<String, String> kTargetMuscleAliases = {
   'upper back': 'rhomboids',
 };
 
+String? canonicalTargetMuscle(String value) {
+  final normalized = value.trim().toLowerCase();
+  return kTargetMuscleAliases[normalized] ??
+      (kTargetMuscleAliases.containsValue(normalized) ? normalized : null);
+}
+
+String? canonicalSecondaryMuscle(String value) {
+  final normalized = value.trim().toLowerCase();
+  return kMuscleAliases[normalized] ??
+      (kMuscleAliases.containsValue(normalized) ? normalized : null);
+}
+
 /// Músculos canónicos con región en el SVG (frente y/o espalda). Los valores
 /// de fatiga fuera de este conjunto no se dibujan (RF-4).
 const Set<String> kMapMuscles = {
@@ -174,7 +186,7 @@ Map<String, double> rawMuscleFatigue({
   final clock = now ?? DateTime.now();
   final fatigue = <String, double>{};
   for (final set in sets) {
-    final canonical = kTargetMuscleAliases[set.target];
+    final canonical = canonicalTargetMuscle(set.target);
     final factor = setFatigueFactor(set.setType);
     if (factor == 0 || set.volume <= 0) continue;
     final decay = fatigueDecayFactor(clock, set.endedAt);
@@ -183,7 +195,7 @@ Map<String, double> rawMuscleFatigue({
           (fatigue[canonical] ?? 0) + set.volume * factor * decay;
     }
     for (final muscle in set.secondaryMuscles) {
-      final secondary = kMuscleAliases[muscle];
+      final secondary = canonicalSecondaryMuscle(muscle);
       if (secondary == null || secondary == canonical) continue;
       fatigue[secondary] =
           (fatigue[secondary] ?? 0) +
@@ -211,10 +223,10 @@ MuscleRoles muscleRoles({required Iterable<FatigueSet> sets, DateTime? now}) {
     if (setFatigueFactor(set.setType) == 0) continue;
     final days = clock.difference(set.endedAt).inMinutes / 1440.0;
     final age = days < 0 ? 0.0 : days;
-    final canonical = kTargetMuscleAliases[set.target];
+    final canonical = canonicalTargetMuscle(set.target);
     if (canonical != null) _record(primary, canonical, age);
     for (final muscle in set.secondaryMuscles) {
-      final canonicalSecondary = kMuscleAliases[muscle];
+      final canonicalSecondary = canonicalSecondaryMuscle(muscle);
       if (canonicalSecondary == null || canonicalSecondary == canonical) {
         continue;
       }
@@ -259,10 +271,7 @@ Map<String, double> muscleFatigue({
 }) {
   final clock = now ?? DateTime.now();
   final roles = muscleRoles(sets: sets, now: clock);
-  final muscles = <String>{
-    ...roles.primary.keys,
-    ...roles.secondary.keys,
-  };
+  final muscles = <String>{...roles.primary.keys, ...roles.secondary.keys};
   return {
     for (final muscle in muscles)
       muscle: math.max(
@@ -318,7 +327,7 @@ List<MuscleZoneStats> muscleZoneStats({
   final count = <String, int>{};
   for (final set in sets) {
     if (set.endedAt.isBefore(since)) continue;
-    final canonical = kTargetMuscleAliases[set.target];
+    final canonical = canonicalTargetMuscle(set.target);
     if (canonical == null) continue;
     if (setFatigueFactor(set.setType) == 0) continue;
     volume[canonical] = (volume[canonical] ?? 0) + set.volume;

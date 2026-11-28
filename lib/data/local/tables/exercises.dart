@@ -31,9 +31,11 @@ class Exercises extends Table {
   )();
   TextColumn get imageUploadStatus => text().nullable().customConstraint(
     'CHECK((origin = \'catalog\' AND image_upload_status IS NULL) OR '
-    "(origin = 'custom' AND image_upload_status IN "
+    "(origin = 'custom' AND image_upload_status IS NOT NULL AND "
+    'image_upload_status IN '
     "('none','pending_upload','uploaded','pending_delete')))",
   )();
+  BoolColumn get imageHasRemote => boolean().nullable()();
   DateTimeColumn get updatedAt => dateTime().nullable().customConstraint(
     "CHECK(origin = 'catalog' OR updated_at IS NOT NULL)",
   )();

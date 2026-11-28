@@ -1,6 +1,12 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
+import 'package:drift/drift.dart'
+    show
+        OpeningDetails,
+        QueryExecutor,
+        QueryExecutorUser,
+        Value,
+        driftRuntimeOptions;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hevywork/data/local/database.dart';
@@ -112,6 +118,19 @@ const _legacyTables = [
   END
   ''',
 ];
+
+class _RawOpener implements QueryExecutorUser {
+  const _RawOpener();
+
+  @override
+  int get schemaVersion => 20;
+
+  @override
+  Future<void> beforeOpen(
+    QueryExecutor executor,
+    OpeningDetails details,
+  ) async {}
+}
 
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
@@ -1304,6 +1323,7 @@ void main() {
       'image_storage_path',
       'image_mime_type',
       'image_upload_status',
+      'image_has_remote',
       'updated_at',
       'origin',
     ]) {
@@ -1322,6 +1342,7 @@ void main() {
     expect(exercise.imageStoragePath, isNull);
     expect(exercise.imageMimeType, isNull);
     expect(exercise.imageUploadStatus, isNull);
+    expect(exercise.imageHasRemote, isNull);
     expect(exercise.updatedAt, isNull);
     final preference = await reopened
         .select(reopened.exercisePreferences)
@@ -1404,6 +1425,7 @@ void main() {
         'image_storage_path',
         'image_mime_type',
         'image_upload_status',
+        'image_has_remote',
         'updated_at',
       ]),
     );
@@ -1427,11 +1449,267 @@ void main() {
         .getSingle();
     final sql = schema.read<String>('sql');
     expect(sql, contains("DEFAULT 'catalog'"));
+    expect(sql, contains('image_upload_status IS NOT NULL'));
     expect(sql, contains("'pending_upload'"));
     expect(sql, contains("'pending_delete'"));
     expect(sql, contains("'image/webp'"));
     await db.close();
   });
+
+  test('la v20 rechaza status de imagen NULL en custom por SQL y drift', () async {
+    final db = AppDatabase(NativeDatabase.memory());
+    final profile = await db.select(db.localProfiles).getSingle();
+
+    await expectLater(
+      db.customStatement(
+        'INSERT INTO exercises '
+        '(id, name, body_part, equipment, target, muscle_group, origin, '
+        'local_user_id, image_upload_status, updated_at) VALUES '
+        "('custom_status_null_sql', 'Inválido', 'chest', 'barbell', "
+        "'pectorals', 'triceps', 'custom', '${profile.localUserId}', NULL, 1)",
+      ),
+      throwsA(isA<SqliteException>()),
+    );
+    await expectLater(
+      db
+          .into(db.exercises)
+          .insert(
+            ExercisesCompanion.insert(
+              id: 'custom_status_null_drift',
+              name: 'Inválido',
+              bodyPart: 'chest',
+              equipment: 'barbell',
+              target: 'pectorals',
+              muscleGroup: 'triceps',
+              origin: const Value('custom'),
+              localUserId: Value(profile.localUserId),
+              imageUploadStatus: const Value(null),
+              updatedAt: Value(DateTime(2026, 11, 27)),
+            ),
+          ),
+      throwsA(isA<SqliteException>()),
+    );
+    expect(await db.select(db.exercises).get(), isEmpty);
+    await db.close();
+  });
+
+  test(
+    'la v20 intermedia real se repara al abrir sin rebajar su versión',
+    () async {
+      final db = AppDatabase(NativeDatabase(file));
+      final profile = await db.select(db.localProfiles).getSingle();
+      final createdAt = DateTime(2026, 1, 1);
+      await db
+          .into(db.exercises)
+          .insert(
+            ExercisesCompanion.insert(
+              id: 'catalog_intermediate_v20',
+              name: 'Catálogo conservado',
+              bodyPart: 'chest',
+              equipment: 'barbell',
+              target: 'pectorals',
+              muscleGroup: 'triceps',
+              createdAt: Value(createdAt),
+            ),
+          );
+      await db
+          .into(db.exercises)
+          .insert(
+            ExercisesCompanion.insert(
+              id: 'custom_intermediate_v20',
+              name: 'Custom intermedio',
+              bodyPart: 'chest',
+              equipment: 'barbell',
+              target: 'pectorals',
+              muscleGroup: 'triceps',
+              createdAt: Value(createdAt),
+              origin: const Value('custom'),
+              localUserId: Value(profile.localUserId),
+              imageStoragePath: const Value('profile/custom_intermediate_v20'),
+              imageUploadStatus: const Value('pending_delete'),
+              imageHasRemote: const Value(true),
+              updatedAt: Value(createdAt),
+              restSeconds: const Value(135),
+            ),
+          );
+      await db
+          .into(db.syncQueue)
+          .insert(
+            SyncQueueCompanion.insert(
+              id: 'queue_intermediate_v20',
+              operation: 'upsert',
+              targetTable: 'workouts',
+              payload: '{"id":"workout-intermediate-v20"}',
+              nextAttemptAt: createdAt,
+            ),
+          );
+      await db.close();
+
+      final raw = NativeDatabase(file, enableMigrations: false);
+      await raw.ensureOpen(const _RawOpener());
+      await raw.runCustom('PRAGMA foreign_keys = OFF');
+      const columns =
+          'id, name, body_part, equipment, target, muscle_group, '
+          'secondary_muscles, media_id, image_path, gif_path, attribution, '
+          'created_at, origin, local_user_id, image_storage_path, '
+          'image_mime_type, image_upload_status, updated_at, rest_seconds';
+      await raw.runCustom('BEGIN');
+      await raw.runCustom('''
+      CREATE TABLE "exercises_intermediate" (
+        "id" TEXT NOT NULL,
+        "name" TEXT NOT NULL,
+        "body_part" TEXT NOT NULL,
+        "equipment" TEXT NOT NULL,
+        "target" TEXT NOT NULL,
+        "muscle_group" TEXT NOT NULL,
+        "secondary_muscles" TEXT NULL,
+        "media_id" TEXT NULL,
+        "image_path" TEXT NULL,
+        "gif_path" TEXT NULL,
+        "attribution" TEXT NULL,
+        "created_at" INTEGER NULL,
+        "origin" TEXT NOT NULL DEFAULT 'catalog'
+          CHECK(origin IN ('catalog','custom')),
+        "local_user_id" TEXT NULL CHECK((origin = 'custom' AND
+          local_user_id IS NOT NULL) OR (origin = 'catalog' AND
+          local_user_id IS NULL)),
+        "image_storage_path" TEXT NULL,
+        "image_mime_type" TEXT NULL CHECK(image_mime_type IS NULL OR
+          image_mime_type IN ('image/jpeg','image/png','image/webp')),
+        "image_upload_status" TEXT NULL CHECK((origin = 'catalog' AND
+          image_upload_status IS NULL) OR (origin = 'custom' AND
+          image_upload_status IN
+          ('none','pending_upload','uploaded','pending_delete'))),
+        "updated_at" INTEGER NULL CHECK(origin = 'catalog' OR
+          updated_at IS NOT NULL),
+        "rest_seconds" INTEGER NOT NULL DEFAULT 90
+          CHECK(rest_seconds BETWEEN 15 AND 300),
+        PRIMARY KEY ("id")
+      )
+    ''');
+      await raw.runCustom(
+        'INSERT INTO exercises_intermediate ($columns) '
+        'SELECT $columns FROM exercises',
+      );
+      await raw.runCustom('DROP TABLE exercises');
+      await raw.runCustom(
+        'ALTER TABLE exercises_intermediate RENAME TO exercises',
+      );
+      await raw.runCustom(
+        'INSERT INTO exercises '
+        '(id, name, body_part, equipment, target, muscle_group, origin, '
+        'local_user_id, image_upload_status, updated_at) VALUES '
+        "('custom_legacy_null', 'Custom con null', 'chest', 'barbell', "
+        "'pectorals', 'triceps', 'custom', ?, NULL, 1)",
+        [profile.localUserId],
+      );
+      await raw.runCustom('PRAGMA user_version = 20');
+      await raw.runCustom('COMMIT');
+
+      final intermediateVersion = await raw.runSelect(
+        'PRAGMA user_version',
+        const [],
+      );
+      expect(intermediateVersion.single['user_version'], 20);
+      final intermediateColumns = await raw.runSelect(
+        "PRAGMA table_info('exercises')",
+        const [],
+      );
+      expect(
+        intermediateColumns.map((row) => row['name']),
+        isNot(contains('image_has_remote')),
+      );
+      final intermediateSchema = await raw.runSelect(
+        "SELECT sql FROM sqlite_master WHERE name = 'exercises'",
+        const [],
+      );
+      expect(
+        intermediateSchema.single['sql'] as String,
+        isNot(contains('image_upload_status IS NOT NULL')),
+      );
+      await raw.close();
+
+      final reopened = AppDatabase(NativeDatabase(file));
+      final exercises = await reopened.select(reopened.exercises).get();
+      expect(exercises, hasLength(3));
+      final byId = {for (final exercise in exercises) exercise.id: exercise};
+      expect(byId['catalog_intermediate_v20']!.name, 'Catálogo conservado');
+      final custom = byId['custom_intermediate_v20']!;
+      expect(custom.localUserId, profile.localUserId);
+      expect(custom.imageStoragePath, 'profile/custom_intermediate_v20');
+      expect(custom.imageUploadStatus, 'pending_delete');
+      expect(custom.imageHasRemote, isNull);
+      expect(custom.restSeconds, 135);
+      expect(custom.createdAt, createdAt);
+      expect(custom.updatedAt, createdAt);
+      expect(byId['custom_legacy_null']!.imageUploadStatus, 'none');
+
+      final repairedColumns = await reopened
+          .customSelect("PRAGMA table_info('exercises')")
+          .get();
+      expect(
+        repairedColumns.map((row) => row.read<String>('name')),
+        contains('image_has_remote'),
+      );
+      final repairedSchema = await reopened
+          .customSelect(
+            "SELECT sql, rootpage FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'exercises'",
+          )
+          .getSingle();
+      expect(
+        repairedSchema.read<String>('sql'),
+        contains('image_upload_status IS NOT NULL'),
+      );
+      expect(
+        (await reopened.customSelect('PRAGMA user_version').getSingle())
+            .read<int>('user_version'),
+        20,
+      );
+      await expectLater(
+        reopened.customStatement(
+          'INSERT INTO exercises '
+          '(id, name, body_part, equipment, target, muscle_group, origin, '
+          'local_user_id, image_upload_status, updated_at) VALUES '
+          "('custom_null_rejected', 'Inválido', 'chest', 'barbell', "
+          "'pectorals', 'triceps', 'custom', ?, NULL, 1)",
+          [profile.localUserId],
+        ),
+        throwsA(isA<SqliteException>()),
+      );
+      expect(
+        (await reopened.select(reopened.syncQueue).getSingle()).id,
+        'queue_intermediate_v20',
+      );
+      expect(
+        await reopened.customSelect('PRAGMA foreign_key_check').get(),
+        isEmpty,
+      );
+      final rootPage = repairedSchema.read<int>('rootpage');
+      final repairedSql = repairedSchema.read<String>('sql');
+      await reopened.close();
+
+      final reopenedAgain = AppDatabase(NativeDatabase(file));
+      final stableSchema = await reopenedAgain
+          .customSelect(
+            "SELECT sql, rootpage FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'exercises'",
+          )
+          .getSingle();
+      expect(stableSchema.read<String>('sql'), repairedSql);
+      expect(stableSchema.read<int>('rootpage'), rootPage);
+      expect(
+        await reopenedAgain.select(reopenedAgain.exercises).get(),
+        hasLength(3),
+      );
+      expect(
+        (await reopenedAgain.select(reopenedAgain.syncQueue).getSingle())
+            .payload,
+        '{"id":"workout-intermediate-v20"}',
+      );
+      await reopenedAgain.close();
+    },
+  );
 
   test('la v20 interrumpida conserva columnas y filas custom', () async {
     final db = AppDatabase(NativeDatabase(file));

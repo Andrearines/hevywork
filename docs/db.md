@@ -4,7 +4,7 @@
 
 - **Local vigente:** drift SQLite en `lib/data/local/database.dart`,
   `schemaVersion = 20`. La v19 está implementada y aprobada por revisión en T-003;
-  la v20 está implementada en T-004 y pendiente de revisión independiente. Antes de
+  la v20 está implementada en T-004 y pendiente de revisión final independiente. Antes de
   022 era v18; la versión aprobada v21 (T-006) sigue sin aplicar.
 - **Remoto:** Supabase Postgres/Storage; cambios solo mediante migraciones en
   `supabase/migrations/`, una por tarea cuando aplique.
@@ -117,7 +117,8 @@ personalizados. Se añaden:
 | `local_user_id` | texto UUID nullable | `NULL` para catálogo compartido; obligatorio por check SQL para `custom`. |
 | `image_storage_path` | texto nullable | Última/ruta prevista de Storage; nunca se confunde con `image_path` local. |
 | `image_mime_type` | texto nullable | `image/jpeg`, `image/png` o `image/webp`. |
-| `image_upload_status` | texto nullable | Custom: `none`, `pending_upload`, `uploaded`, `pending_delete`; catálogo: `NULL`. |
+| `image_upload_status` | texto nullable | Custom: `none`, `pending_upload`, `uploaded`, `pending_delete`, siempre no nulo; catálogo: `NULL`. |
+| `image_has_remote` | booleano nullable | Metadata solo local: distingue una primera subida pendiente (`false`) de un objeto remoto conocido (`true`), incluso durante un reemplazo; `NULL` en catálogo/legacy. |
 | `updated_at` | `DateTime` nullable | Obligatorio para custom; `NULL` para filas maestras antiguas. |
 
 Las columnas existentes se reutilizan así:
@@ -132,19 +133,33 @@ Las columnas existentes se reutilizan así:
 El alta exige nombre, objetivo, equipo y parte del cuerpo recortados/no vacíos,
 secundarios opcionales canónicos sin duplicados ni equivalencia con el objetivo y
 descanso 15–300 s (90 al crear). `muscle_group` se deriva del primer secundario
-canónico u objetivo si la lista está vacía. No hay borrado de personalizados ni
-instrucciones custom en esta spec.
+canónico o del objetivo canónico si la lista está vacía. Como `cardiovascular system`
+es un objetivo válido sin zona muscular, conserva ese mismo valor filtrable/no vacío y
+fatiga, roles y mapa lo omiten sin inventar una región. Los helpers de canonicalización
+aceptan tanto aliases como todos los valores ya canónicos reconocidos; el objetivo se
+normaliza al vocabulario permitido y los desconocidos se rechazan. No hay borrado de
+personalizados ni instrucciones custom en esta spec.
 
 La búsqueda/paginación opera sobre la misma proyección con páginas de 50. El asset
 nunca se reescribe al crear/editar un custom.
 
-**Estado de implementación T-004 (2026-11-26):** la migración 19→20, sus checks e
-idempotencia y el generado v20 están implementados. Las pruebas de migración pasan
-23/23 y la puerta completa no golden pasa 806/806 con `flutter analyze` sin
+**Estado de implementación T-004 (2026-11-27):** la única migración 19→20, sus
+checks e idempotencia y el generado v20 están implementados, incluida la metadata
+local `image_has_remote`. Las pruebas de migración pasan 25/25 y, tras la iteración
+correctora 2, la puerta completa no golden pasa 862/862 con `flutter analyze` sin
 incidencias. La visibilidad limita customs al propietario; el descanso custom vive en
 `exercises.rest_seconds` y las rutas locales no se añaden a payloads. Esta ejecución
-está **pendiente de revisión independiente**, no aprobada, y no activa sincronización
-ni Storage.
+está **pendiente de una nueva revisión independiente**, no aprobada, y no activa
+sincronización ni Storage.
+
+La apertura también repara una **v20 intermedia real** creada por la primera
+implementación, aunque `onUpgrade` no se ejecute porque `user_version` ya sea 20. La
+comprobación en `beforeOpen` es no-op si la tabla todavía no existe o si columna y CHECK
+ya son correctos. Añade `image_has_remote` cuando esa es la única estructura ausente;
+si el CHECK de status es antiguo, reconstruye `exercises` preservando datos, referencias
+y cola. Un custom legacy con `image_upload_status NULL` se conserva como `none` durante
+esa reconstrucción, y cualquier NULL nuevo queda rechazado. Una base ya correcta no se
+reconstruye en reaperturas. No se incrementa la versión ni se crea otra migración.
 
 ## 4. Personalizados remotos — T-006
 
@@ -181,13 +196,21 @@ delete queda protegido por la misma política. No se crea una tabla remota gener
   siempre del usuario Auth real y se reescribe `image_path`. Nunca se confía en un
   `user_id` del payload.
 - `image_picker` se configura con compresión razonable (máximo 1600×1600, calidad
-  85 cuando la plataforma la admita). Un archivo vacío, MIME no soportado o >2 MiB
-  se rechaza en español conservando borrador e imagen anterior.
+  85 cuando la plataforma la admita). Antes de reemplazar una imagen se comprueban
+  tamaño/firma, se decodifica un frame real con las APIs Flutter/Dart existentes y se
+  validan dimensiones positivas; RIFF WebP debe declarar su longitud exacta. Un
+  archivo vacío, corrupto/truncado, MIME no soportado o >2 MiB se rechaza en español
+  conservando borrador, selección e imagen anterior.
 - `pending_upload`: el fichero local permanece disponible offline y la subida se
   reintenta. `uploaded`: la metadata remota apunta al objeto; si falta el fichero
   local se descarga bajo demanda. `pending_delete`: la UI ya muestra fallback y la
   metadata remota queda nula, pero se conserva la última clave hasta borrar el
   objeto con éxito. `none`: sin imagen ni operación.
+- `image_has_remote` se fija a `true` al conocer un objeto `uploaded`/`pending_delete`
+  y no se pierde al reemplazarlo por una nueva subida pendiente. Por tanto, retirar
+  ese reemplazo conserva clave y `pending_delete`; retirar una primera imagen nunca
+  subida vuelve a `none`, sin clave. Filas `uploaded`/`pending_delete` legacy sin el
+  bit se tratan como remotas conocidas. El bit nunca se serializa a sync.
 - Metadata y bytes son eventualmente consistentes: un cliente que aún no puede
   descargar el objeto muestra `ThumbFallback`, sin error de guardado ni atribución.
   Perfil no puede mostrar «Actualizado» mientras exista media pendiente.
@@ -235,7 +258,8 @@ Reglas especiales de payload:
 - `secondary_muscles` viaja como array `jsonb`; fechas en ISO-8601; `created_at` y
   `updated_at` los asigna el servidor.
 - `custom_exercises.image_path` se recalcula con el Auth UID. No se aceptan
-  `origin`, `local_user_id`, `image_upload_status` ni `image_storage_path` remoto.
+  `origin`, `local_user_id`, `image_upload_status`, `image_has_remote` ni
+  `image_storage_path` remoto.
 
 La migración reemplaza `claim_local_data` preservando todas las reasignaciones
 vigentes y añade `custom_exercises` y `exercise_preferences`. En una colisión de
@@ -278,7 +302,8 @@ Cada tarea que toque drift ejecuta el comando aprobado de `build_runner` y tests
 upgrade. T-006 revisa SQL/RLS/Storage antes de aplicar su única migración. Al
 terminar cada tarea: `flutter test --exclude-tags golden` completa en verde y
 `flutter analyze` sin incidencias, sin modificar PNG, añadir dependencias ni hacer
-commits/push nuevos sin permiso. La única excepción es D-119 para conservar en
+commits/push nuevos sin permiso. Las únicas excepciones son D-119, para conservar en
 T-001 el commit ya existente/publicado
-`9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`; no se extiende a T-002…T-006 ni
-autoriza reescritura de historial.
+`9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`, y D-135, para conservar en T-004 el
+commit/push ya existente `9c2ec8a2c6f019177996658009d85a7260e098eb`. Ninguna se
+extiende a otro hash ni autoriza nuevas operaciones Git o reescritura de historial.

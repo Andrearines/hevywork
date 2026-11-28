@@ -192,8 +192,22 @@ class $ExercisesTable extends Exercises
         true,
         type: DriftSqlType.string,
         requiredDuringInsert: false,
-        $customConstraints: 'CHECK((origin = \'catalog\' AND image_upload_status IS NULL) OR (origin = \'custom\' AND image_upload_status IN (\'none\',\'pending_upload\',\'uploaded\',\'pending_delete\')))',
+        $customConstraints: 'CHECK((origin = \'catalog\' AND image_upload_status IS NULL) OR (origin = \'custom\' AND image_upload_status IS NOT NULL AND image_upload_status IN (\'none\',\'pending_upload\',\'uploaded\',\'pending_delete\')))',
       );
+  static const VerificationMeta _imageHasRemoteMeta = const VerificationMeta(
+    'imageHasRemote',
+  );
+  @override
+  late final GeneratedColumn<bool> imageHasRemote = GeneratedColumn<bool>(
+    'image_has_remote',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("image_has_remote" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _updatedAtMeta = const VerificationMeta(
     'updatedAt',
   );
@@ -239,6 +253,7 @@ class $ExercisesTable extends Exercises
     imageStoragePath,
     imageMimeType,
     imageUploadStatus,
+    imageHasRemote,
     updatedAt,
     restSeconds,
   ];
@@ -386,6 +401,15 @@ class $ExercisesTable extends Exercises
         ),
       );
     }
+    if (data.containsKey('image_has_remote')) {
+      context.handle(
+        _imageHasRemoteMeta,
+        imageHasRemote.isAcceptableOrUnknown(
+          data['image_has_remote']!,
+          _imageHasRemoteMeta,
+        ),
+      );
+    }
     if (data.containsKey('updated_at')) {
       context.handle(
         _updatedAtMeta,
@@ -478,6 +502,10 @@ class $ExercisesTable extends Exercises
         DriftSqlType.string,
         data['${effectivePrefix}image_upload_status'],
       ),
+      imageHasRemote: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}image_has_remote'],
+      ),
       updatedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}updated_at'],
@@ -513,6 +541,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
   final String? imageStoragePath;
   final String? imageMimeType;
   final String? imageUploadStatus;
+  final bool? imageHasRemote;
   final DateTime? updatedAt;
   final int restSeconds;
   const Exercise({
@@ -533,6 +562,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     this.imageStoragePath,
     this.imageMimeType,
     this.imageUploadStatus,
+    this.imageHasRemote,
     this.updatedAt,
     required this.restSeconds,
   });
@@ -575,6 +605,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     }
     if (!nullToAbsent || imageUploadStatus != null) {
       map['image_upload_status'] = Variable<String>(imageUploadStatus);
+    }
+    if (!nullToAbsent || imageHasRemote != null) {
+      map['image_has_remote'] = Variable<bool>(imageHasRemote);
     }
     if (!nullToAbsent || updatedAt != null) {
       map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -622,6 +655,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       imageUploadStatus: imageUploadStatus == null && nullToAbsent
           ? const Value.absent()
           : Value(imageUploadStatus),
+      imageHasRemote: imageHasRemote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageHasRemote),
       updatedAt: updatedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(updatedAt),
@@ -654,6 +690,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       imageUploadStatus: serializer.fromJson<String?>(
         json['imageUploadStatus'],
       ),
+      imageHasRemote: serializer.fromJson<bool?>(json['imageHasRemote']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
       restSeconds: serializer.fromJson<int>(json['restSeconds']),
     );
@@ -679,6 +716,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       'imageStoragePath': serializer.toJson<String?>(imageStoragePath),
       'imageMimeType': serializer.toJson<String?>(imageMimeType),
       'imageUploadStatus': serializer.toJson<String?>(imageUploadStatus),
+      'imageHasRemote': serializer.toJson<bool?>(imageHasRemote),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
       'restSeconds': serializer.toJson<int>(restSeconds),
     };
@@ -702,6 +740,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     Value<String?> imageStoragePath = const Value.absent(),
     Value<String?> imageMimeType = const Value.absent(),
     Value<String?> imageUploadStatus = const Value.absent(),
+    Value<bool?> imageHasRemote = const Value.absent(),
     Value<DateTime?> updatedAt = const Value.absent(),
     int? restSeconds,
   }) => Exercise(
@@ -730,6 +769,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     imageUploadStatus: imageUploadStatus.present
         ? imageUploadStatus.value
         : this.imageUploadStatus,
+    imageHasRemote: imageHasRemote.present
+        ? imageHasRemote.value
+        : this.imageHasRemote,
     updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
     restSeconds: restSeconds ?? this.restSeconds,
   );
@@ -766,6 +808,9 @@ class Exercise extends DataClass implements Insertable<Exercise> {
       imageUploadStatus: data.imageUploadStatus.present
           ? data.imageUploadStatus.value
           : this.imageUploadStatus,
+      imageHasRemote: data.imageHasRemote.present
+          ? data.imageHasRemote.value
+          : this.imageHasRemote,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
       restSeconds: data.restSeconds.present
           ? data.restSeconds.value
@@ -793,6 +838,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           ..write('imageStoragePath: $imageStoragePath, ')
           ..write('imageMimeType: $imageMimeType, ')
           ..write('imageUploadStatus: $imageUploadStatus, ')
+          ..write('imageHasRemote: $imageHasRemote, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('restSeconds: $restSeconds')
           ..write(')'))
@@ -818,6 +864,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
     imageStoragePath,
     imageMimeType,
     imageUploadStatus,
+    imageHasRemote,
     updatedAt,
     restSeconds,
   );
@@ -842,6 +889,7 @@ class Exercise extends DataClass implements Insertable<Exercise> {
           other.imageStoragePath == this.imageStoragePath &&
           other.imageMimeType == this.imageMimeType &&
           other.imageUploadStatus == this.imageUploadStatus &&
+          other.imageHasRemote == this.imageHasRemote &&
           other.updatedAt == this.updatedAt &&
           other.restSeconds == this.restSeconds);
 }
@@ -864,6 +912,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
   final Value<String?> imageStoragePath;
   final Value<String?> imageMimeType;
   final Value<String?> imageUploadStatus;
+  final Value<bool?> imageHasRemote;
   final Value<DateTime?> updatedAt;
   final Value<int> restSeconds;
   final Value<int> rowid;
@@ -885,6 +934,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.imageStoragePath = const Value.absent(),
     this.imageMimeType = const Value.absent(),
     this.imageUploadStatus = const Value.absent(),
+    this.imageHasRemote = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -907,6 +957,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     this.imageStoragePath = const Value.absent(),
     this.imageMimeType = const Value.absent(),
     this.imageUploadStatus = const Value.absent(),
+    this.imageHasRemote = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.restSeconds = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -934,6 +985,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Expression<String>? imageStoragePath,
     Expression<String>? imageMimeType,
     Expression<String>? imageUploadStatus,
+    Expression<bool>? imageHasRemote,
     Expression<DateTime>? updatedAt,
     Expression<int>? restSeconds,
     Expression<int>? rowid,
@@ -956,6 +1008,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       if (imageStoragePath != null) 'image_storage_path': imageStoragePath,
       if (imageMimeType != null) 'image_mime_type': imageMimeType,
       if (imageUploadStatus != null) 'image_upload_status': imageUploadStatus,
+      if (imageHasRemote != null) 'image_has_remote': imageHasRemote,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (restSeconds != null) 'rest_seconds': restSeconds,
       if (rowid != null) 'rowid': rowid,
@@ -980,6 +1033,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     Value<String?>? imageStoragePath,
     Value<String?>? imageMimeType,
     Value<String?>? imageUploadStatus,
+    Value<bool?>? imageHasRemote,
     Value<DateTime?>? updatedAt,
     Value<int>? restSeconds,
     Value<int>? rowid,
@@ -1002,6 +1056,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
       imageStoragePath: imageStoragePath ?? this.imageStoragePath,
       imageMimeType: imageMimeType ?? this.imageMimeType,
       imageUploadStatus: imageUploadStatus ?? this.imageUploadStatus,
+      imageHasRemote: imageHasRemote ?? this.imageHasRemote,
       updatedAt: updatedAt ?? this.updatedAt,
       restSeconds: restSeconds ?? this.restSeconds,
       rowid: rowid ?? this.rowid,
@@ -1062,6 +1117,9 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
     if (imageUploadStatus.present) {
       map['image_upload_status'] = Variable<String>(imageUploadStatus.value);
     }
+    if (imageHasRemote.present) {
+      map['image_has_remote'] = Variable<bool>(imageHasRemote.value);
+    }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
@@ -1094,6 +1152,7 @@ class ExercisesCompanion extends UpdateCompanion<Exercise> {
           ..write('imageStoragePath: $imageStoragePath, ')
           ..write('imageMimeType: $imageMimeType, ')
           ..write('imageUploadStatus: $imageUploadStatus, ')
+          ..write('imageHasRemote: $imageHasRemote, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('restSeconds: $restSeconds, ')
           ..write('rowid: $rowid')
@@ -11661,6 +11720,7 @@ typedef $$ExercisesTableCreateCompanionBuilder = ExercisesCompanion Function({
   Value<String?> imageStoragePath,
   Value<String?> imageMimeType,
   Value<String?> imageUploadStatus,
+  Value<bool?> imageHasRemote,
   Value<DateTime?> updatedAt,
   Value<int> restSeconds,
   Value<int> rowid,
@@ -11683,6 +11743,7 @@ typedef $$ExercisesTableUpdateCompanionBuilder = ExercisesCompanion Function({
   Value<String?> imageStoragePath,
   Value<String?> imageMimeType,
   Value<String?> imageUploadStatus,
+  Value<bool?> imageHasRemote,
   Value<DateTime?> updatedAt,
   Value<int> restSeconds,
   Value<int> rowid,
@@ -11873,6 +11934,11 @@ class $$ExercisesTableFilterComposer
 
   ColumnFilters<String> get imageUploadStatus => $composableBuilder(
     column: $table.imageUploadStatus,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get imageHasRemote => $composableBuilder(
+    column: $table.imageHasRemote,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -12081,6 +12147,11 @@ class $$ExercisesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get imageHasRemote => $composableBuilder(
+    column: $table.imageHasRemote,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
     column: $table.updatedAt,
     builder: (column) => ColumnOrderings(column),
@@ -12163,6 +12234,11 @@ class $$ExercisesTableAnnotationComposer
 
   GeneratedColumn<String> get imageUploadStatus => $composableBuilder(
     column: $table.imageUploadStatus,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get imageHasRemote => $composableBuilder(
+    column: $table.imageHasRemote,
     builder: (column) => column,
   );
 
@@ -12327,6 +12403,7 @@ class $$ExercisesTableTableManager
                 Value<String?> imageStoragePath = const Value.absent(),
                 Value<String?> imageMimeType = const Value.absent(),
                 Value<String?> imageUploadStatus = const Value.absent(),
+                Value<bool?> imageHasRemote = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -12348,6 +12425,7 @@ class $$ExercisesTableTableManager
                 imageStoragePath: imageStoragePath,
                 imageMimeType: imageMimeType,
                 imageUploadStatus: imageUploadStatus,
+                imageHasRemote: imageHasRemote,
                 updatedAt: updatedAt,
                 restSeconds: restSeconds,
                 rowid: rowid,
@@ -12371,6 +12449,7 @@ class $$ExercisesTableTableManager
                 Value<String?> imageStoragePath = const Value.absent(),
                 Value<String?> imageMimeType = const Value.absent(),
                 Value<String?> imageUploadStatus = const Value.absent(),
+                Value<bool?> imageHasRemote = const Value.absent(),
                 Value<DateTime?> updatedAt = const Value.absent(),
                 Value<int> restSeconds = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -12392,6 +12471,7 @@ class $$ExercisesTableTableManager
                 imageStoragePath: imageStoragePath,
                 imageMimeType: imageMimeType,
                 imageUploadStatus: imageUploadStatus,
+                imageHasRemote: imageHasRemote,
                 updatedAt: updatedAt,
                 restSeconds: restSeconds,
                 rowid: rowid,

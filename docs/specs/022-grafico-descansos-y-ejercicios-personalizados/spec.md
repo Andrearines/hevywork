@@ -1,15 +1,17 @@
 # Spec 022 — Gráfico, descansos y ejercicios personalizados
 
 **Estado: APROBADA — DESIGN y alcance confirmados por el usuario el 2026-11-23.**
-**Tarea actual:** **T-004 LISTA para el implementador.** T-001, T-002 y T-003
-están **APROBADAS**. T-003 no tuvo hallazgos bloqueantes, mayores ni menores; sus
-limitaciones de evidencia quedan registradas sin reabrir CA-09…CA-12. La observación
-menor de T-002 sobre legibilidad a 320 dp/textScaler 1.3 sigue diferida y no amplía
-T-004. T-004…T-006 siguen sin implementar; no se reabren producto ni DESIGN.
+**Tarea actual:** **T-004 IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL.** T-001,
+T-002 y T-003 están **APROBADAS**. El último revisor confirmó corregidos todos los
+defectos técnicos de T-004, sin nuevos hallazgos bloqueantes/mayores/menores; su
+único rechazo restante era Q-008, ahora cerrada por D-135. Esto no aprueba T-004:
+el cierre documental posterior a D-135 está completado y debe recibir un nuevo
+veredicto final independiente. La observación menor de T-002 sigue diferida. T-005 y
+T-006 no se han iniciado; no se reabren producto ni DESIGN.
 
 La spec 021 está cerrada y aprobada; esta petición nueva no la reabre ni cambia sus
-criterios. Q-006 quedó cerrada por D-117 y Q-007 por D-119. El diseño vinculante
-está en `DESIGN.md` y los contratos de datos en `docs/db.md`.
+criterios. Q-006 quedó cerrada por D-117, Q-007 por D-119 y Q-008 por D-135. El
+diseño vinculante está en `DESIGN.md` y los contratos de datos en `docs/db.md`.
 
 ## 1. Contexto y objetivo
 
@@ -190,7 +192,7 @@ spec.
 | NFR-03 | Cada cambio drift incrementa `schemaVersion` y pasa por `build_runner`; cada cambio remoto usa una migración por tarea, RLS y `user_id`. | Tests de migración local y revisión SQL/políticas antes de aplicar. |
 | NFR-04 | Las pantallas mantienen AA, targets ≥44 dp y comportamiento usable a 320/375/640/1024 dp con `textScaler` hasta 1.3. | Tests widget/unitarios, semántica y comprobaciones de overflow sin goldens. |
 | NFR-05 | La puerta es `flutter test --exclude-tags golden` completa en verde y `flutter analyze` sin incidencias; ningún PNG se modifica. | Salida completa de ambos comandos y comprobación de hashes/diff de PNG. |
-| NFR-06 | Se preservan la 021, el trabajo ajeno y los archivos no relacionados; no se hacen commits/push nuevos sin permiso expreso. La única excepción es conservar el hash ya existente/publicado de D-119, sin reescribir historial. | Revisión de estado/diff al inicio y cierre de cada tarea; la excepción de T-001 nombra exactamente `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` y cualquier commit/push nuevo exige permiso independiente. |
+| NFR-06 | Se preservan la 021, el trabajo ajeno y los archivos no relacionados; no se hacen commits/push nuevos sin permiso expreso. Las únicas excepciones son conservar los commits/push ya existentes/publicados delimitados por D-119 y D-135, sin reescribir historial. | Revisión de estado/diff al inicio y cierre de cada tarea; D-119 nombra exactamente `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd` para T-001 y D-135 `9c2ec8a2c6f019177996658009d85a7260e098eb` para T-004; cualquier commit/push nuevo exige permiso independiente. |
 | NFR-07 | Los contadores se calculan contra `DateTime`, no contra ticks, y la UI no se bloquea por sincronización. | Tests con reloj fijo, pausa/reanudación y latencia/fallo de red. |
 | NFR-08 | Una réplica nunca sobrescribe una mutación local pendiente; el servidor resuelve el orden final con `updated_at`. | Tests de dos réplicas, cola pendiente y conflictos de subida/descarga. |
 
@@ -200,8 +202,8 @@ spec.
 - Sustituir el catálogo maestro ni editar sus datos originales para personalizar
   músculos: se usa una personalización reversible.
 - Añadir dependencias, generar goldens, modificar PNG o hacer commits/push nuevos
-  sin permiso expreso. D-119 solo exceptúa conservar el hash histórico indicado;
-  no autoriza reescritura ni operaciones Git futuras.
+  sin permiso expreso. D-119 y D-135 solo exceptúan conservar los commits/push
+  históricos expresamente indicados; no autorizan reescritura ni operaciones Git futuras.
 - Reescribir toda la sincronización sin un caso rojo que lo justifique.
 - Aplicar migraciones o cambiar `database.g.dart` durante la planificación.
 - Temporizadores de fases, ejercicios compartidos públicamente, borrado de
@@ -267,3 +269,29 @@ diseño ni CA-13…CA-16. Incluye alta/edición local completa, imagen/fallback,
 integración/reacción de vistas y descanso directo custom. El borrado de personalizados,
 SCR-09 y toda réplica/supabase permanecen fuera; se exige drift 19→20, una sola
 generación y la puerta completa no golden + analyze antes de otra revisión.
+
+## 13. Q-008 — Cerrada por D-135; T-004 pendiente de revisión final
+
+El último revisor confirmó que **todos los defectos técnicos de T-004 están
+corregidos**, sin nuevos hallazgos bloqueantes, mayores ni menores. Su único rechazo
+restante era **Q-008**, relativo al commit/push ya existente no cubierto por D-119.
+La puerta declarada es **862/862 pruebas no golden** y `flutter analyze` con **0
+incidencias**, con evidencias en `/tmp/opencode/hevywork-t004-iter2/`; esta
+actualización documental no la reejecutó.
+
+La respuesta explícita del usuario **«si ya pasalo»** cierra Q-008 mediante **D-135**
+y autoriza conservar como válidos exclusivamente el commit
+`9c2ec8a2c6f019177996658009d85a7260e098eb` (`T4`) y su push ya realizado a
+`origin/2.2.0`. **D-119 no cubría este hash ni este push**: su excepción permanece
+limitada a `9d62bac3966bfbab78e8fb0e1f1a53c6fd7c07fd`.
+
+HEAD y `origin/2.2.0` actuales se conservan en el hash autorizado, sin atribuir
+autoría ni ejecutar operaciones Git. D-135 no habilita ningún otro commit/push sin
+permiso ni reset, revert, rebase, clean o reescritura, y no autoriza a commitear las
+correcciones o documentación posteriores.
+
+**Estado vigente:** T-004 está **IMPLEMENTADA — PENDIENTE DE REVISIÓN FINAL**. El
+cierre documental del implementador posterior a D-135 está completado; debe someterse
+a una nueva revisión final independiente. D-135 no aprueba la tarea ni modifica
+CA-13…CA-16. **T-005 y T-006 permanecen bloqueadas y sin iniciar** hasta que T-004
+reciba aprobación expresa.

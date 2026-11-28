@@ -23,6 +23,7 @@ const Map<SessionFocus, Set<String>> _focusKeys = {
   SessionFocus.push: {
     'chest',
     'pectorals',
+    'pectoralismajor',
     'shoulders',
     'deltoids',
     'delts',
@@ -74,11 +75,11 @@ const Map<SessionFocus, Set<String>> _focusKeys = {
 
 /// Nombre corto en español de un enfoque de sesión.
 String focusLabel(SessionFocus focus) => switch (focus) {
-      SessionFocus.push => 'Empuje',
-      SessionFocus.pull => 'Tracción',
-      SessionFocus.legs => 'Pierna',
-      SessionFocus.core => 'Core',
-    };
+  SessionFocus.push => 'Empuje',
+  SessionFocus.pull => 'Tracción',
+  SessionFocus.legs => 'Pierna',
+  SessionFocus.core => 'Core',
+};
 
 /// Etiqueta en español del objetivo muscular del catálogo (sin huecos: lo
 /// que no se conoce se muestra tal cual).
@@ -161,14 +162,17 @@ List<SessionRow> buildSessionBreakdown({
       muscleGroup: exercise.muscleGroup,
       target: exercise.target,
     );
-    grouped.putIfAbsent(focus, () {
-      order.add(focus);
-      return [];
-    }).add(exercise.target);
+    grouped
+        .putIfAbsent(focus, () {
+          order.add(focus);
+          return [];
+        })
+        .add(exercise.target);
   }
 
-  final step =
-      targetDays == null || targetDays < 1 ? 1 : math.max(1, 7 ~/ targetDays);
+  final step = targetDays == null || targetDays < 1
+      ? 1
+      : math.max(1, 7 ~/ targetDays);
   final rows = <SessionRow>[];
   for (var i = 0; i < order.length; i++) {
     final focus = order[i];
@@ -182,8 +186,8 @@ List<SessionRow> buildSessionBreakdown({
     final dayLabel = offset == 0
         ? 'Hoy'
         : offset == 1
-            ? 'Mañana'
-            : _dayNames[now.add(Duration(days: offset)).weekday - 1];
+        ? 'Mañana'
+        : _dayNames[now.add(Duration(days: offset)).weekday - 1];
     rows.add(
       SessionRow(
         focus: focus,

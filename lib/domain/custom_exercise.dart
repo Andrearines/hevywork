@@ -97,12 +97,10 @@ class CustomExerciseDraft {
     final cleanTarget = _normalizeTarget(target);
     final cleanSecondary = <String>[];
     final seen = <String>{};
-    final canonicalTarget = kTargetMuscleAliases[cleanTarget];
+    final canonicalTarget = canonicalTargetMuscle(cleanTarget);
     for (final muscle in secondaryMuscles) {
       final normalized = _normalizeSecondary(muscle);
-      final canonical =
-          kMuscleAliases[normalized] ??
-          (kMuscleAliases.containsValue(normalized) ? normalized : null);
+      final canonical = canonicalSecondaryMuscle(normalized);
       if (canonical == null) {
         throw const CustomExerciseValidationException(
           'Selecciona músculos secundarios conocidos',
@@ -122,7 +120,9 @@ class CustomExerciseDraft {
       equipment: cleanEquipment,
       target: cleanTarget,
       secondaryMuscles: cleanSecondary,
-      muscleGroup: cleanSecondary.isEmpty ? cleanTarget : cleanSecondary.first,
+      muscleGroup: cleanSecondary.isEmpty
+          ? canonicalTarget ?? cleanTarget
+          : cleanSecondary.first,
       restSeconds: restSeconds,
     );
   }
@@ -157,9 +157,13 @@ String _normalizeTarget(String value) {
     'latissimus dorsi': 'lats',
     'latissimus_dorsi': 'lats',
     'lower back': 'spine',
+    'lower_back': 'spine',
+    'obliques': 'serratus anterior',
     'pectoralis_major': 'pectorals',
     'quadriceps': 'quads',
+    'rhomboids': 'upper back',
     'shoulders': 'delts',
+    'trapezius': 'traps',
   };
   final target = aliases[normalized] ?? normalized;
   if (!customExerciseTargets.contains(target)) {
